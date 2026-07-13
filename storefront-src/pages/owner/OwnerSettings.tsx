@@ -1,0 +1,617 @@
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
+import { useOwnerTenantId } from '../../hooks/useOwnerTenantId';
+import { fetchOwnerStorefront, updateOwnerStorefront } from '../../lib/ownerStorefrontApi';
+import { app } from '../../firebase';
+import { Store, Phone, FileText, Image as ImageIcon, Save, Upload, Loader2, MapPin, Truck, Navigation, Settings, Clock, Bell, Palette } from 'lucide-react';
+import toast from 'react-hot-toast';
+import logo from '../../assets/bhojan-os-logo.png';
+import { StoreLiveControl } from '../../components/owner/StoreLiveControl';
+import { OwnerGalleryThemePanel } from '../../components/owner/OwnerGalleryThemePanel';
+import { NotificationSettingsPanel } from '../../modules/notifications/NotificationSettingsPanel';
+import OwnerPromotionsPanel from './OwnerPromotionsPanel';
+
+const OwnerSettings: React.FC = () => {
+  const { userProfile, loading: authLoading } = useAuth();
+  const { loading: tenantLoading } = useTenant();
+  const tenantId = useOwnerTenantId();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [activeTab, setActiveTab] = useState<'general' | 'hours' | 'location' | 'payments' | 'promotions' | 'notifications' | 'brand'>('general');
+  const [fetchingCoords, setFetchingCoords] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'location') {
+      setActiveTab('location');
+    } else if (tab === 'hours') {
+      setActiveTab('hours');
+    } else if (tab === 'notifications') {
+      setActiveTab('notifications');
+    } else if (tab === 'brand') {
+      setActiveTab('brand');
+    }
+  }, [searchParams]);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    whatsapp: '',
+    deliveryNotes: '',
+    logoUrl: '',
+    subscriptionEnabled: false,
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    lat: '',
+    lng: '',
+    freeRadius: 3,
+    paidRadius: 5,
+    maxRadius: 10,
+    baseFee: 30,
+    perKmCharge: 15,
+    prepTime: 20,
+    gstPercent: 0,
+    packingFee: 0,
+    codEnabled: true,
+    razorpayEnabled: false,
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (tenantLoading) return;
+      if (!tenantId) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const data = await fetchOwnerStorefront(tenantId);
+        const branding = data.branding ?? {};
+        setFormData({
+          name: data.name || '',
+          whatsapp: typeof data.contact?.whatsapp === 'string' ? data.contact.whatsapp : '',
+          deliveryNotes: data.deliveryNotes || '',
+          logoUrl: typeof branding.logoUrl === 'string' ? branding.logoUrl : '',
+          subscriptionEnabled: data.features?.subscriptionEnabled === true,
+          address: typeof data.location?.address === 'string' ? data.location.address : '',
+          city: typeof data.location?.city === 'string' ? data.location.city : '',
+          state: typeof data.location?.state === 'string' ? data.location.state : '',
+          pincode: typeof data.location?.pincode === 'string' ? data.location.pincode : '',
+          lat: data.location?.lat != null ? String(data.location.lat) : '',
+          lng: data.location?.lng != null ? String(data.location.lng) : '',
+          freeRadius: typeof data.deliveryConfig?.freeRadius === 'number' ? data.deliveryConfig.freeRadius : 3,
+          paidRadius: typeof data.deliveryConfig?.paidRadius === 'number' ? data.deliveryConfig.paidRadius : 5,
+          maxRadius: typeof data.deliveryConfig?.maxRadius === 'number' ? data.deliveryConfig.maxRadius : 10,
+          baseFee: typeof data.deliveryConfig?.baseFee === 'number' ? data.deliveryConfig.baseFee : 0,
+          perKmCharge: typeof data.deliveryConfig?.perKmCharge === 'number' ? data.deliveryConfig.perKmCharge : 0,
+          prepTime: typeof data.deliveryConfig?.prepTime === 'number' ? data.deliveryConfig.prepTime : 20,
+          gstPercent: typeof data.pricingConfig?.gstPercent === 'number' ? data.pricingConfig.gstPercent : 0,
+          packingFee: typeof data.pricingConfig?.packingFee === 'number' ? data.pricingConfig.packingFee : 0,
+          codEnabled: data.paymentConfig?.providers?.cod?.enabled !== false,
+          razorpayEnabled: data.paymentConfig?.providers?.razorpay?.enabled === true,
+        });
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+        toast.error("Failed to load settings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [tenantId, tenantLoading]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantId) return;
+
+    if (!formData.codEnabled && !formData.razorpayEnabled) {
+      toast.error('Enable at least one payment method');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateOwnerStorefront(tenantId, {
+        name: formData.name,
+        contact: { whatsapp: formData.whatsapp },
+        deliveryNotes: formData.deliveryNotes,
+        branding: { logoUrl: formData.logoUrl },
+        features: { subscriptionEnabled: formData.subscriptionEnabled },
+        location: {
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          pincode: formData.pincode,
+          lat: Number(formData.lat) || 0,
+          lng: Number(formData.lng) || 0,
+        },
+        deliveryConfig: {
+          enabled: true,
+          freeRadius: Number(formData.freeRadius),
+          paidRadius: Number(formData.paidRadius),
+          maxRadius: Number(formData.maxRadius),
+          baseFee: Number(formData.baseFee),
+          perKmCharge: Number(formData.perKmCharge),
+          prepTime: Number(formData.prepTime),
+          feesConfigured: Number(formData.baseFee) > 0 || Number(formData.perKmCharge) > 0,
+        },
+        pricingConfig: {
+          gstPercent: Number(formData.gstPercent) || 0,
+          packingFee: Number(formData.packingFee) || 0,
+        },
+        paymentConfig: {
+          defaultProvider: formData.codEnabled ? 'cod' : 'razorpay',
+          providers: {
+            cod: { enabled: formData.codEnabled },
+            razorpay: { enabled: formData.razorpayEnabled },
+          },
+        },
+      });
+
+      toast.success('Settings saved — syncing to OrderBhojan');
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new window.Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 300;
+          const MAX_HEIGHT = 300;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8)); // 0.8 quality to keep size small
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+    const toastId = toast.loading('Processing logo...');
+    
+    try {
+      const base64Image = await compressImage(file);
+      setFormData(prev => ({ ...prev, logoUrl: base64Image }));
+      toast.success('Logo attached! Click Save Changes below to update.', { id: toastId });
+    } catch (error: any) {
+      console.error('Process failed:', error);
+      toast.error('Failed to process logo', { id: toastId });
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const autoFetchCoordinates = async () => {
+    if (!navigator.geolocation) {
+      toast.error("GPS Geolocation is not supported by your browser");
+      return;
+    }
+    
+    setFetchingCoords(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          lat: position.coords.latitude.toString(),
+          lng: position.coords.longitude.toString()
+        }));
+        toast.success("Coordinates detected from your GPS!");
+        setFetchingCoords(false);
+      },
+      (error) => {
+        console.error("GPS Error:", error);
+        toast.error("Failed to get GPS location. Please allow location permissions or enter manually.");
+        setFetchingCoords(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  if (loading || tenantLoading || authLoading) {
+    return (
+      <div className="flex justify-center py-20 text-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+      </div>
+    );
+  }
+
+  if (!tenantId) {
+    return (
+      <div className="p-6 md:p-12 text-white max-w-lg mx-auto text-center">
+        <h2 className="text-xl font-bold mb-2">Finish store setup</h2>
+        <p className="text-white/50 mb-6 text-sm">Complete registration to manage your storefront settings.</p>
+        <a href="/owner/register" className="inline-flex px-6 py-3 bg-[#FF6B00] text-white font-bold rounded-xl">Complete registration</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 md:p-12 text-white pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <div className="max-w-3xl mx-auto">
+        <header className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center gap-4">
+          <img src={logo} alt="BhojanOS" className="h-11 w-11 sm:h-12 sm:w-12 rounded-xl shadow-sm border border-white/10 shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Storefront</h1>
+            <p className="text-white/50 mt-1 text-sm sm:text-base leading-relaxed">Your public store, hours, delivery area, and contact details</p>
+          </div>
+        </header>
+
+        <div className="flex gap-1 sm:gap-3 mb-6 border-b border-white/10 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+          <button onClick={() => setActiveTab('general')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'general' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <Settings size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase">General</span>
+          </button>
+          <button onClick={() => setActiveTab('hours')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'hours' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <Clock size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase">Hours</span>
+          </button>
+          <button onClick={() => setActiveTab('location')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'location' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <MapPin size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase"><span className="sm:hidden">Delivery</span><span className="hidden sm:inline">Location & Delivery</span></span>
+          </button>
+          <button onClick={() => setActiveTab('payments')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'payments' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <Truck size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase">Payments</span>
+          </button>
+          <button onClick={() => setActiveTab('promotions')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'promotions' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <FileText size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase">Promos</span>
+          </button>
+          <button onClick={() => setActiveTab('brand')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'brand' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <Palette size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase">Gallery</span>
+          </button>
+          <button onClick={() => setActiveTab('notifications')} className={`flex shrink-0 items-center gap-1.5 sm:gap-2 pb-3 border-b-2 px-2 sm:px-3 transition-colors whitespace-nowrap ${activeTab === 'notifications' ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-white/50 hover:text-white/80'}`}>
+            <Bell size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="font-bold tracking-wide sm:tracking-widest text-[11px] sm:text-xs uppercase">Alerts</span>
+          </button>
+        </div>
+
+        <div className="bg-[#0f0f11] rounded-xl shadow-sm border border-white/10">
+          {activeTab === 'hours' ? (
+            <div className="p-6 md:p-8">
+              <StoreLiveControl variant="full" />
+            </div>
+          ) : activeTab === 'notifications' && tenantId ? (
+            <NotificationSettingsPanel tenantId={tenantId} />
+          ) : activeTab === 'promotions' ? (
+            <div className="p-6 md:p-8">
+              <OwnerPromotionsPanel />
+            </div>
+          ) : activeTab === 'brand' ? (
+            <OwnerGalleryThemePanel />
+          ) : (
+          <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
+            
+            {activeTab === 'general' && (
+              <>
+                {/* Business Name */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Business Name
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Store className="h-5 w-5 text-white/40" />
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="block w-full pl-10 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all placeholder-white/20"
+                  placeholder="e.g. Spice Kitchen"
+                />
+              </div>
+            </div>
+
+            {/* WhatsApp Number */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Support WhatsApp Number
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-white/40" />
+                </div>
+                <input
+                  type="tel"
+                  required
+                  value={formData.whatsapp}
+                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                  className="block w-full pl-10 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all placeholder-white/20"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+            </div>
+
+            {/* Delivery Notes */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Delivery Notes (Shown to customers)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 pt-3 flex items-start pointer-events-none">
+                  <FileText className="h-5 w-5 text-white/40" />
+                </div>
+                <textarea
+                  rows={3}
+                  value={formData.deliveryNotes}
+                  onChange={(e) => setFormData({ ...formData, deliveryNotes: e.target.value })}
+                  className="block w-full pl-10 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all placeholder-white/20"
+                  placeholder="e.g. Orders placed before 10 PM are delivered next day."
+                />
+              </div>
+            </div>
+
+            {/* Logo Upload */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Store Logo
+              </label>
+              
+              <div className="mt-1 flex items-center space-x-6">
+                <div className="flex-shrink-0 h-20 w-20 bg-[#0a0a0a] rounded-2xl border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden">
+                  {formData.logoUrl ? (
+                    <img src={formData.logoUrl} alt="Logo Preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-white/30" />
+                  )}
+                </div>
+                
+                <div className="flex-1">
+                  <div className="flex items-center">
+                    <label className="relative cursor-pointer bg-[#151515] hover:bg-[#1a1a1a] py-2 px-4 border border-white/10 rounded-md shadow-sm text-sm font-medium text-white focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-offset-[#0a0a0a] focus-within:ring-red-500 transition-colors">
+                      <span className="flex items-center">
+                        {uploadingLogo ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4 mr-2" />
+                        )}
+                        {uploadingLogo ? 'Uploading...' : 'Upload Image'}
+                      </span>
+                      <input
+                        type="file"
+                        className="sr-only"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        disabled={uploadingLogo}
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-2 text-xs text-white/40">
+                    JPG, PNG or WEBP up to 5MB.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Features Settings */}
+            <div className="pt-6 border-t border-white/10">
+              <h3 className="text-lg font-bold text-white mb-4">Features</h3>
+              
+              <div className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-white/10 rounded-xl">
+                <div>
+                  <h4 className="text-white font-medium">Monthly Meal Subscription</h4>
+                  <p className="text-sm text-white/60">Allow customers to subscribe to daily meals.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={formData.subscriptionEnabled}
+                    onChange={(e) => setFormData({ ...formData, subscriptionEnabled: e.target.checked })}
+                  />
+                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500 transition-colors"></div>
+                </label>
+              </div>
+            </div>
+            </>
+            )}
+
+            {activeTab === 'location' && (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                {/* KITCHEN PROFILE */}
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4"><MapPin size={20} className="text-[#FF6B00]" /> Kitchen Address</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-widest text-xs">Full Address</label>
+                      <input type="text" required value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00] focus:border-transparent transition-all" placeholder="123 Food Street, Shop 4" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-widest text-xs">City</label>
+                      <input type="text" required value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00]" placeholder="Pune" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-widest text-xs">State</label>
+                      <input type="text" required value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00]" placeholder="Maharashtra" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-widest text-xs">Pincode</label>
+                      <input type="text" required value={formData.pincode} onChange={(e) => setFormData({ ...formData, pincode: e.target.value })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00]" placeholder="411001" />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-white font-bold tracking-tight">Geographic Coordinates</h4>
+                      <button type="button" onClick={autoFetchCoordinates} disabled={fetchingCoords} className="px-3 py-1.5 bg-[#FF6B00]/10 text-[#FF6B00] border border-[#FF6B00]/20 rounded-lg text-xs font-bold tracking-widest uppercase flex items-center gap-2 hover:bg-[#FF6B00]/20 transition-colors">
+                        {fetchingCoords ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />} Auto-Detect
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-white/60 mb-2 uppercase tracking-widest">Latitude</label>
+                        <input type="text" required value={formData.lat} onChange={(e) => setFormData({ ...formData, lat: e.target.value })} className="block w-full px-4 py-2 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00]" placeholder="18.5204" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-white/60 mb-2 uppercase tracking-widest">Longitude</label>
+                        <input type="text" required value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} className="block w-full px-4 py-2 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00]" placeholder="73.8567" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-white/10 w-full" />
+
+                {/* DELIVERY CONFIG */}
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4"><Truck size={20} className="text-blue-500" /> Delivery Engine</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Free Delivery Radius (KM)</label>
+                      <input type="number" step="0.1" required value={formData.freeRadius} onChange={(e) => setFormData({ ...formData, freeRadius: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                      <p className="text-[10px] text-white/40 mt-1">Orders within this distance are free.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Base Delivery Radius (KM)</label>
+                      <input type="number" step="0.1" required value={formData.paidRadius} onChange={(e) => setFormData({ ...formData, paidRadius: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                      <p className="text-[10px] text-white/40 mt-1">Orders up to this distance cost the base fee.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Max Delivery Radius (KM)</label>
+                      <input type="number" step="0.1" required value={formData.maxRadius} onChange={(e) => setFormData({ ...formData, maxRadius: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white border-l-2 border-l-red-500" />
+                      <p className="text-[10px] text-white/40 mt-1">Orders beyond this distance are blocked.</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Base Fee (₹)</label>
+                      <input type="number" required value={formData.baseFee} onChange={(e) => setFormData({ ...formData, baseFee: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                      <p className="text-[10px] text-white/40 mt-1">Flat fee for orders inside the Base Radius.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Per KM Extra Charge (₹)</label>
+                      <input type="number" required value={formData.perKmCharge} onChange={(e) => setFormData({ ...formData, perKmCharge: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                      <p className="text-[10px] text-white/40 mt-1">Charge per km if distance {'>'} Base Radius.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Avg Prep Time (Mins)</label>
+                      <input type="number" required value={formData.prepTime} onChange={(e) => setFormData({ ...formData, prepTime: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                      <p className="text-[10px] text-white/40 mt-1">Used to calculate delivery ETA dynamically.</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-white/40 mt-4">
+                    Set Base Fee and/or Per KM charge for your rates. Until then, orders beyond the free radius use default fees (₹30 base, then ₹10/km beyond base radius).
+                  </p>
+                </div>
+
+                <div className="h-px bg-white/10 w-full" />
+
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">Taxes & Packaging</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">GST (%)</label>
+                      <input type="number" min={0} step={0.5} value={formData.gstPercent} onChange={(e) => setFormData({ ...formData, gstPercent: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                      <p className="text-[10px] text-white/40 mt-1">Leave 0 to hide taxes on checkout until configured.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-white/80 mb-2 uppercase tracking-widest">Packaging Fee (₹)</label>
+                      <input type="number" min={0} value={formData.packingFee} onChange={(e) => setFormData({ ...formData, packingFee: Number(e.target.value) })} className="block w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'payments' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div>
+                  <h3 className="text-lg font-bold text-white mb-2">Payment Methods</h3>
+                  <p className="text-sm text-white/50 mb-4">Only enabled methods appear on your storefront checkout.</p>
+                  <div className="space-y-3">
+                    <label className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-white/10 rounded-xl cursor-pointer">
+                      <div>
+                        <p className="text-white font-medium">Cash on Delivery</p>
+                        <p className="text-xs text-white/50">Customer pays when order is delivered or picked up</p>
+                      </div>
+                      <input type="checkbox" checked={formData.codEnabled} onChange={(e) => setFormData({ ...formData, codEnabled: e.target.checked })} className="w-5 h-5 rounded" />
+                    </label>
+                    <label className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-white/10 rounded-xl cursor-pointer">
+                      <div>
+                        <p className="text-white font-medium">Online (Razorpay)</p>
+                        <p className="text-xs text-white/50">UPI, cards & wallets — complete KYC to receive settlements</p>
+                      </div>
+                      <input type="checkbox" checked={formData.razorpayEnabled} onChange={(e) => setFormData({ ...formData, razorpayEnabled: e.target.checked })} className="w-5 h-5 rounded" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-6 border-t border-white/10">
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full flex items-center justify-center px-6 py-3 border border-transparent rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.2)] text-base font-bold text-white bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0a0a0a] focus:ring-red-500 disabled:opacity-50 transition-all"
+              >
+                {saving ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+            
+          </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OwnerSettings;
