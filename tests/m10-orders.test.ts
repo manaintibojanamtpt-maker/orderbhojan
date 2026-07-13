@@ -11,8 +11,8 @@ describe('M10 orders module structure', () => {
   const requiredFiles = [
     'src/features/orders/hooks/useOrdersList.ts',
     'src/features/orders/hooks/ordersQueryKeys.ts',
-    'src/features/orders/ui/OrderSummaryCard.tsx',
-    'src/features/experience/ui/orders/OrdersExperiencePage.tsx',
+    'src/presentation/orders/OrderBhojanOrderSummaryCard.tsx',
+    'src/presentation/orders/OrderBhojanOrdersExperience.tsx',
   ];
 
   for (const file of requiredFiles) {
@@ -22,9 +22,9 @@ describe('M10 orders module structure', () => {
   }
 
   it('orders page loads list via marketplace client hook', () => {
-    const page = readFileSync(join(root, 'src/features/experience/ui/orders/OrdersExperiencePage.tsx'), 'utf8');
+    const page = readFileSync(join(root, 'src/presentation/orders/OrderBhojanOrdersExperience.tsx'), 'utf8');
     assert.match(page, /useOrdersList/);
-    assert.match(page, /OrderSummaryCard/);
+    assert.match(page, /OrdersListPageView/);
   });
 
   it('router wires orders list behind auth', () => {
@@ -40,7 +40,7 @@ describe('M10 orders module structure', () => {
   });
 
   it('checkout success navigates to tracking', () => {
-    const checkout = readFileSync(join(root, 'src/features/checkout/ui/CheckoutPage.tsx'), 'utf8');
+    const checkout = readFileSync(join(root, 'src/presentation/checkout/OrderBhojanCheckoutPage.tsx'), 'utf8');
     assert.match(checkout, /\/orders\/\$\{orderId\}\/track/);
   });
 });

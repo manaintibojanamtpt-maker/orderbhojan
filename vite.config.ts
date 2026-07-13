@@ -5,20 +5,41 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase')) return 'firebase';
+          if (id.includes('node_modules/framer-motion')) return 'motion';
+          if (id.includes('node_modules/@tanstack/react-query')) return 'query';
+          if (id.includes('react-router-dom') || id.includes('node_modules/react-router')) return 'router';
+          if (id.includes('node_modules/lucide-react')) return 'icons';
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) return 'react-vendor';
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@bhojan/storefront-design-system': path.resolve(__dirname, 'storefront-src/design-system'),
       // Monorepo: BDS has its own node_modules/react — must share one instance with the app.
       react: path.resolve(__dirname, './node_modules/react'),
       'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
       'react/jsx-runtime': path.resolve(__dirname, './node_modules/react/jsx-runtime'),
       'react/jsx-dev-runtime': path.resolve(__dirname, './node_modules/react/jsx-dev-runtime'),
+      'react-router-dom': path.resolve(__dirname, './node_modules/react-router-dom'),
+      'framer-motion': path.resolve(__dirname, './node_modules/framer-motion'),
+      clsx: path.resolve(__dirname, './node_modules/clsx'),
+      'tailwind-merge': path.resolve(__dirname, './node_modules/tailwind-merge'),
+      'lucide-react': path.resolve(__dirname, './node_modules/lucide-react'),
     },
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
   },
   optimizeDeps: {
     // Local file: package — pre-bundling caches stale exports when BDS is rebuilt.
-    exclude: ['@bhojan/design-system'],
+    exclude: ['@bhojan/storefront-design-system'],
+    include: ['react-router-dom'],
   },
   plugins: [
     tailwindcss(),
@@ -30,7 +51,7 @@ export default defineConfig({
         name: 'OrderBhojan',
         short_name: 'OrderBhojan',
         description: 'India\'s next-generation food ordering marketplace',
-        theme_color: '#ff7a00',
+        theme_color: '#070504',
         background_color: '#070504',
         display: 'standalone',
         start_url: '/',
@@ -45,6 +66,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
+        globIgnores: ['**/hero/**', '**/categories/**', '**/brand/**'],
       },
     }),
   ],

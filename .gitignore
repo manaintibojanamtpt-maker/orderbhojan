@@ -7,3 +7,5 @@ dist
 .DS_Store
 coverage
 .vite
+storefront-src/node_modules
+packages/node_modules

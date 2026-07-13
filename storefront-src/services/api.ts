@@ -1,0 +1,955 @@
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  query, 
+  where, 
+  orderBy, 
+  serverTimestamp,
+  onSnapshot,
+  arrayUnion
+} from 'firebase/firestore';
+import { getDb, handleFirestoreError, OperationType } from '../lib/firebase-db';
+import { sortOrdersNewestFirst } from '../lib/activeOrder';
+import { MenuItem, Order, UserProfile, OrderStatus, OrderTimelineEvent } from '../types';
+import { safeParseDate } from '../lib/utils';
+import { getOrderDisplayState, normalizePaymentStatus } from '../lib/orderDisplay';
+import { EnvironmentConfig } from '../config/environment';
+import { resolveOwnerTenantIds } from '../lib/ownerAccess';
+import { ownerApiRequest } from '../lib/ownerProvisioning';
+import { sanitizeFirestoreData } from '../lib/sanitizeFirestoreData';
+import {
+  LEGACY_UNPAID_ADMIN_LABEL,
+  LEGACY_UNPAID_CUSTOMER_LABEL,
+} from '../config/legacyPaymentCopy';
+import {
+  getGuestViewToken,
+  saveGuestViewToken,
+} from '../lib/guestOrders';
+
+const API_BASE_URL = EnvironmentConfig.getApiUrl();
+
+export let activeTenantId: string | null = null;
+export const setActiveTenantId = (id: string) => {
+  activeTenantId = id || null;
+};
+
+import { auth } from '../firebase';
+
+// Correlation ID wrapper for fetch
+if (typeof window !== 'undefined') {
+  const originalFetch = window.fetch;
+  const generateId = () => {
+    try { return crypto.randomUUID(); } 
+    catch(e) { return 'flow-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
+  };
+  let sessionCorrelationId = generateId();
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : (input instanceof Request ? input.url : input.toString());
+    
+    if (url.includes(API_BASE_URL) || url.startsWith('/api/')) {
+      const headers = new Headers(init?.headers || {});
+      if (!headers.has('X-Correlation-ID')) {
+        headers.set('X-Correlation-ID', sessionCorrelationId);
+      }
+      
+      // Attach Firebase ID Token
+      if (auth.currentUser) {
+        try {
+          const token = await auth.currentUser.getIdToken();
+          headers.set('Authorization', `Bearer ${token}`);
+        } catch (e) {
+          console.warn("Failed to get Firebase token for API request", e);
+        }
+      }
+      
+      return originalFetch.call(window, input, { ...init, headers });
+    }
+    
+    return originalFetch.call(window, input, init);
+  };
+}
+
+export const pingBackend = () => {
+  fetch(`${API_BASE_URL}/api/health`).catch(() => {});
+};
+
+export interface GuestViewTokenInput {
+  phone?: string;
+  phoneLast4?: string;
+}
+
+export interface GuestViewTokenResult {
+  success: boolean;
+  token?: string;
+  expiresAt?: string;
+  error?: string;
+}
+
+export const requestGuestViewToken = async (
+  orderId: string,
+  input: GuestViewTokenInput
+): Promise<GuestViewTokenResult> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/guest-view-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload?.success) {
+      return {
+        success: false,
+        error: payload?.error || 'Unable to verify order access',
+      };
+    }
+    return {
+      success: true,
+      token: payload.token,
+      expiresAt: payload.expiresAt,
+    };
+  } catch {
+    return { success: false, error: 'Unable to verify order access' };
+  }
+};
+
+export const ensureGuestViewToken = async (
+  orderId: string,
+  phone: string
+): Promise<boolean> => {
+  if (!orderId || !phone.trim()) {
+    return false;
+  }
+  if (getGuestViewToken(orderId)) {
+    return true;
+  }
+  const result = await requestGuestViewToken(orderId, { phone: phone.trim() });
+  if (!result.success || !result.token) {
+    return false;
+  }
+  saveGuestViewToken(orderId, result.token, result.expiresAt);
+  return true;
+};
+
+const buildGuestOrderFetchInit = (orderId: string): { headers: Headers; url: string } => {
+  const guestToken = getGuestViewToken(orderId);
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const url = new URL(`${API_BASE_URL}/api/orders/${orderId}`);
+
+  if (guestToken) {
+    headers.set('Authorization', `Guest ${guestToken}`);
+    url.searchParams.set('guestToken', guestToken);
+  }
+
+  return { headers, url: url.toString() };
+};
+
+export const fetchOrderByIdApi = async (orderId: string): Promise<Order | null> => {
+  const { headers, url } = buildGuestOrderFetchInit(orderId);
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    return null;
+  }
+  const payload = await response.json();
+  if (!payload?.success || !payload?.data) {
+    return null;
+  }
+  return payload.data as Order;
+};
+
+// --- MENU API ---
+
+export const fetchMenu = async (tenantId?: string): Promise<MenuItem[]> => {
+  const path = 'menu';
+  const cacheKey = `mib_menu_${tenantId || 'global'}`;
+  
+  try {
+    let q;
+    if (tenantId) {
+      q = query(collection(getDb(), path), where('tenantId', '==', tenantId));
+    } else {
+      q = query(collection(getDb(), path));
+    }
+    const snapshot = await getDocs(q);
+    const results = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as MenuItem));
+    
+    // Sort in memory to avoid missing field omissions and composite index requirements
+    results.sort((a, b) => {
+      const dateA = a.createdAt?.seconds || 0;
+      const dateB = b.createdAt?.seconds || 0;
+      return dateB - dateA;
+    });
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(cacheKey, JSON.stringify(results));
+    }
+    return results;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        console.warn('Network failed for fetchMenu, serving from local cache');
+        return JSON.parse(cached);
+      }
+    }
+    return [];
+  }
+};
+
+// --- USER API ---
+
+const buildTimelineEvent = (
+  orderId: string,
+  eventType: OrderTimelineEvent['eventType'],
+  description: string,
+  newStatus?: OrderStatus,
+  previousStatus?: OrderStatus | null,
+  triggeredBy: 'system' | 'admin' | 'customer' | 'courier' = 'system',
+  metadata: Record<string, any> = {}
+): OrderTimelineEvent => ({
+  id: `${orderId}-${eventType}-${Date.now()}`,
+  eventType,
+  description,
+  previousStatus: previousStatus ?? null,
+  newStatus: newStatus ?? null,
+  triggeredBy,
+  metadata: metadata ?? {},
+  timestamp: new Date(),
+});
+
+const generateReferralCode = (name: string) => {
+  const base = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `${base || 'USER'}${random}`;
+};
+
+export const saveUserIfNotExists = async (user: { uid: string, email: string | null, displayName: string | null, phone: string | null }): Promise<UserProfile> => {
+  const path = `users/${user.uid}`;
+  try {
+    const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
+    if (!userDoc.exists()) {
+      const referralCode = generateReferralCode(user.displayName || 'USER');
+      const userRef = doc(getDb(), 'users', user.uid);
+
+      // Merge so we never clobber owner provisioning that may run in parallel (Google signup).
+      await setDoc(
+        userRef,
+        {
+          userId: user.uid,
+          name: user.displayName || '',
+          phone: user.phone || '',
+          email: user.email || '',
+          address: '',
+          referralCode,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      const createdSnap = await getDoc(userRef);
+      const createdData = createdSnap.data() || {};
+      if (!createdData.role) {
+        await updateDoc(userRef, { role: 'user' });
+      }
+
+      const newUser: UserProfile = {
+        userId: user.uid,
+        name: user.displayName || '',
+        phone: user.phone || '',
+        email: user.email || '',
+        address: '',
+        role: (createdData.role as UserProfile['role']) || 'user',
+        referralCode,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      
+      try {
+        await setDoc(doc(getDb(), 'referrals', user.uid), {
+          userId: user.uid,
+          referralCode,
+          referredUsers: [],
+          totalEarnings: 0,
+          discountGiven: 0,
+          createdAt: serverTimestamp()
+        });
+      } catch (refErr) {
+        console.error("Failed to create referral doc:", refErr);
+      }
+      
+      return newUser;
+    } else {
+      const userData = userDoc.data() as UserProfile;
+      let ownedTenantIds = userData.ownedTenantIds;
+      if (!ownedTenantIds?.length) {
+        ownedTenantIds = await resolveOwnerTenantIds(user.uid, user.email);
+      }
+      if (!userData.referralCode) {
+        const referralCode = generateReferralCode(userData.name || 'USER');
+        await updateDoc(doc(getDb(), 'users', user.uid), { referralCode });
+        
+        try {
+          await setDoc(doc(getDb(), 'referrals', user.uid), {
+            userId: user.uid,
+            referralCode,
+            referredUsers: [],
+            totalEarnings: 0,
+            discountGiven: 0,
+            createdAt: serverTimestamp()
+          });
+        } catch (refErr) {
+          console.error("Failed to create referral doc:", refErr);
+        }
+        return { id: userDoc.id, ...userData, referralCode, ownedTenantIds } as unknown as UserProfile;
+      }
+      return { id: userDoc.id, ...userData, ownedTenantIds } as unknown as UserProfile;
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+    return user as any;
+  }
+};
+
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  const path = `users/${userId}`;
+  try {
+    const userDoc = await getDoc(doc(getDb(), 'users', userId));
+    if (userDoc.exists()) {
+      return { id: userDoc.id, ...userDoc.data() } as unknown as UserProfile;
+    }
+    return null;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
+export const updateUserProfile = async (userId: string, data: Partial<UserProfile>): Promise<void> => {
+  const path = `users/${userId}`;
+  try {
+    await updateDoc(doc(getDb(), 'users', userId), {
+      ...data,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+// --- ORDER API ---
+
+export const prepareOrderBlueprint = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const scheduledForIso = orderData.scheduledFor ? safeParseDate(orderData.scheduledFor).toISOString() : null;
+  const isScheduled = String(orderData.orderType || orderData.deliveryType || '').toLowerCase() === 'scheduled';
+
+  if (isScheduled && !scheduledForIso) {
+    throw new Error('Scheduled orders must include a valid scheduledFor timestamp.');
+  }
+
+  return {
+    ...orderData,
+    orderType: orderData.orderType || (isScheduled ? 'scheduled' : 'instant'),
+    isScheduled,
+    scheduledFor: scheduledForIso,
+    scheduledTime: isScheduled ? safeParseDate(scheduledForIso).toISOString() : null,
+    scheduledDate: scheduledForIso ? safeParseDate(scheduledForIso).toISOString().split('T')[0] : null,
+    prepAlertSent: orderData.prepAlertSent ?? false,
+  };
+};
+
+export const stageOrderDraft = async (
+  orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>,
+  subscriptionData?: any
+): Promise<string> => {
+  const path = 'order_drafts';
+  try {
+    const draftRef = doc(collection(getDb(), path));
+    const orderPayload = prepareOrderBlueprint(orderData);
+    
+    const expiresAtDate = new Date();
+    expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 30);
+
+    await setDoc(draftRef, sanitizeFirestoreData({
+      id: draftRef.id,
+      orderPayload,
+      subscriptionPayload: subscriptionData || null,
+      status: 'pending_payment',
+      createdAt: serverTimestamp(),
+      expiresAt: expiresAtDate
+    }));
+    
+    return draftRef.id;
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+    throw new Error('Failed to stage order. Please try again.');
+  }
+};
+
+export const createOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const path = 'orders';
+  try {
+    const orderRef = doc(collection(getDb(), path));
+    const newOrder = sanitizeFirestoreData({
+      ...prepareOrderBlueprint(orderData),
+      id: orderRef.id,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      timeline: [
+        buildTimelineEvent(
+          orderRef.id,
+          'status_change',
+          'Order placed',
+          orderData.status,
+          null,
+          'customer'
+        )
+      ]
+    });
+    await setDoc(orderRef, newOrder);
+    
+    // Trigger notification when order is placed
+    notifyOrderStatusChange(orderRef.id, newOrder.status as OrderStatus).catch(() => {});
+    
+    return orderRef.id;
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+    let errorMessage = 'Order creation failed. Please try again.';
+    if (error?.code === 'unavailable' || error?.message?.includes('offline')) {
+      errorMessage = 'Network issue. Please retry.';
+    } else if (error?.code === 'permission-denied') {
+      errorMessage = 'Permission denied. Please check your details.';
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+    throw new Error(errorMessage);
+  }
+};
+
+export const fetchOrders = async (userId?: string): Promise<Order[]> => {
+  const path = 'orders';
+  try {
+    let snapshot;
+    if (userId) {
+      const q = query(collection(getDb(), path), where('userId', '==', userId));
+      snapshot = await getDocs(q);
+    } else {
+      const q = query(collection(getDb(), path), orderBy('createdAt', 'desc'));
+      snapshot = await getDocs(q);
+    }
+    const orders = sortOrdersNewestFirst(
+      snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as Order)),
+    );
+    
+    // Check for expired orders and update them (ONLY for online orders)
+    const now = Date.now();
+    const expiredOrders = orders.filter(order => {
+      if (order.status === OrderStatus.EXPIRED) return false;
+      // COD orders should NEVER expire
+      if (order.paymentMethod === 'cod' || order.isCOD) return false;
+      const expiresAt = safeParseDate(order.expiresAt).getTime();
+      return now > expiresAt;
+    });
+    
+    // Update expired orders
+    for (const order of expiredOrders) {
+      try {
+        await updateDoc(doc(getDb(), 'orders', order.id), {
+          status: OrderStatus.EXPIRED,
+          paymentStatus: 'expired',
+          updatedAt: serverTimestamp()
+        });
+        order.status = OrderStatus.EXPIRED;
+        order.paymentStatus = 'expired';
+      } catch (error) {
+        console.error('Failed to update expired order:', order.id, error);
+      }
+    }
+    
+    return orders;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+};
+
+const normalizeOrderStatus = (value: string | OrderStatus | undefined | null): OrderStatus | null => {
+  if (!value) return null;
+  let normalized = String(value).trim();
+  if (!normalized) return null;
+
+  if (normalized === 'placed') return OrderStatus.PENDING;
+  if (normalized === 'pending_payment') return OrderStatus.PAYMENT_PENDING;
+  if (normalized === 'payment_pending_verification') return OrderStatus.PAYMENT_VERIFICATION;
+
+  normalized = normalized.toUpperCase().replace(/\s+/g, '_');
+  const valid = Object.values(OrderStatus).includes(normalized as OrderStatus);
+  return valid ? (normalized as OrderStatus) : null;
+};
+
+const notifyOrderStatusChange = async (orderId: string, status: OrderStatus) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}/notify-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok && response.status !== 401 && response.status !== 403) {
+      const payload = await response.json().catch(() => ({}));
+      console.warn('[api] Status notification request failed:', payload?.error || response.status);
+    }
+  } catch (error) {
+    console.warn('[api] Status notification request skipped or failed:', error);
+  }
+};
+
+const buildOrderStatusUpdatePayload = (
+  targetStatus: OrderStatus,
+  currentStatus: OrderStatus,
+  trackingData?: Record<string, any>,
+): Record<string, unknown> => {
+  const updatePayload: Record<string, unknown> = {
+    status: targetStatus,
+    updatedAt: serverTimestamp(),
+    statusHistory: arrayUnion({
+      status: targetStatus,
+      timestamp: new Date().toISOString(),
+      description: `Order moved from ${currentStatus} to ${targetStatus}`,
+      metadata: trackingData || {},
+    }),
+  };
+
+  if (trackingData) {
+    if (trackingData.deliveryPartner) updatePayload.deliveryPartner = trackingData.deliveryPartner;
+    if (trackingData.trackingUrl) updatePayload.trackingUrl = trackingData.trackingUrl;
+    if (trackingData.trackingLink) updatePayload.trackingLink = trackingData.trackingLink;
+    if (trackingData.riderName) updatePayload.riderName = trackingData.riderName;
+    if (trackingData.riderPhone) updatePayload.riderPhone = trackingData.riderPhone;
+    if (trackingData.deliveryAssignedAt) updatePayload.deliveryAssignedAt = trackingData.deliveryAssignedAt;
+  }
+
+  return updatePayload;
+};
+
+export const updateOrderStatus = async (orderId: string, status: OrderStatus, trackingData?: Record<string, any>): Promise<void> => {
+  const path = `orders/${orderId}`;
+  try {
+    const orderDoc = await getDoc(doc(getDb(), 'orders', orderId));
+    if (!orderDoc.exists()) throw new Error('Order not found');
+    
+    const orderData = orderDoc.data();
+    const currentStatusRaw = orderData.status as string;
+    const currentStatus = normalizeOrderStatus(currentStatusRaw);
+    const targetStatus = normalizeOrderStatus(status);
+
+    if (!currentStatus) {
+      throw new Error(`Order has invalid current status: ${String(currentStatusRaw)}`);
+    }
+    if (!targetStatus) {
+      throw new Error(`Target status is invalid: ${String(status)}`);
+    }
+
+    if (currentStatus === targetStatus) {
+      if (trackingData && Object.keys(trackingData).length > 0) {
+        await updateDoc(doc(getDb(), 'orders', orderId), buildOrderStatusUpdatePayload(targetStatus, currentStatus, trackingData));
+      }
+      return;
+    }
+
+    const normalizedPayment = normalizePaymentStatus(orderData.paymentStatus as string);
+    if ((normalizedPayment === 'failed' || normalizedPayment === 'expired') && targetStatus !== OrderStatus.EXPIRED && targetStatus !== OrderStatus.CANCELLED) {
+      throw new Error('Cannot update order status after payment has failed or expired.');
+    }
+
+    const scheduledFor = orderData.scheduledFor ? safeParseDate(orderData.scheduledFor) : orderData.scheduledTime ? safeParseDate(orderData.scheduledTime) : null;
+    const isScheduledOrder = orderData.orderType === 'scheduled' || String(orderData.deliveryType || '').toLowerCase() === 'scheduled';
+    if (isScheduledOrder && scheduledFor) {
+      const prepStart = new Date(scheduledFor.getTime() - 60 * 60000).getTime();
+      if (Date.now() < prepStart && [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(targetStatus)) {
+        throw new Error('Cannot deliver a scheduled order before its prep window opens.');
+      }
+    }
+
+    const validTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      [OrderStatus.PENDING]: [OrderStatus.PREPARING, OrderStatus.PAYMENT_PENDING, OrderStatus.CANCELLED, OrderStatus.PAYMENT_VERIFICATION, OrderStatus.ACCEPTED, OrderStatus.REJECTED, OrderStatus.EXPIRED],
+      [OrderStatus.PAYMENT_PENDING]: [OrderStatus.PAYMENT_VERIFICATION, OrderStatus.CANCELLED, OrderStatus.PREPARING, OrderStatus.PENDING, OrderStatus.ACCEPTED, OrderStatus.REJECTED, OrderStatus.EXPIRED],
+      [OrderStatus.PAYMENT_VERIFICATION]: [OrderStatus.PREPARING, OrderStatus.CANCELLED, OrderStatus.PENDING, OrderStatus.PAYMENT_PENDING, OrderStatus.ACCEPTED, OrderStatus.REJECTED, OrderStatus.EXPIRED],
+      [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED, OrderStatus.EXPIRED],
+      [OrderStatus.READY]: [OrderStatus.COURIER_BOOKED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
+      [OrderStatus.COURIER_BOOKED]: [OrderStatus.PICKED_UP, OrderStatus.FAILED_DELIVERY, OrderStatus.CANCELLED],
+      [OrderStatus.PICKED_UP]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.FAILED_DELIVERY],
+      [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED, OrderStatus.FAILED_DELIVERY, OrderStatus.CANCELLED],
+      [OrderStatus.DELIVERED]: [],
+      [OrderStatus.FAILED_DELIVERY]: [OrderStatus.COURIER_BOOKED, OrderStatus.CANCELLED],
+      [OrderStatus.EXPIRED]: [],
+      [OrderStatus.CANCELLED]: [],
+      [OrderStatus.CREATED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED, OrderStatus.EXPIRED, OrderStatus.ACCEPTED, OrderStatus.REJECTED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.SCHEDULED, OrderStatus.CANCELLED, OrderStatus.REJECTED],
+      [OrderStatus.SCHEDULED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED, OrderStatus.REJECTED],
+      [OrderStatus.DISPATCHED]: [OrderStatus.DELIVERED, OrderStatus.FAILED_DELIVERY, OrderStatus.CANCELLED],
+      [OrderStatus.PLACED]: [OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_VERIFICATION, OrderStatus.ACCEPTED, OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED],
+      [OrderStatus.ACCEPTED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED, OrderStatus.REJECTED]
+    };
+
+    if (!validTransitions[currentStatus]?.includes(targetStatus)) {
+      throw new Error(`Invalid status transition from ${currentStatus} to ${targetStatus}`);
+    }
+
+    const fulfillmentStatuses = new Set([
+      OrderStatus.ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+      OrderStatus.COURIER_BOOKED,
+      OrderStatus.PICKED_UP,
+      OrderStatus.OUT_FOR_DELIVERY,
+      OrderStatus.DELIVERED,
+      OrderStatus.DISPATCHED,
+    ]);
+    const isCod = orderData.isCOD === true || orderData.paymentMethod === 'cod';
+    const paymentVerified = ['success', 'verified', 'paid'].includes(normalizedPayment);
+    if (fulfillmentStatuses.has(targetStatus) && !isCod && !paymentVerified) {
+      throw new Error('Payment must be verified before this order can move to kitchen or dispatch.');
+    }
+
+    await updateDoc(
+      doc(getDb(), 'orders', orderId),
+      buildOrderStatusUpdatePayload(targetStatus, currentStatus, trackingData),
+    );
+
+    notifyOrderStatusChange(orderId, targetStatus).catch(() => {});
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+export const updatePaymentStatus = async (
+  orderId: string,
+  paymentStatus: Order['paymentStatus'],
+  extras: Record<string, any> = {},
+  triggeredBy: 'system' | 'admin' | 'customer' = 'admin'
+): Promise<void> => {
+  const path = `orders/${orderId}`;
+  try {
+    const normalizedPayment = normalizePaymentStatus(paymentStatus as string);
+
+    if (['success', 'verified', 'paid'].includes(normalizedPayment)) {
+      throw new Error('Payment success must be confirmed by the server after Razorpay verification.');
+    }
+
+    const eventType = normalizedPayment === 'failed' || normalizedPayment === 'expired' ? 'payment_failed' : 'status_change';
+    const description = normalizedPayment === 'success'
+      ? 'Payment verified'
+      : normalizedPayment === 'failed'
+      ? 'Payment failed'
+      : normalizedPayment === 'expired'
+      ? 'Payment session expired'
+      : `Payment status updated to ${normalizedPayment}`;
+
+    await updateDoc(doc(getDb(), 'orders', orderId), sanitizeFirestoreData({
+      paymentStatus: normalizedPayment,
+      updatedAt: serverTimestamp(),
+      ...extras,
+      timeline: arrayUnion(
+        buildTimelineEvent(
+          orderId,
+          eventType,
+          description,
+          null,
+          null,
+          triggeredBy,
+          { paymentStatus: normalizedPayment, ...extras }
+        )
+      )
+    }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+};
+
+// --- REAL-TIME LISTENERS ---
+
+export const subscribeToGuestOrders = (orderIds: string[], callback: (orders: Order[]) => void) => {
+  if (!orderIds || orderIds.length === 0) {
+    callback([]);
+    return () => {};
+  }
+  // chunk orderIds into batches of 10 if necessary, but for now just slice 10
+  const slicedIds = orderIds.slice(0, 10);
+  const q = query(collection(getDb(), 'orders'), where('__name__', 'in', slicedIds));
+  
+  return onSnapshot(q, (snapshot) => {
+    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+    orders.sort((a, b) => {
+      const aTime = a.createdAt?.seconds || 0;
+      const bTime = b.createdAt?.seconds || 0;
+      return bTime - aTime;
+    });
+    callback(orders);
+  });
+};
+
+export const subscribeToOrders = (callback: (orders: Order[]) => void, userId?: string, onError?: (error: any) => void) => {
+  const path = 'orders';
+  const q = userId
+    ? query(collection(getDb(), path), where('userId', '==', userId))
+    : query(collection(getDb(), path), orderBy('createdAt', 'desc'));
+
+  return onSnapshot(q, async (snapshot) => {
+    const orders = sortOrdersNewestFirst(
+      snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() } as Order)),
+    );
+
+    // Auto-handle expired pending orders (ONLY for online orders)
+    const now = Date.now();
+    const expirableStatuses = [OrderStatus.PLACED, OrderStatus.PENDING, OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_VERIFICATION];
+    for (const order of orders) {
+      if (order.expiresAt && expirableStatuses.includes(order.status as OrderStatus)) {
+        // COD orders should NEVER expire
+        if (order.paymentMethod === 'cod' || order.isCOD) continue;
+        
+        const expiresAt = safeParseDate(order.expiresAt).getTime();
+        if (now > expiresAt && order.status !== OrderStatus.EXPIRED) {
+          try {
+            await updateDoc(doc(getDb(), 'orders', order.id), {
+              status: OrderStatus.EXPIRED,
+              paymentStatus: 'expired',
+              updatedAt: serverTimestamp(),
+              timeline: arrayUnion(
+                buildTimelineEvent(
+                  order.id,
+                  'payment_failed',
+                  'Order expired before payment confirmation',
+                  OrderStatus.EXPIRED,
+                  order.status as OrderStatus,
+                  'system',
+                  { expiredAt: order.expiresAt }
+                )
+              )
+            });
+            order.status = OrderStatus.EXPIRED;
+            order.paymentStatus = 'expired';
+          } catch (error) {
+            console.error(`[api] Failed to expire order ${order.id}:`, error);
+          }
+        }
+      }
+    }
+
+    callback(orders);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+    if (onError) onError(error);
+  });
+};
+
+export const subscribeToOrder = (orderId: string, callback: (order: Order | null) => void) => {
+  const path = `orders/${orderId}`;
+  return onSnapshot(doc(getDb(), 'orders', orderId), (snapshot) => {
+    if (snapshot.exists()) {
+      callback({ id: snapshot.id, ...snapshot.data() } as Order);
+    } else {
+      callback(null);
+    }
+  }, (error) => {
+    handleFirestoreError(error, OperationType.GET, path);
+  });
+};
+
+// --- DELIVERY FEE LOGIC ---
+
+export const calculateDeliveryFee = (distance?: number): number => {
+  const baseFee = 20;
+  const perKmRate = 16;
+  const fallbackFee = 40;
+
+  if (distance === undefined || distance === null) {
+    return fallbackFee;
+  }
+
+  return baseFee + (distance * perKmRate);
+};
+
+// --- UI HELPERS ---
+
+export const getDisplayStatus = (
+  status: OrderStatus,
+  audience: 'admin' | 'customer' = 'admin'
+): string => {
+  if (status === OrderStatus.PAYMENT_VERIFICATION) {
+    return audience === 'customer' ? LEGACY_UNPAID_CUSTOMER_LABEL : LEGACY_UNPAID_ADMIN_LABEL;
+  }
+
+  const mapping: Partial<Record<OrderStatus, string>> = {
+    [OrderStatus.PLACED]: 'Placed',
+    [OrderStatus.PENDING]: 'Pending',
+    [OrderStatus.PAYMENT_PENDING]: 'Payment Pending',
+    [OrderStatus.ACCEPTED]: 'Accepted',
+    [OrderStatus.PREPARING]: 'Preparing',
+    [OrderStatus.READY]: 'Ready for Pickup',
+    [OrderStatus.OUT_FOR_DELIVERY]: 'Out for Delivery',
+    [OrderStatus.DELIVERED]: 'Delivered',
+    [OrderStatus.CANCELLED]: 'Cancelled',
+    [OrderStatus.EXPIRED]: 'Expired',
+    [OrderStatus.CREATED]: 'Created',
+    [OrderStatus.CONFIRMED]: 'Confirmed',
+    [OrderStatus.SCHEDULED]: 'Scheduled',
+    [OrderStatus.DISPATCHED]: 'Dispatched',
+    [OrderStatus.COURIER_BOOKED]: 'Courier Booked',
+    [OrderStatus.PICKED_UP]: 'Picked Up',
+    [OrderStatus.FAILED_DELIVERY]: 'Failed Delivery',
+    [OrderStatus.ACTIVE]: 'Active'
+  };
+  return mapping[status] || status;
+};
+
+export interface RepeatOrderLine { id: string; name: string; quantity: number; price: number; }
+export interface RepeatOrderBundle { id: string; orderId: string; date: string; items: RepeatOrderLine[]; totalAmount: number; }
+export const fetchRepeatOrderRailData = async (userId: string): Promise<any> => ({ items: [], bundles: [] });
+
+export const buildRepeatOrderLines = (orderItems: any[], menuItems: any[]) => {
+  const lines: any[] = [];
+  orderItems.forEach(orderItem => {
+    const liveItem = menuItems.find((m: any) => m.id === orderItem.id);
+    if (!liveItem) return;
+    if (liveItem.isAvailable === false) return;
+
+    const selectedAddons: any[] = [];
+    const missingAddonNames: string[] = [];
+
+    (orderItem.selectedAddons || []).forEach((addon: any) => {
+      let found = false;
+      if (liveItem.customizations) {
+         liveItem.customizations.forEach((cust: any) => {
+            const opt = cust.options.find((o: any) => o.name === addon.name);
+            if (opt && opt.isAvailable !== false) {
+              selectedAddons.push({
+                 groupId: cust.id,
+                 groupName: cust.name,
+                 id: opt.id,
+                 name: opt.name,
+                 price: opt.price
+              });
+              found = true;
+            }
+         });
+      }
+      if (!found) {
+        missingAddonNames.push(addon.name);
+      }
+    });
+
+    lines.push({
+       item: liveItem,
+       quantity: orderItem.quantity || 1,
+       selectedAddons,
+       missingAddonNames
+    });
+  });
+  return lines;
+};
+
+export const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
+  const finalTenantId = (item as any).tenantId || activeTenantId;
+  if (!finalTenantId) {
+    throw new Error('No tenant selected for this menu item');
+  }
+
+  const payload = await ownerApiRequest<{ id: string }>('POST', '/api/owner/menu/items', {
+    ...item,
+    tenantId: finalTenantId,
+  });
+  return { id: payload.id };
+};
+
+export const updateMenuItem = async (id: string, updates: Partial<MenuItem>) => {
+  await ownerApiRequest('PUT', `/api/owner/menu/items/${id}`, updates as Record<string, unknown>);
+};
+
+export const deleteMenuItem = async (id: string) => {
+  await ownerApiRequest('DELETE', `/api/owner/menu/items/${id}`);
+};
+
+export const fetchAllTenants = async () => {
+  const col = collection(getDb(), 'tenants');
+  try {
+    const q = query(col, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    if (snapshot.docs.length > 0) {
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+  } catch (error) {
+    console.warn('fetchAllTenants: orderBy failed', error);
+  }
+
+  const snapshot = await getDocs(col);
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aSec = (a as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
+      const bSec = (b as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
+      return bSec - aSec;
+    });
+};
+
+export const fetchOnboardingLeads = async () => {
+  const col = collection(getDb(), 'salesPipeline');
+  try {
+    const q = query(col, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    if (snapshot.docs.length > 0) {
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+  } catch (error) {
+    console.warn('fetchOnboardingLeads: orderBy failed', error);
+  }
+
+  const snapshot = await getDocs(col);
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aSec = (a as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
+      const bSec = (b as { createdAt?: { seconds?: number } }).createdAt?.seconds ?? 0;
+      return bSec - aSec;
+    });
+};
+
+/** Load tenants + leads via Render API (Admin SDK) — reliable on bhojanos-prod cutover. */
+export const fetchSuperadminPlatformData = async (): Promise<{ tenants: any[]; leads: any[]; projectId?: string | null }> => {
+  const { auth } = await import('../firebase');
+  const user = auth.currentUser;
+  if (!user) throw new Error('You must be signed in to load platform data.');
+
+  const token = await user.getIdToken(true);
+  const apiBase =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'bhojanos.com' || window.location.hostname === 'www.bhojanos.com')
+      ? window.location.origin
+      : API_BASE_URL;
+
+  const res = await fetch(`${apiBase}/api/platform/superadmin-data`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.success === false) {
+    throw new Error(payload.error || 'Failed to load platform data from server');
+  }
+  return {
+    tenants: Array.isArray(payload.tenants) ? payload.tenants : [],
+    leads: Array.isArray(payload.leads) ? payload.leads : [],
+    projectId: payload.projectId ?? null,
+  };
+};
+
+export const updateTenantStatus = async (tenantId: string, status: string) => {
+  return updateDoc(doc(getDb(), 'tenants', tenantId), { status, updatedAt: serverTimestamp() });
+};
+
+export const updateLeadStage = async (leadId: string, stage: string) => {
+  return updateDoc(doc(getDb(), 'salesPipeline', leadId), { stage, updatedAt: serverTimestamp() });
+};

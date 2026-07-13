@@ -9,8 +9,8 @@ const root = resolve(__dirname, '..');
 
 describe('M12 customer surfaces', () => {
   const requiredFiles = [
-    'src/features/favorites/ui/FavoritesPage.tsx',
-    'src/features/notifications/ui/NotificationsPage.tsx',
+    'src/presentation/favorites/OrderBhojanFavoritesPage.tsx',
+    'src/presentation/notifications/OrderBhojanNotificationsPage.tsx',
     'src/features/cart/hooks/useCartValidation.ts',
   ];
 
@@ -35,7 +35,7 @@ describe('M12 customer surfaces', () => {
   });
 
   it('cart page validates before checkout', () => {
-    const cart = readFileSync(join(root, 'src/features/experience/ui/cart/CartExperiencePage.tsx'), 'utf8');
+    const cart = readFileSync(join(root, 'src/presentation/cart/OrderBhojanCartExperience.tsx'), 'utf8');
     assert.match(cart, /useCartValidation/);
     assert.match(cart, /validate\(/);
   });

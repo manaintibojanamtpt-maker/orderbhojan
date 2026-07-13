@@ -1,12 +1,23 @@
-import { Button, Text } from '@bhojan/design-system';
-import { useNavigate } from 'react-router-dom';
 import { useDiscoveryHome } from '../hooks/useDiscoveryHome';
 import { DiscoveryCollectionRail } from './DiscoveryCollectionRail';
 import { DiscoveryFiltersBar } from './DiscoveryFiltersBar';
-import { RestaurantRailSkeleton } from '@/features/experience/ui/shared/ExperienceSkeletons';
+import { TrendingFoodsSection } from '@/features/experience/ui/home/TrendingFoodsSection';
+import { useDiscoveryFeatureEnabled } from '../hooks/useDiscoveryFeature';
+import { KitchenSpotlightCard } from '@/features/experience/ui/home/KitchenSpotlightCard';
+import { buildDiscoverySpotlightFeed } from '@/features/experience/utils/homeSpotlightFeed';
 import { useDiscoveryFilterStore } from '../store/discoveryFilterStore';
 import { CONSUMER_MAX_DISCOVERY_DISTANCE_KM } from '../domain/discoveryPolicy';
-import { useLocationFeatureEnabled, LocationSelectorSheet } from '@/features/location';
+import { useLocationFeatureEnabled, useLocationActions } from '@/features/location';
+import { SoftButton } from '@bhojan/storefront-design-system/primitives/SoftButton';
+import {
+  OrderBhojanHomeFeedSkeleton,
+} from '@/presentation/discovery';
+import {
+  OrderBhojanDiscoveryOfflineNotice,
+  OrderBhojanDiscoveryUxState,
+  useOnlineStatus,
+} from '@/presentation/states';
+import { PullToRefresh } from '@/presentation/ui/PullToRefresh';
 
 function DiscoveryActiveFilterBanner() {
   const filters = useDiscoveryFilterStore((s) => s.filters);
@@ -16,108 +27,123 @@ function DiscoveryActiveFilterBanner() {
   if (!hasKitchenFilter) return null;
 
   return (
-    <div className="ob-discovery-filter-banner" role="status">
-      <Text variant="bodySm">
-        Showing selected kitchen type only.
-      </Text>
-      <Button variant="ghost" size="compact" onClick={resetFilters}>
+    <div
+      className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+      role="status"
+    >
+      <p className="text-sm text-white/70">Showing selected kitchen type only.</p>
+      <SoftButton type="button" tone="ghost" size="compact" onClick={resetFilters}>
         Show all kitchens
-      </Button>
+      </SoftButton>
     </div>
   );
 }
 
 export function DiscoveryHomeFeed() {
-  const navigate = useNavigate();
   const query = useDiscoveryHome();
+  const discoveryEnabled = useDiscoveryFeatureEnabled();
   const resetFilters = useDiscoveryFilterStore((s) => s.resetFilters);
   const locationEnabled = useLocationFeatureEnabled();
+  const { openSelector } = useLocationActions();
+  const online = useOnlineStatus();
 
   if (query.isLoading) {
     return (
-      <div className="ob-discovery-feed" aria-busy="true">
+      <div aria-busy="true">
         <DiscoveryFiltersBar />
-        <RestaurantRailSkeleton title="Nearby Restaurants" />
-        <RestaurantRailSkeleton title="Featured" />
-        <RestaurantRailSkeleton title="Top Rated" />
+        <OrderBhojanHomeFeedSkeleton />
+      </div>
+    );
+  }
+
+  if (!online) {
+    return (
+      <div>
+        <DiscoveryFiltersBar />
+        <OrderBhojanDiscoveryOfflineNotice onRetry={() => void query.refetch()} />
+        <OrderBhojanDiscoveryUxState
+          variant="offline"
+          primaryLabel="Retry"
+          onPrimary={() => void query.refetch()}
+        />
       </div>
     );
   }
 
   if (query.isError) {
     return (
-      <div className="ob-discovery-feed">
+      <div>
         <DiscoveryFiltersBar />
-        <section
-          className="ob-section ob-section--full ob-discovery-empty"
-          role="alert"
-          aria-live="polite"
-        >
-          <Text variant="subtitle" as="h2">
-            Could not load restaurants
-          </Text>
-          <Text variant="body" style={{ color: 'var(--bds-color-text-secondary)' }}>
-            Check your connection and try again.
-          </Text>
-          <Button variant="primary" onClick={() => void query.refetch()}>
-            Retry
-          </Button>
-        </section>
+        <OrderBhojanDiscoveryUxState
+          variant="error"
+          title="Could not load restaurants"
+          description="Check your connection and try again."
+          primaryLabel="Retry"
+          onPrimary={() => void query.refetch()}
+        />
       </div>
     );
   }
 
   const collections = query.data?.collections ?? [];
   const visibleCollections = collections.filter((c) => c.restaurants.length > 0);
+  const spotlightPlan = buildDiscoverySpotlightFeed(visibleCollections);
+  const railsToRender = spotlightPlan.kitchenCollections.filter((c) => c.restaurants.length > 0);
 
   if (visibleCollections.length === 0) {
     return (
-      <div className="ob-discovery-feed">
+      <div>
         <DiscoveryFiltersBar />
         <DiscoveryActiveFilterBanner />
-        <section className="ob-section ob-section--full ob-discovery-empty">
-          <Text variant="subtitle" as="h2">
-            No kitchens within {CONSUMER_MAX_DISCOVERY_DISTANCE_KM} km
-          </Text>
-          <Text variant="body" style={{ color: 'var(--bds-color-text-secondary)' }}>
-            {query.data?.locationLabel
+        <OrderBhojanDiscoveryUxState
+          variant="no-restaurants"
+          title={`No kitchens within ${CONSUMER_MAX_DISCOVERY_DISTANCE_KM} km`}
+          description={
+            query.data?.locationLabel
               ? `We could not find published kitchens delivering to ${query.data.locationLabel}. Update your location or clear filters.`
-              : 'Update your delivery location or clear filters to see available kitchens.'}
-          </Text>
-          <div className="ob-discovery-empty__actions">
-            <Button
-              variant="primary"
-              onClick={() => {
-                resetFilters();
-                void query.refetch();
-              }}
-            >
-              Show all kitchens
-            </Button>
-            {locationEnabled ? (
-              <Button variant="secondary" onClick={() => navigate('/?openLocation=1')}>
-                Update location
-              </Button>
-            ) : null}
-          </div>
-        </section>
-        {locationEnabled ? <LocationSelectorSheet /> : null}
+              : 'Update your delivery location or clear filters to see available kitchens.'
+          }
+          primaryLabel="Show all kitchens"
+          onPrimary={() => {
+            resetFilters();
+            void query.refetch();
+          }}
+          secondaryLabel={locationEnabled ? 'Update location' : undefined}
+          onSecondary={locationEnabled ? () => openSelector() : undefined}
+        />
       </div>
     );
   }
 
   return (
-    <div className="ob-discovery-feed">
-      {query.data?.locationLabel ? (
-        <Text variant="caption" className="ob-discovery-feed__location">
-          Kitchens within {CONSUMER_MAX_DISCOVERY_DISTANCE_KM} km of {query.data.locationLabel}
-        </Text>
-      ) : null}
-      <DiscoveryFiltersBar />
-      <DiscoveryActiveFilterBanner />
-      {visibleCollections.map((collection) => (
-        <DiscoveryCollectionRail key={collection.id} collection={collection} />
-      ))}
-    </div>
+    <PullToRefresh
+      disabled={query.isFetching}
+      onRefresh={async () => {
+        await query.refetch();
+      }}
+    >
+      <div className="space-y-6">
+        {query.data?.locationLabel ? (
+          <p className="text-xs font-medium uppercase tracking-widest text-white/50">
+            Kitchens within {CONSUMER_MAX_DISCOVERY_DISTANCE_KM} km of {query.data.locationLabel}
+          </p>
+        ) : null}
+        <DiscoveryFiltersBar />
+        <DiscoveryActiveFilterBanner />
+        {spotlightPlan.sparseCopy ? (
+          <p className="text-sm text-white/60">{spotlightPlan.sparseCopy}</p>
+        ) : null}
+        {spotlightPlan.mode === 'single' && spotlightPlan.spotlightRestaurant ? (
+          <>
+            <KitchenSpotlightCard restaurant={spotlightPlan.spotlightRestaurant} />
+            {!discoveryEnabled ? <TrendingFoodsSection /> : null}
+          </>
+        ) : (
+          railsToRender.map((collection) => (
+            <DiscoveryCollectionRail key={collection.id} collection={collection} />
+          ))
+        )}
+      </div>
+    </PullToRefresh>
   );
 }

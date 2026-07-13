@@ -19,11 +19,11 @@ const forbiddenUiPatterns = [
 
 const px2Screens = [
   'src/features/experience/ui/home/HomeExperiencePage.tsx',
-  'src/features/restaurant/ui/RestaurantExperiencePage.tsx',
-  'src/features/food/ui/FoodExperiencePage.tsx',
-  'src/features/search/ui/SearchExperience.tsx',
-  'src/features/experience/ui/cart/CartExperiencePage.tsx',
-  'src/features/auth/ui/ProfilePage.tsx',
+  'src/presentation/restaurant/OrderBhojanRestaurantExperience.tsx',
+  'src/presentation/food/OrderBhojanFoodExperience.tsx',
+  'src/presentation/search/OrderBhojanSearchExperience.tsx',
+  'src/presentation/cart/OrderBhojanCartExperience.tsx',
+  'src/presentation/profile/OrderBhojanProfilePage.tsx',
 ];
 
 const requiredBdsSymbols = [
@@ -40,10 +40,14 @@ const requiredBdsSymbols = [
 ];
 
 describe('PX2 design-to-code implementation', () => {
-  it('loads PX2 layout CSS from main entry', () => {
+  it('loads storefront styles via globals.css only', () => {
     const main = readFileSync(join(root, 'src/main.tsx'), 'utf8');
-    assert.match(main, /experience-px2-layout\.css/);
-    assert.match(main, /experience-checkout\.css/);
+    const globals = readFileSync(join(root, 'src/styles/globals.css'), 'utf8');
+    assert.match(main, /@\/styles\/globals\.css/);
+    assert.match(globals, /design-system\/styles\/index\.css/);
+    assert.doesNotMatch(main, /experience-premium-m65\.css/);
+    assert.doesNotMatch(main, /experience-checkout\.css/);
+    assert.doesNotMatch(main, /experience-px2-layout\.css/);
   });
 
   it('package version targets px2', () => {
@@ -52,60 +56,96 @@ describe('PX2 design-to-code implementation', () => {
     assert.match(pkg.scripts['gate:px2'], /gate-px2\.mjs/);
   });
 
-  it('AppProviders defaults to food theme', () => {
+  it('AppProviders does not use DesignSystemProvider', () => {
     const providers = readFileSync(join(root, 'src/shared/providers/AppProviders.tsx'), 'utf8');
-    assert.match(providers, /theme="food"/);
+    assert.doesNotMatch(providers, /DesignSystemProvider/);
   });
 
-  it('experience screens use BDS PX2 components', () => {
-    for (const screen of px2Screens) {
-      const content = readFileSync(join(root, screen), 'utf8');
-      assert.match(content, /@bhojan\/design-system/, `${screen} must import BDS`);
-      assert.doesNotMatch(content, /ob-m65-/, `${screen} must not use M65 classes`);
-    }
-
+  it('experience screens use Founder DS presentation components', () => {
     const home = readFileSync(join(root, px2Screens[0]), 'utf8');
-    assert.match(home, /ImmersiveHero/);
-    assert.match(home, /PremiumSearch/);
+    assert.match(home, /OrderBhojanHomeHero/);
 
-    const restaurant = readFileSync(join(root, px2Screens[1]), 'utf8');
-    assert.match(restaurant, /RestaurantHero/);
-    assert.match(restaurant, /FloatingCTA/);
+    const hero = readFileSync(join(root, 'src/presentation/discovery/OrderBhojanHomeHero.tsx'), 'utf8');
+    assert.match(hero, /MarketplaceSearchBar/);
+    assert.match(hero, /storefront-design-system/);
 
-    const menu = readFileSync(join(root, px2Screens[2]), 'utf8');
-    assert.match(menu, /ob-menu-px2/);
-    assert.match(menu, /ob-food-px6/);
+    const restaurant = readFileSync(join(root, 'src/presentation/restaurant/OrderBhojanRestaurantHero.tsx'), 'utf8');
+    assert.match(restaurant, /GlassCard/);
+    assert.match(restaurant, /ProfileImage/);
 
-    const search = readFileSync(join(root, px2Screens[3]), 'utf8');
-    assert.match(search, /PremiumSearch/);
-    assert.match(search, /ob-search-px2/);
+    const menuExperience = readFileSync(
+      join(root, 'src/presentation/food/OrderBhojanFoodExperience.tsx'),
+      'utf8',
+    );
+    assert.match(menuExperience, /SectionHeader/);
+    assert.match(menuExperience, /OrderBhojanFoodCategoryRail/);
+    assert.doesNotMatch(menuExperience, /ob-menu-px2/);
+    assert.doesNotMatch(menuExperience, /FoodRow/);
 
-    const cart = readFileSync(join(root, px2Screens[4]), 'utf8');
-    assert.match(cart, /PremiumEmpty/);
+    const menuCard = readFileSync(join(root, 'src/presentation/food/OrderBhojanFoodCardItem.tsx'), 'utf8');
+    assert.match(menuCard, /MenuItemCardView/);
+    assert.match(menuCard, /storefront-design-system/);
+
+    const searchPresentation = readFileSync(
+      join(root, 'src/presentation/search/OrderBhojanSearchBar.tsx'),
+      'utf8',
+    );
+    assert.match(searchPresentation, /MarketplaceSearchBar/);
+    const searchExperience = readFileSync(
+      join(root, 'src/presentation/search/OrderBhojanSearchExperience.tsx'),
+      'utf8',
+    );
+    assert.match(searchExperience, /OrderBhojanSearchFiltersBar/);
+
+    const cart = readFileSync(join(root, 'src/presentation/cart/OrderBhojanCartExperience.tsx'), 'utf8');
+    assert.match(cart, /CartPageView/);
+    assert.match(cart, /storefront-design-system/);
+
+    const checkoutPresentation = readFileSync(
+      join(root, 'src/presentation/checkout/OrderBhojanCheckoutPage.tsx'),
+      'utf8',
+    );
+    assert.match(checkoutPresentation, /CheckoutPageView/);
+    assert.match(checkoutPresentation, /\/orders\/\$\{orderId\}\/track/);
+
+    const profilePresentation = readFileSync(
+      join(root, 'src/presentation/profile/OrderBhojanProfilePage.tsx'),
+      'utf8',
+    );
+    assert.match(profilePresentation, /ProfileGuestView/);
+    assert.match(profilePresentation, /storefront-design-system/);
   });
 
-  it('FoodCategoryRail delegates to BDS StickyCategoryRail', () => {
-    const rail = readFileSync(join(root, 'src/features/food/ui/FoodCategoryRail.tsx'), 'utf8');
-    assert.match(rail, /StickyCategoryRail/);
+  it('FoodCategoryRail uses Founder DS presentation', () => {
+    const rail = readFileSync(join(root, 'src/presentation/food/OrderBhojanFoodCategoryRail.tsx'), 'utf8');
+    assert.match(rail, /OrderBhojanFoodCategoryRail/);
+    assert.doesNotMatch(rail, /StickyCategoryRail/);
     assert.doesNotMatch(rail, /ob-food-rail__chip/);
   });
 
-  it('FoodCardItem uses BDS FoodRow', () => {
-    const card = readFileSync(join(root, 'src/features/food/ui/FoodCardItem.tsx'), 'utf8');
-    assert.match(card, /FoodRow/);
+  it('FoodCardItem uses MenuItemCardView presentation', () => {
+    const card = readFileSync(join(root, 'src/presentation/food/OrderBhojanFoodCardItem.tsx'), 'utf8');
+    assert.doesNotMatch(card, /FoodRow/);
     assert.doesNotMatch(card, /ob-food-card__ribbon/);
   });
 
-  it('premium motion re-exports from BDS', () => {
+  it('premium motion uses framer-motion exports', () => {
     const motion = readFileSync(join(root, 'src/features/experience/motion/premiumMotion.tsx'), 'utf8');
-    assert.match(motion, /@bhojan\/design-system/);
+    assert.match(motion, /framer-motion/);
     assert.match(motion, /MotionPage/);
+    assert.doesNotMatch(motion, /@bhojan\/design-system/);
   });
 
-  it('PX2 layout CSS includes safe areas', () => {
-    const css = readFileSync(join(root, 'src/styles/experience-px2-layout.css'), 'utf8');
-    assert.match(css, /safe-area-inset-top/);
-    assert.match(css, /safe-area-inset-bottom/);
+  it('storefront styles include reduced motion and safe-area tokens', () => {
+    const mibTheme = readFileSync(join(root, 'src/styles/mib-theme.css'), 'utf8');
+    const bottomNav = readFileSync(join(root, 'src/presentation/shell/OrderBhojanBottomNav.tsx'), 'utf8');
+    const restaurantHero = readFileSync(
+      join(root, 'src/presentation/restaurant/OrderBhojanRestaurantHero.tsx'),
+      'utf8',
+    );
+    assert.match(mibTheme, /prefers-reduced-motion/);
+    assert.match(bottomNav, /storefront-design-system/);
+    assert.match(restaurantHero, /safe-area-inset-top/);
   });
 
   it('BDS v1.1-px2 exports required PX2 components', () => {
@@ -121,8 +161,8 @@ describe('PX2 design-to-code implementation', () => {
   it('forbidden milestone copy absent from experience UI', () => {
     const uiFiles = [
       ...px2Screens,
-      'src/features/food/ui/FoodFloatingPreview.tsx',
-      'src/features/experience/ui/shared/MarketplaceFloatingCart.tsx',
+      'src/presentation/food/OrderBhojanFoodFloatingCart.tsx',
+      'src/presentation/shell/OrderBhojanFloatingCart.tsx',
     ];
 
     for (const relative of uiFiles) {
