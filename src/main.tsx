@@ -3,12 +3,24 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from '@/app/App';
 import { ensureAppConfig } from '@/config';
+import { seedDiscoveryQueryCacheFromSession, warmDefaultDiscoveryHome } from '@/features/discovery/engine/discoveryBootstrap';
+import { isFirestorePermissionDenied } from '@/lib/firestoreErrors';
+import { markPerf, markPerfOnce } from '@/lib/perfMarks';
 import { trackEvent } from '@/telemetry';
 import '@/styles/globals.css';
 
-async function bootstrap() {
-  const config = await ensureAppConfig();
+function suppressFirestorePermissionRejections(): void {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('unhandledrejection', (event) => {
+    if (!isFirestorePermissionDenied(event.reason)) return;
+    event.preventDefault();
+    if (import.meta.env.DEV) {
+      console.warn('[OrderBhojan] Suppressed Firestore permission rejection at bootstrap', event.reason);
+    }
+  });
+}
 
+function renderApp(): void {
   const rootElement = document.getElementById('root');
   if (!rootElement) {
     throw new Error('Root element #root not found');
@@ -21,6 +33,21 @@ async function bootstrap() {
       </BrowserRouter>
     </StrictMode>,
   );
+
+  requestAnimationFrame(() => {
+    markPerfOnce('first_paint');
+  });
+}
+
+async function bootstrap() {
+  markPerf('app_start');
+  suppressFirestorePermissionRejections();
+
+  seedDiscoveryQueryCacheFromSession();
+  warmDefaultDiscoveryHome();
+
+  const config = await ensureAppConfig();
+  renderApp();
 
   if (config.features.mswEnabled) {
     try {

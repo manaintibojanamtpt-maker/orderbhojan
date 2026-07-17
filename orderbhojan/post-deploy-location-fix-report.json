@@ -1,0 +1,270 @@
+{
+  "generatedAt": "2026-07-14T10:38:23.724Z",
+  "commit": "7158a2f",
+  "base": "https://orderbhojan.web.app",
+  "bundleBefore": "assets/index-UZ7_2QNQ.js",
+  "bundleAfter": "assets/index-DoFE5dzf.js",
+  "steps": {
+    "step1": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step1-clear-fresh-home.png",
+      "notes": "Cleared cookies/cache/localStorage/sessionStorage via CDP + evaluate"
+    },
+    "step2": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step2-homepage.png",
+      "locationChipVisible": true
+    },
+    "step3sheet": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step3-location-sheet-opens.png",
+      "notes": "Set delivery location opens bottom sheet"
+    },
+    "step3": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step3-koregaon-discovery.png",
+      "hasKitchenContent": true,
+      "bodySnippet": "ORDERBHOJAN · HOME KITCHENS Ghar ka khana, delivered warm Hyderabadi chicken biryani — sealed dum, delivered warm Delivering to Koregaon Park, Pune Search Close-up of steaming Hyderabadi chicken dum biryani with saffron rice CATEGORIES What's on your mind? Swipe to explore cuisines near you PIZZA BIRYANI MEALS SOUTH INDIAN NORTH INDIAN Within 18 km KITCHEN Restaurant Cloud kitchen Chef kitchen Home kitchen Open now Veg Offers 4.5+ SORT Nearest Popular Fastest Top rated Newest Nearby kitchens Fea",
+      "networkDiscovery": [
+        {
+          "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.49959440695956&lng=73.97858993491619&page=1&limit=24&maxDistanceKm=18&sort=distance",
+          "status": 204,
+          "method": "OPTIONS"
+        },
+        {
+          "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.5362&lng=73.8958&page=1&limit=24&maxDistanceKm=18&sort=distance",
+          "status": 204,
+          "method": "OPTIONS"
+        }
+      ]
+    },
+    "step4": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step4-kitchen-switch-cart-clear.png",
+      "addResult": "clicked-add",
+      "afterAdd": {
+        "lines": 1,
+        "cartSlug": "inti-bhojanam-ghar-kha-khana-pune",
+        "ctxSlug": "inti-bhojanam-ghar-kha-khana-pune",
+        "path": "/restaurant/inti-bhojanam-ghar-kha-khana-pune/menu"
+      },
+      "afterSwitch": {
+        "lines": 0,
+        "cartSlug": "lucky-s-kitchen",
+        "ctxSlug": "lucky-s-kitchen",
+        "path": "/restaurant/lucky-s-kitchen/menu"
+      },
+      "toastVisible": true,
+      "expectedToast": "Your cart was cleared because items can only be ordered from one restaurant at a time."
+    },
+    "step5": {
+      "status": "FAIL",
+      "screenshots": [
+        "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step5-cart-before-checkout.png",
+        "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step5-checkout-attempt.png"
+      ],
+      "checkoutClicked": true,
+      "add5": "clicked-add",
+      "notes": "Could not reach checkout",
+      "bodySnippet": "OrderBhojan Koregaon Park, Pune Your cart 1 item · Subtotal ₹149 Inti Bhojanam Ghar Kha Khana Pune Ordering from this kitchen Menu Andhra Veg Thali (Mini) ₹149 each · ₹149 − 1 + Subtotal ₹149 Items 1 Checking cart… Continue browsing Clear HOME SEARCH CART ORDERS PROFILE",
+      "limitation": "Full live COD order not placed intentionally; documented auth/flow gate only"
+    },
+    "step6": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step6-add-address-wizard.png",
+      "addrClicked": true,
+      "sheetOpen": true
+    },
+    "step7": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step7-address-updated.png",
+      "addressAria": "Delivery location: Koregaon Park, Pune"
+    },
+    "step8": {
+      "status": "FAIL",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\orderbhojan\\post-deploy-location-fix-proof\\step8-checkout-unblocked.png",
+      "payDisabled": null,
+      "hasQuote": false,
+      "pendingNote": false
+    }
+  },
+  "consoleErrors": [],
+  "consoleWarnings": [],
+  "network": [
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.49959440695956&lng=73.97858993491619&page=1&limit=24&maxDistanceKm=18&sort=distance",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/reverse?lat=18.5362&lng=73.8958",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/reverse?lat=18.5362&lng=73.8958",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/serviceability",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/serviceability",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.5362&lng=73.8958&page=1&limit=24&maxDistanceKm=18&sort=distance",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/inti-bhojanam-ghar-kha-khana-pune",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/inti-bhojanam-ghar-kha-khana-pune/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/inti-bhojanam-ghar-kha-khana-pune",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/inti-bhojanam-ghar-kha-khana-pune/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/lucky-s-kitchen",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/lucky-s-kitchen/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/lucky-s-kitchen/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/lucky-s-kitchen",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/inti-bhojanam-ghar-kha-khana-pune",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/inti-bhojanam-ghar-kha-khana-pune/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/inti-bhojanam-ghar-kha-khana-pune",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/inti-bhojanam-ghar-kha-khana-pune/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/cart/validate",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/checkout/prepare",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/checkout/prepare",
+      "status": 200,
+      "method": "POST"
+    }
+  ],
+  "badResponses": [],
+  "consoleIssues": {
+    "errors": [],
+    "warnings": []
+  }
+}

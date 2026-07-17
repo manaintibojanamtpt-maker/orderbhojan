@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { m, LazyMotion, domAnimation, AnimatePresence } from 'framer-motion';
 import { EnvironmentConfig } from './config/environment';
 import { isFounderOwnerEmail } from './config/founder';
+import { hasSuperadminPortalAccess } from './lib/authProfile';
 import { waitForOwnerTenantIds } from './lib/ownerAccess';
 import { readCachedOwnerTenantIds } from './lib/ownerRedirect';
 
@@ -159,7 +160,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean;
   }
 
   if (superAdminOnly) {
-    if (userProfile.role !== 'superadmin') {
+    if (!hasSuperadminPortalAccess(currentUser.email, userProfile.role)) {
       return (
         <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#0c0c0c] gap-6 px-6 text-center">
           <h2 className="text-2xl font-bold text-white">Super Admin access required</h2>
@@ -344,18 +345,29 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     TelemetryService.initializeGlobalHandlers();
 
+    let assertionRecoveryInFlight = false;
+
+    const handleFirestoreAssertion = () => {
+      if (assertionRecoveryInFlight) return;
+      assertionRecoveryInFlight = true;
+
+      void import('./lib/clearFirebaseProjectCache').then(({ recoverFromFirestoreAssertionFailure }) =>
+        recoverFromFirestoreAssertionFailure().then((recovering) => {
+          if (recovering) {
+            toast('Refreshing session…', { icon: '🔄', duration: 4000 });
+          } else {
+            toast.error('Session sync error — please refresh the page once.', { duration: 12000 });
+          }
+        }).finally(() => {
+          assertionRecoveryInFlight = false;
+        }),
+      );
+    };
+
     const handleGlobalError = (event: ErrorEvent) => {
       const message = event.message || '';
       if (message.includes('INTERNAL ASSERTION FAILED')) {
-        void import('./lib/clearFirebaseProjectCache').then(({ recoverFromFirestoreAssertionFailure }) =>
-          recoverFromFirestoreAssertionFailure().then((recovering) => {
-            if (recovering) {
-              toast('Refreshing session…', { icon: '🔄', duration: 4000 });
-            } else {
-              toast.error('Session sync error — please refresh the page once.', { duration: 12000 });
-            }
-          }),
-        );
+        handleFirestoreAssertion();
         return;
       }
       // Handle chunk load errors silently by notifying the user to refresh, instead of a sudden crash reload
@@ -379,15 +391,7 @@ const AppContent: React.FC = () => {
       const message =
         event.reason instanceof Error ? event.reason.message : String(event.reason ?? '');
       if (message.includes('INTERNAL ASSERTION FAILED')) {
-        void import('./lib/clearFirebaseProjectCache').then(({ recoverFromFirestoreAssertionFailure }) =>
-          recoverFromFirestoreAssertionFailure().then((recovering) => {
-            if (recovering) {
-              toast('Refreshing session…', { icon: '🔄', duration: 4000 });
-            } else {
-              toast.error('Session sync error — please refresh the page once.', { duration: 12000 });
-            }
-          }),
-        );
+        handleFirestoreAssertion();
       }
     };
 

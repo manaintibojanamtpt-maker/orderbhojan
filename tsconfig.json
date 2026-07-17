@@ -19,10 +19,18 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
+      ],
+      "@bhojan/location-core": [
+        "packages/location-core/src/index.ts"
+      ],
+      "@bhojan/location-v2": [
+        "storefront-src/features/location-v2/index.ts"
+      ],
+      "@bhojan/location-v2/*": [
+        "storefront-src/features/location-v2/*"
       ],
       "@bhojan/storefront-design-system": [
         "storefront-src/design-system/index.ts"

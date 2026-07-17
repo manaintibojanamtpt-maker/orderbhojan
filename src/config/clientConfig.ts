@@ -12,11 +12,14 @@ export interface RemoteClientConfig {
   readonly configured?: boolean;
 }
 
-/** Non-secret bhojanos-prod defaults — mirrors orderbhojan/.env.example production block. */
-export const BHOJANOS_PROD_FIREBASE_DEFAULTS = {
-  projectId: 'bhojanos-prod',
+/** Public bhojanos-prod Firebase web SDK config (apiKey is not secret — domain-restricted in GCP). */
+export const BHOJANOS_PROD_FIREBASE_PUBLIC = {
+  apiKey: 'AIzaSyC6kCJwsEWuwLVPGmJsVDDxTyWlayp2yLQ',
   authDomain: 'bhojanos-prod.firebaseapp.com',
+  projectId: 'bhojanos-prod',
   storageBucket: 'bhojanos-prod.firebasestorage.app',
+  messagingSenderId: '170989397954',
+  appId: '1:170989397954:web:9c67dbacc58329f360185b',
 } as const;
 
 export function isFirebaseConfigIncomplete(config: AppConfig): boolean {
@@ -29,9 +32,9 @@ function applyFirebaseDefaults(config: AppConfig): AppConfig {
     ...config,
     firebase: {
       ...config.firebase,
-      projectId: config.firebase.projectId || BHOJANOS_PROD_FIREBASE_DEFAULTS.projectId,
-      authDomain: config.firebase.authDomain || BHOJANOS_PROD_FIREBASE_DEFAULTS.authDomain,
-      storageBucket: config.firebase.storageBucket || BHOJANOS_PROD_FIREBASE_DEFAULTS.storageBucket,
+      projectId: config.firebase.projectId || BHOJANOS_PROD_FIREBASE_PUBLIC.projectId,
+      authDomain: config.firebase.authDomain || BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain,
+      storageBucket: config.firebase.storageBucket || BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket,
     },
   };
 }
@@ -50,6 +53,26 @@ export function mergeRemoteFirebaseConfig(
       storageBucket: config.firebase.storageBucket || remoteFirebase.storageBucket || '',
       messagingSenderId: config.firebase.messagingSenderId || remoteFirebase.messagingSenderId || '',
       appId: config.firebase.appId || remoteFirebase.appId || '',
+      measurementId: config.firebase.measurementId,
+    },
+  };
+}
+
+/** Live production must adopt backend Firebase project even when build env still says orderbhojan. */
+export function mergeRemoteFirebaseConfigPreferRemote(
+  config: AppConfig,
+  remote: RemoteClientConfig,
+): AppConfig {
+  const remoteFirebase = remote.firebase;
+  return {
+    ...config,
+    firebase: {
+      apiKey: remoteFirebase.apiKey || config.firebase.apiKey,
+      authDomain: remoteFirebase.authDomain || config.firebase.authDomain,
+      projectId: remoteFirebase.projectId || BHOJANOS_PROD_FIREBASE_PUBLIC.projectId,
+      storageBucket: remoteFirebase.storageBucket || config.firebase.storageBucket,
+      messagingSenderId: remoteFirebase.messagingSenderId || config.firebase.messagingSenderId,
+      appId: remoteFirebase.appId || config.firebase.appId,
       measurementId: config.firebase.measurementId,
     },
   };
@@ -86,7 +109,15 @@ export async function hydrateFirebaseConfig(config: AppConfig): Promise<AppConfi
 
   const remote = await fetchRemoteClientConfig(hydrated.marketplaceApiBaseUrl);
   if (remote) {
-    hydrated = mergeRemoteFirebaseConfig(hydrated, remote);
+    hydrated =
+      wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)
+        ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
+        : mergeRemoteFirebaseConfig(hydrated, remote);
+  } else if (wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)) {
+    hydrated = mergeRemoteFirebaseConfigPreferRemote(hydrated, {
+      firebase: BHOJANOS_PROD_FIREBASE_PUBLIC,
+      configured: true,
+    });
   }
   return applyFirebaseDefaults(hydrated);
 }

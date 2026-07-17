@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { m, AnimatePresence } from 'framer-motion';
 import { subscribeOwnerOrders, type OwnerOrder } from '../../lib/ownerOrdersReads';
-import { coerceOwnerOrderDate } from '../../lib/ownerOrderReadModelMapper';
+import { formatOwnerOrderTime } from '../../lib/ownerOrderTimeFormat';
 import { fetchOwnerMenuItems } from '../../lib/ownerMenuApi';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { useOwnerTenantId } from '../../hooks/useOwnerTenantId';
-import { format } from 'date-fns';
+import { coerceOwnerOrderDate } from '../../lib/ownerOrderReadModelMapper';
 import { CheckCircle, XCircle, Clock, Truck, ChefHat, Bell, Phone, MessageCircle, PackageX, ExternalLink, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logo from '../../assets/bhojan-os-logo.png';
@@ -16,10 +17,12 @@ import { updateMenuItem, updateOrderStatus as apiUpdateOrderStatus } from '../..
 import { OrderStatus } from '../../types';
 import { DELIVERY_PARTNER_OPTIONS, deliveryPartnerLabel, getTrackingUrl, isThirdPartyDeliveryPartner } from '../../lib/deliveryPartners';
 import { phoneDigits, safeNumber, safeText } from '../../lib/safeRenderValue';
+import { OwnerOrderPrepTimer } from '../../lib/ownerOrderPrepTimer';
 
 interface Order extends OwnerOrder {}
 
 const OwnerOrders: React.FC = () => {
+  const navigate = useNavigate();
   const { userProfile, profileLoading } = useAuth();
   const { tenantInfo, loading: tenantLoading } = useTenant();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -48,10 +51,7 @@ const OwnerOrders: React.FC = () => {
 
   const tenantId = useOwnerTenantId();
 
-  const formatOrderTime = (createdAt: unknown) => {
-    const created = coerceOwnerOrderDate(createdAt);
-    return created ? format(created, 'h:mm a') : 'Just now';
-  };
+  const formatOrderTime = (createdAt: unknown) => formatOwnerOrderTime(createdAt);
 
   const parseTrialDate = (value: unknown): Date | null => coerceOwnerOrderDate(value);
 
@@ -236,7 +236,11 @@ const OwnerOrders: React.FC = () => {
               <XCircle className="w-5 h-5 mr-2 flex-shrink-0" />
               <span><strong>Your Growth trial has expired.</strong> Upgrade to keep accepting live orders.</span>
             </div>
-            <button className="w-full md:w-auto px-4 py-3 md:py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">
+            <button
+              type="button"
+              onClick={() => navigate('/owner/subscription')}
+              className="w-full md:w-auto px-4 py-3 md:py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors"
+            >
               Upgrade to Growth (₹999/mo)
             </button>
           </div>
@@ -248,7 +252,11 @@ const OwnerOrders: React.FC = () => {
               <Clock className="w-5 h-5 mr-2 flex-shrink-0" />
               <span><strong>Growth trial active.</strong> You have {trialDaysRemaining} days left to accept live orders.</span>
             </div>
-            <button className="w-full md:w-auto px-4 py-3 md:py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors">
+            <button
+              type="button"
+              onClick={() => navigate('/owner/subscription')}
+              className="w-full md:w-auto px-4 py-3 md:py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
               Upgrade Now
             </button>
           </div>
@@ -306,6 +314,7 @@ const OwnerOrders: React.FC = () => {
                           <Clock className="w-3 h-3 mr-1" />
                           {formatOrderTime(order.createdAt)}
                         </span>
+                        <OwnerOrderPrepTimer order={order} />
                       </div>
                       
                       <h3 className="text-lg font-semibold text-white">
@@ -369,7 +378,7 @@ const OwnerOrders: React.FC = () => {
                             <Phone className="w-3.5 h-3.5" /> Call Customer
                           </a>
                           <a 
-                            href={`https://wa.me/${phoneDigits(order.customerPhone || order.phone)}?text=Hi%20${encodeURIComponent(customerName)}!%20This%20is%20regarding%20your%20recent%20order%20%23${shortOrderId}.`}
+                            href={`https://wa.me/${phoneDigits(order.customerPhone || order.phone)}?text=Hi%20${encodeURIComponent(customerName)}!%20This%20is%20regarding%20your%20recent%20order%20%23${displayOrderNumber}.`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/15 transition-colors"

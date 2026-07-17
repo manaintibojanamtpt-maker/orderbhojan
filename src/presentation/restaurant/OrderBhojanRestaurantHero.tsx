@@ -9,12 +9,13 @@ import {
 } from '@/features/restaurant/domain/formatters';
 import { OrderBhojanRestaurantMeta } from './OrderBhojanRestaurantMeta';
 import { OrderBhojanRestaurantActions } from './OrderBhojanRestaurantActions';
+import { kitchenFormatLabel } from '@/features/discovery/utils/restaurantDisplay';
 
 export interface OrderBhojanRestaurantHeroProps {
   readonly data: RestaurantExperienceResponse;
   readonly collapsed: boolean;
   readonly enterFromPoster: boolean;
-  readonly coverSrc: string;
+  readonly coverSrc?: string;
   readonly coverSrcSet?: string;
   readonly coverSizes: string;
   readonly coverBlurDataURL?: string;
@@ -45,21 +46,28 @@ export function OrderBhojanRestaurantHero({
           collapsed ? 'h-28' : 'h-[46vh] min-h-[220px]'
         } ${enterFromPoster && !collapsed ? 'origin-top scale-[1.02]' : ''}`}
       >
-        <picture>
-          {coverSources?.map((source) => (
-            <source key={source.type} type={source.type} srcSet={source.srcSet} sizes={source.sizes} />
-          ))}
-          <img
-            src={coverSrc}
-            srcSet={coverSrcSet}
-            sizes={coverSizes}
-            alt={`${experience.displayName} — cover`}
-            fetchPriority="high"
-            decoding="async"
-            className="h-full w-full object-cover"
-            style={coverBlurDataURL ? { backgroundImage: `url(${coverBlurDataURL})`, backgroundSize: 'cover' } : undefined}
+        {coverSrc ? (
+          <picture>
+            {coverSources?.map((source) => (
+              <source key={source.type} type={source.type} srcSet={source.srcSet} sizes={source.sizes} />
+            ))}
+            <img
+              src={coverSrc}
+              srcSet={coverSrcSet}
+              sizes={coverSizes}
+              alt={`${experience.displayName} — cover`}
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover"
+              style={coverBlurDataURL ? { backgroundImage: `url(${coverBlurDataURL})`, backgroundSize: 'cover' } : undefined}
+            />
+          </picture>
+        ) : (
+          <div
+            className="h-full w-full bg-gradient-to-br from-[#141414] via-[#0a0a0a] to-[#050505]"
+            aria-hidden
           />
-        </picture>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#030303] via-[#030303]/35 to-transparent" />
 
         <div className="absolute left-4 right-4 top-[max(1rem,env(safe-area-inset-top))] flex justify-end">
@@ -99,9 +107,9 @@ export function OrderBhojanRestaurantHero({
               <div className="mb-2 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full border border-[#FF7A00]/20 bg-[#FF7A00]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-100">
                   <Sparkles className="h-3 w-3" aria-hidden />
-                  {experience.cloudKitchen ? 'Cloud kitchen' : 'Home kitchen'}
+                  {kitchenFormatLabel(experience.kitchenFormat)}
                 </span>
-                {!experience.cloudKitchen ? (
+                {experience.kitchenFormat === 'home_kitchen' ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
                     <ShieldCheck className="h-3 w-3 text-green-400" aria-hidden />
                     Verified

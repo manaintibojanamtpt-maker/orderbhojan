@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, MapPin, Star, ChevronRight, IndianRupee } from 'lucide-react';
 import type { MarketplaceKitchenCard } from '../../lib/marketplace/types';
@@ -31,7 +31,9 @@ function KitchenThumbnail({
   imageLoading: 'lazy' | 'eager';
   className?: string;
 }) {
-  if (kitchen.thumbnailUrl) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (kitchen.thumbnailUrl && !imageFailed) {
     return (
       <img
         src={kitchen.thumbnailUrl}
@@ -39,6 +41,7 @@ function KitchenThumbnail({
         className={className}
         loading={imageLoading}
         decoding="async"
+        onError={() => setImageFailed(true)}
       />
     );
   }
@@ -51,19 +54,24 @@ function KitchenThumbnail({
 }
 
 function KitchenMetadata({ kitchen }: { kitchen: MarketplaceKitchenCard }) {
+  const distanceKm = kitchen.distanceKm;
+  const showDistance = distanceKm != null && Number.isFinite(distanceKm);
+
   return (
     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/60">
-      <span className="inline-flex items-center gap-1">
-        <MapPin className="h-3.5 w-3.5" />
-        {kitchen.distanceKm.toFixed(1)} km
-      </span>
+      {showDistance ? (
+        <span className="inline-flex items-center gap-1">
+          <MapPin className="h-3.5 w-3.5" />
+          {distanceKm.toFixed(1)} km
+        </span>
+      ) : null}
       {kitchen.etaMins !== undefined && (
         <span className="inline-flex items-center gap-1">
           <Clock className="h-3.5 w-3.5" />
           {kitchen.etaMins} min
         </span>
       )}
-      {kitchen.deliveryFeeLabel ? (
+      {kitchen.deliveryFeeLabel && kitchen.deliveryFeeLabel !== '—' ? (
         <span className="inline-flex items-center gap-1">
           <IndianRupee className="h-3.5 w-3.5" />
           {kitchen.deliveryFeeLabel}
@@ -156,7 +164,7 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="truncate text-base font-semibold text-white group-hover:text-[#FF7A00]">
                 {kitchen.name}
               </h3>

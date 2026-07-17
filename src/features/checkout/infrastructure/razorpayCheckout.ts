@@ -1,10 +1,18 @@
 import { getAppConfig } from '@/config';
+import { fetchBearerToken } from '@/features/auth/application/authService';
+import { formatCustomerOrderLabel } from '../domain/orderDisplay';
 
 const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-js';
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
 let loadPromise: Promise<boolean> | null = null;
 let checkoutOpen = false;
+
+/** Warm Razorpay SDK while checkout quote loads — COD path never awaits this. */
+export function prefetchRazorpayCheckoutScript(): void {
+  if (typeof window === 'undefined') return;
+  void loadRazorpayScript();
+}
 
 function uniqueRazorpayModalId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -26,11 +34,21 @@ export interface CreateRazorpayOrderResult {
 
 export interface VerifyRazorpayPaymentResult {
   readonly orderId: string;
+  readonly orderNumber?: number | string | null;
   readonly verified: boolean;
 }
 
 function getApiBaseUrl(): string {
   return getAppConfig().marketplaceApiBaseUrl.replace(/\/$/, '');
+}
+
+async function paymentRequestHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = await fetchBearerToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -109,7 +127,7 @@ export async function createRazorpayOrder(params: {
 }): Promise<CreateRazorpayOrderResult> {
   const response = await fetch(`${getApiBaseUrl()}/api/create-razorpay-order`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await paymentRequestHeaders(),
     body: JSON.stringify({
       draftId: params.draftId,
       userId: params.userId ?? undefined,
@@ -143,7 +161,7 @@ export async function verifyRazorpayPayment(
 ): Promise<VerifyRazorpayPaymentResult> {
   const response = await fetch(`${getApiBaseUrl()}/api/verify-razorpay-payment`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await paymentRequestHeaders(),
     body: JSON.stringify({
       ...payment,
       draftId,
@@ -154,6 +172,7 @@ export async function verifyRazorpayPayment(
     success?: boolean;
     verified?: boolean;
     orderId?: string;
+    orderNumber?: number | string | null;
     error?: string;
   };
 
@@ -163,6 +182,7 @@ export async function verifyRazorpayPayment(
 
   return {
     orderId: data.orderId ?? draftId,
+    orderNumber: data.orderNumber ?? null,
     verified: data.verified !== false,
   };
 }
@@ -245,7 +265,8 @@ export async function runRazorpayCheckoutFlow(params: {
   readonly customerEmail?: string;
   readonly userId?: string | null;
   readonly merchantName?: string;
-}): Promise<string> {
+  readonly orderNumber?: number | string | null;
+}): Promise<{ orderId: string; orderNumber: string }> {
   const session = await createRazorpayOrder({
     draftId: params.draftId,
     userId: params.userId,
@@ -265,7 +286,13 @@ export async function runRazorpayCheckoutFlow(params: {
   });
 
   const verified = await verifyRazorpayPayment(paymentResponse, params.draftId);
-  return verified.orderId;
+  return {
+    orderId: verified.orderId,
+    orderNumber: formatCustomerOrderLabel(
+      verified.orderNumber ?? params.orderNumber,
+      verified.orderId,
+    ),
+  };
 }
 
 export async function createSubscriptionRazorpayOrder(params: {
@@ -274,7 +301,7 @@ export async function createSubscriptionRazorpayOrder(params: {
 }): Promise<CreateRazorpayOrderResult> {
   const response = await fetch(`${getApiBaseUrl()}/api/create-razorpay-order`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await paymentRequestHeaders(),
     body: JSON.stringify({
       planId: params.planId,
       userId: params.userId,

@@ -12,6 +12,8 @@ import { StoreLiveControl } from '../../components/owner/StoreLiveControl';
 import { OwnerGalleryThemePanel } from '../../components/owner/OwnerGalleryThemePanel';
 import { NotificationSettingsPanel } from '../../modules/notifications/NotificationSettingsPanel';
 import OwnerPromotionsPanel from './OwnerPromotionsPanel';
+import { KITCHEN_FORMAT_OPTIONS, type KitchenFormat } from '../../lib/kitchenFormat';
+import { isValidUpiId, normalizeUpiId } from '../../lib/upiValidation';
 
 const OwnerSettings: React.FC = () => {
   const { userProfile, loading: authLoading } = useAuth();
@@ -39,6 +41,7 @@ const OwnerSettings: React.FC = () => {
   
   const [formData, setFormData] = useState({
     name: '',
+    businessType: 'home_kitchen' as KitchenFormat,
     whatsapp: '',
     deliveryNotes: '',
     logoUrl: '',
@@ -59,6 +62,8 @@ const OwnerSettings: React.FC = () => {
     packingFee: 0,
     codEnabled: true,
     razorpayEnabled: false,
+    upiEnabled: false,
+    upiId: '',
   });
 
   useEffect(() => {
@@ -72,8 +77,14 @@ const OwnerSettings: React.FC = () => {
       try {
         const data = await fetchOwnerStorefront(tenantId);
         const branding = data.branding ?? {};
+        const paymentProviders = (
+          data.paymentConfig as
+            | { providers?: Record<string, { enabled?: boolean; upiId?: string }> }
+            | undefined
+        )?.providers;
         setFormData({
           name: data.name || '',
+          businessType: (data.businessType as KitchenFormat) || 'home_kitchen',
           whatsapp: typeof data.contact?.whatsapp === 'string' ? data.contact.whatsapp : '',
           deliveryNotes: data.deliveryNotes || '',
           logoUrl: typeof branding.logoUrl === 'string' ? branding.logoUrl : '',
@@ -92,8 +103,10 @@ const OwnerSettings: React.FC = () => {
           prepTime: typeof data.deliveryConfig?.prepTime === 'number' ? data.deliveryConfig.prepTime : 20,
           gstPercent: typeof data.pricingConfig?.gstPercent === 'number' ? data.pricingConfig.gstPercent : 0,
           packingFee: typeof data.pricingConfig?.packingFee === 'number' ? data.pricingConfig.packingFee : 0,
-          codEnabled: data.paymentConfig?.providers?.cod?.enabled !== false,
-          razorpayEnabled: data.paymentConfig?.providers?.razorpay?.enabled === true,
+          codEnabled: paymentProviders?.cod?.enabled !== false,
+          razorpayEnabled: paymentProviders?.razorpay?.enabled === true,
+          upiEnabled: paymentProviders?.upi?.enabled === true,
+          upiId: typeof paymentProviders?.upi?.upiId === 'string' ? paymentProviders.upi.upiId : '',
         });
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -110,15 +123,27 @@ const OwnerSettings: React.FC = () => {
     e.preventDefault();
     if (!tenantId) return;
 
-    if (!formData.codEnabled && !formData.razorpayEnabled) {
+    if (!formData.codEnabled && !formData.razorpayEnabled && !formData.upiEnabled) {
       toast.error('Enable at least one payment method');
       return;
+    }
+
+    if (formData.upiEnabled) {
+      if (!formData.upiId.trim()) {
+        toast.error('Enter your UPI ID (e.g. name@paytm)');
+        return;
+      }
+      if (!isValidUpiId(formData.upiId)) {
+        toast.error('Invalid UPI ID — use format name@bank (e.g. kitchen@paytm)');
+        return;
+      }
     }
 
     setSaving(true);
     try {
       await updateOwnerStorefront(tenantId, {
         name: formData.name,
+        businessType: formData.businessType,
         contact: { whatsapp: formData.whatsapp },
         deliveryNotes: formData.deliveryNotes,
         branding: { logoUrl: formData.logoUrl },
@@ -146,10 +171,19 @@ const OwnerSettings: React.FC = () => {
           packingFee: Number(formData.packingFee) || 0,
         },
         paymentConfig: {
-          defaultProvider: formData.codEnabled ? 'cod' : 'razorpay',
+          defaultProvider: formData.upiEnabled
+            ? 'upi'
+            : formData.razorpayEnabled
+              ? 'razorpay'
+              : 'cod',
           providers: {
             cod: { enabled: formData.codEnabled },
             razorpay: { enabled: formData.razorpayEnabled },
+            upi: {
+              enabled: formData.upiEnabled,
+              upiId: formData.upiEnabled ? normalizeUpiId(formData.upiId) : '',
+              merchantName: formData.name.trim() || undefined,
+            },
           },
         },
       });
@@ -351,6 +385,31 @@ const OwnerSettings: React.FC = () => {
                   className="block w-full pl-10 px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all placeholder-white/20"
                   placeholder="e.g. Spice Kitchen"
                 />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Kitchen format
+              </label>
+              <p className="text-xs text-white/45 mb-3">
+                Shown on your storefront and OrderBhojan — pick the type that best describes your kitchen.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {KITCHEN_FORMAT_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, businessType: option.id })}
+                    className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                      formData.businessType === option.id
+                        ? 'border-[#FF6B00] bg-[#FF6B00]/10 text-white'
+                        : 'border-white/10 bg-[#0a0a0a] text-white/70 hover:border-white/20'
+                    }`}
+                  >
+                    <span className="block text-sm font-bold">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -584,6 +643,26 @@ const OwnerSettings: React.FC = () => {
                       </div>
                       <input type="checkbox" checked={formData.razorpayEnabled} onChange={(e) => setFormData({ ...formData, razorpayEnabled: e.target.checked })} className="w-5 h-5 rounded" />
                     </label>
+                    <label className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-white/10 rounded-xl cursor-pointer">
+                      <div>
+                        <p className="text-white font-medium">Direct UPI (GPay / PhonePe)</p>
+                        <p className="text-xs text-white/50">Customers pay your UPI ID at checkout — no Razorpay needed</p>
+                      </div>
+                      <input type="checkbox" checked={formData.upiEnabled} onChange={(e) => setFormData({ ...formData, upiEnabled: e.target.checked })} className="w-5 h-5 rounded" />
+                    </label>
+                    {formData.upiEnabled && (
+                      <div className="p-4 bg-[#0a0a0a] border border-white/10 rounded-xl space-y-2">
+                        <label className="block text-xs font-bold text-white/80 uppercase tracking-widest">UPI ID (VPA)</label>
+                        <input
+                          type="text"
+                          value={formData.upiId}
+                          onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
+                          placeholder="yourname@paytm"
+                          className="block w-full px-4 py-3 bg-[#111] border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-[#FF6B00]"
+                        />
+                        <p className="text-[10px] text-white/40">Shown as UPI deep link / QR at checkout when online payment is selected.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

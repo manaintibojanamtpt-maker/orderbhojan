@@ -1,0 +1,269 @@
+{
+  "generatedAt": "2026-07-14T10:56:02.086Z",
+  "commit": "7158a2f",
+  "expectedBundle": "index-DoFE5dzf.js",
+  "base": "https://orderbhojan.web.app",
+  "checklist": {
+    "step1_clearSiteData": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step01-clear-fresh-home.png",
+      "bundleMatches7158a2f": true
+    },
+    "step2_openSite": {
+      "status": "PASS",
+      "url": "https://orderbhojan.web.app/"
+    },
+    "step3_homeLocationSheet": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step03b-location-sheet-opens.png",
+      "locationChipVisible": true
+    },
+    "step4_setPuneLocation": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step04-koregaon-location-set.png",
+      "bodySnippet": "ORDERBHOJAN · HOME KITCHENS Ghar ka khana, delivered warm Hyderabadi chicken biryani — sealed dum, delivered warm Delivering to Koregaon Park, Pune Search Close-up of steaming Hyderabadi chicken dum biryani with saffron rice CATEGORIES What's on your mind? Swipe to explore cuisines near you PIZZA BI"
+    },
+    "step5_kitchensAppear": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step05-kitchens-visible.png",
+      "hasKitchens": true
+    },
+    "step6_openKitchenMenu": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step06-kitchen-menu.png",
+      "kitchen": "inti-bhojanam-ghar-kha-khana-pune"
+    },
+    "step7_addToCart": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step07-item-added-cart.png",
+      "addResult": "clicked-add",
+      "cart": {
+        "lines": 1,
+        "path": "/restaurant/inti-bhojanam-ghar-kha-khana-pune/menu"
+      }
+    },
+    "step8_goCheckout": {
+      "status": "PASS",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step08b-checkout-after-validation.png",
+      "clicked": true,
+      "path": "/checkout",
+      "bodySnippet": "OrderBhojan Koregaon Park, Pune Checkout 1 item · Choose how you want to pay DELIVER TO Koregaon Park, Pune Change Item Total ₹149 Packaging ₹15 Delivery ₹10 Total ₹174 MOBILE NUMBER Required for order updates and delivery coordination Pay online with UPI, cards, or net banking. COD remains available if you prefer cash on delivery. Back to cart Pay online Pay on delivery"
+    },
+    "step9_deliveryAddress": {
+      "status": "PASS",
+      "screenshots": [
+        "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step09a-address-wizard.png",
+        "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step09b-address-selected.png"
+      ],
+      "addrClicked": true,
+      "addressAria": "Delivery location: Koregaon Park, Pune"
+    },
+    "step10_placeCodOrder": {
+      "status": "PARTIAL",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step10b-cod-place-attempt.png",
+      "payCodClicked": "Pay on delivery",
+      "payButton": {
+        "disabled": false,
+        "label": "Pay online"
+      },
+      "placeClicked": {
+        "clicked": true,
+        "label": "Pay on delivery"
+      },
+      "placed": false,
+      "blockedReason": "mobile-number-required-on-checkout-no-otp-in-headless",
+      "pathAfter": "/checkout",
+      "bodySnippet": "OrderBhojan Koregaon Park, Pune Checkout 1 item · Choose how you want to pay DELIVER TO Koregaon Park, Pune Change Item Total ₹149 Packaging ₹15 Delivery ₹10 Total ₹174 MOBILE NUMBER Enter a valid 10-digit Indian mobile number Pay online with UPI, cards, or net banking. COD remains available if you prefer cash on delivery. Back to cart Pay online Pay on delivery",
+      "note": "COD payment method selectable and quoted; order not submitted without valid 10-digit mobile (OTP/sign-in may follow on phone)."
+    },
+    "step11_orderSuccess": {
+      "status": "PARTIAL",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step11-order-success-or-gate.png",
+      "successUi": false,
+      "url": "https://orderbhojan.web.app/checkout"
+    },
+    "step12_ordersList": {
+      "status": "PARTIAL",
+      "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step12-orders-tracking.png",
+      "url": "https://orderbhojan.web.app/",
+      "needsAuth": false,
+      "hasOrders": false,
+      "bodySnippet": "(redirect) home discovery after /orders navigation attempt",
+      "note": "/orders route did not load orders UI in headless session; landed on home. Founder must verify post-COD on phone."
+    }
+  },
+  "screenshots": [
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step01-clear-fresh-home.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step03-home-location-control.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step03b-location-sheet-opens.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step04-koregaon-location-set.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step05-kitchens-visible.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step06-kitchen-menu.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step07-item-added-cart.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step08a-cart-before-checkout.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step08b-checkout-after-validation.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step09a-address-wizard.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step09b-address-selected.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step10a-cod-payment-selected.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step10b-cod-place-attempt.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step11-order-success-or-gate.png",
+    "F:\\Manaintibojanam_final2\\orderbhojan\\final-checkout-proof\\step12-orders-tracking.png"
+  ],
+  "consoleErrors": [],
+  "consoleWarnings": [],
+  "network": [
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.49959440695956&lng=73.97858993491619&page=1&limit=24&maxDistanceKm=18&sort=distance",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/reverse?lat=18.5362&lng=73.8958",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/reverse?lat=18.5362&lng=73.8958",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/serviceability",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/location/serviceability",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/inti-bhojanam-ghar-kha-khana-pune",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/inti-bhojanam-ghar-kha-khana-pune/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision/inti-bhojanam-ghar-kha-khana-pune",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/restaurants/inti-bhojanam-ghar-kha-khana-pune/menu?lat=18.5362&lng=73.8958&schemaVersion=1.0",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/cart/validate",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/cart/validate",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/checkout/prepare",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/checkout/prepare",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/checkout/prepare",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/checkout/prepare",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.5362&lng=73.8958&page=1&limit=24&maxDistanceKm=18&sort=distance",
+      "status": 204,
+      "method": "OPTIONS"
+    },
+    {
+      "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "verdict": "INVESTIGATE BEFORE TRUSTING LIVE COD",
+  "founderManualSteps": [
+    "Phone: clear site data for orderbhojan.web.app.",
+    "Set Koregaon Park delivery (~18.5362, 73.8958), open inti-bhojanam-ghar-kha-khana-pune, add one item.",
+    "Checkout → wait validation → address wizard → Pay on delivery.",
+    "Sign in with founder phone + OTP; place order; confirm success + Orders list."
+  ],
+  "badResponses": [],
+  "consoleIssues": {
+    "errors": [],
+    "warnings": []
+  },
+  "phoneOnlyGaps": [
+    "Enter 10-digit mobile on checkout",
+    "OTP/sign-in if required after mobile",
+    "Confirm COD place-order API success",
+    "Orders/tracking list for new order"
+  ]
+}

@@ -10,6 +10,12 @@ import {
   useCartStore,
 } from '@/features/cart/store/cartStore';
 import { useCartValidation } from '@/features/cart/hooks/useCartValidation';
+import { useCheckoutPrefetch } from '@/features/checkout/hooks/useCheckoutPrefetch';
+import { hasActiveDeliveryLocation, hasReadyDeliveryLocation, needsFlatConfirmation, useActiveLocation, useLocationActions } from '@/features/location';
+import { markPerf } from '@/lib/perfMarks';
+
+const DELIVERY_LOCATION_GATE_MESSAGE =
+  'Set your delivery location to see delivery options and continue to checkout.';
 
 function formatRestaurantLabel(slug: string): string {
   return slug
@@ -40,6 +46,11 @@ export function OrderBhojanCartExperience() {
   const itemCount = cartItemCount(lines);
   const subtotal = cartSubtotal(lines);
   const { validate, isValidating, result, error, reset } = useCartValidation();
+  const activeLocation = useActiveLocation();
+  const { openSelector, openConfirmation } = useLocationActions();
+  const hasDeliveryLocation = hasActiveDeliveryLocation(activeLocation);
+  const isCheckoutReady = hasReadyDeliveryLocation(activeLocation);
+  useCheckoutPrefetch(itemCount > 0);
 
   const restaurantLabel = useMemo(
     () =>
@@ -56,11 +67,20 @@ export function OrderBhojanCartExperience() {
   }, [itemCount, reset]);
 
   const handleCheckout = async () => {
+    if (!hasDeliveryLocation) {
+      openSelector();
+      return;
+    }
+    if (needsFlatConfirmation(activeLocation)) {
+      openConfirmation();
+      return;
+    }
     try {
       const validation = await validate();
       if (!validation.valid) {
         return;
       }
+      markPerf('cart_to_checkout', 'navigate');
       navigate('/checkout');
     } catch {
       // error surfaced via hook
@@ -72,8 +92,13 @@ export function OrderBhojanCartExperience() {
   }
 
   const slug = restaurantSlug ?? lines[0]?.restaurantSlug;
-  const validationMessages =
-    result && !result.valid ? result.issues.map((issue) => issue.message) : [];
+  const validationMessages = [
+    ...(!hasDeliveryLocation ? [DELIVERY_LOCATION_GATE_MESSAGE] : []),
+    ...(hasDeliveryLocation && !isCheckoutReady
+      ? ['Confirm your flat or house number to continue to checkout.']
+      : []),
+    ...(result && !result.valid ? result.issues.map((issue) => issue.message) : []),
+  ];
   const errorMessage =
     error === 'Restaurant not found'
       ? 'This kitchen is not available for checkout. Clear your cart, pick a live restaurant from home, and add items again.'
@@ -99,7 +124,15 @@ export function OrderBhojanCartExperience() {
       }}
       validationMessages={validationMessages}
       errorMessage={errorMessage}
-      checkoutLabel={isValidating ? 'Checking cart…' : 'Proceed to checkout'}
+      checkoutLabel={
+        isValidating
+          ? 'Checking cart…'
+          : isCheckoutReady
+            ? 'Proceed to checkout'
+            : hasDeliveryLocation
+              ? 'Confirm delivery address'
+              : 'Set delivery location'
+      }
       checkoutBusy={isValidating}
       onCheckout={() => void handleCheckout()}
       onBrowse={() => navigate('/')}

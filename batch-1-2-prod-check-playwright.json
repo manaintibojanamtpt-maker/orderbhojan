@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-07-14T18:22:45.237Z",
+  "bundleFromIndex": "assets/index-qlX3vGvA.js",
+  "cart": {
+    "bodySnippet": "OrderBhojan\nSet delivery location\nYour cart\nYour cart is empty\n\nAdd dishes from a restaurant menu to start an order.\n\nContinue browsing\nHOME\nSEARCH\nCART\nORDERS\nPROFILE",
+    "hasBatch1Message": false,
+    "hasSetDeliveryLocationCta": true,
+    "proceedToCheckoutVisible": false
+  },
+  "checkout": {
+    "bodySnippet": "OrderBhojan\nSet delivery location\nCheckout\nNothing to checkout\n\nAdd dishes from a restaurant menu before checking out.\n\nBrowse restaurants",
+    "titleSetDeliveryLocation": true,
+    "hasAddAddressCopy": false,
+    "hasSessionExpired": false
+  },
+  "manualPath": {
+    "manualCtaVisible": true,
+    "afterManualSnippet": "OrderBhojan\nSet delivery location\nCheckout\nNothing to checkout\n\nAdd dishes from a restaurant menu before checking out.\n\nBrowse restaurants\nDeliver to\nUse current location\nEnter address manually\n\nSign in to save addresses for faster checkout.\n\nSign in",
+    "hasHouseLandmarkPincode": false,
+    "hasAutoDetect": false,
+    "addressFormLikely": false,
+    "gpsWizardLikely": false
+  },
+  "errors": [
+    "manual click: locator.click: Timeout 10000ms exceeded.\nCall log:\n  - waiting for getByText(/Enter address manually/i).first()\n    - locator resolved to <span class=\"soft-btn__inner\">Enter address manually</span>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - element is outside of the viewport\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - element is outside of the viewport\n    - retrying click action\n      - waiting 100ms\n    19 × waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - element is outside of the viewport\n     - retrying click action\n       - waiting 500ms\n"
+  ]
+}

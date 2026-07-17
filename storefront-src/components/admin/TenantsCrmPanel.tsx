@@ -9,6 +9,8 @@ import {
   Phone,
   CheckCircle2,
   Ban,
+  Clock,
+  Crown,
 } from 'lucide-react';
 
 type StatusIndicator = {
@@ -30,6 +32,11 @@ export type TenantsCrmPanelProps = {
   getTrustScore: (tenant: any) => number;
   onUpdateStatus: (tenantId: string, status: string, storeStatus?: string) => void;
   onSeedDefault?: () => void;
+  onSubscriptionAction?: (
+    tenantId: string,
+    action: 'extendTrial' | 'grantPlan' | 'bypassExpiry',
+    options?: { planId?: string; days?: number },
+  ) => void;
 };
 
 const fadeUp = {
@@ -71,8 +78,8 @@ const StatusPill = memo(function StatusPill({ status }: { status: StatusIndicato
   const text = formatStatusLabel(status.label);
   return (
     <span
-      className={`inline-flex max-w-[160px] items-center gap-1.5 rounded-full border px-2.5 py-1 ${status.bgFill} ${status.border}`}
-      title={text}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 ${status.bgFill} ${status.border}`}
+      aria-label={text}
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${status.bg}`} />
       <span className={`text-[9px] font-bold uppercase leading-tight tracking-[0.08em] ${status.color}`}>
@@ -82,12 +89,20 @@ const StatusPill = memo(function StatusPill({ status }: { status: StatusIndicato
   );
 });
 
-const TrustScoreCell = memo(function TrustScoreCell({ score }: { score: number }) {
+const TrustScoreCell = memo(function TrustScoreCell({
+  score,
+  showLabel = false,
+}: {
+  score: number;
+  showLabel?: boolean;
+}) {
   return (
-    <div className="w-[108px]">
-      <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">Trust</p>
-      <div className="flex items-center gap-2">
-        <span className="w-6 shrink-0 text-right text-sm font-bold tabular-nums text-white">{score}</span>
+    <div className="w-full min-w-0">
+      {showLabel && (
+        <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-gray-600">Trust score</p>
+      )}
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="w-7 shrink-0 text-right text-sm font-bold tabular-nums text-white">{score}</span>
         <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
           <div
             className={`h-full rounded-full bg-gradient-to-r ${trustBarColor(score)}`}
@@ -120,33 +135,67 @@ const IconAction = memo(function IconAction({
     danger: 'border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10',
   }[tone];
 
-  const className = `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-all ${toneClass}`;
+  const className = `inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-all ${toneClass}`;
 
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" title={label} aria-label={label} className={className}>
+      <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className={className}>
         {children}
       </a>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} title={label} aria-label={label} className={className}>
+    <button type="button" onClick={onClick} aria-label={label} className={className}>
       {children}
     </button>
   );
 });
+
+function formatSubscriptionLabel(tenant: any): string {
+  const planId = tenant.subscription?.planId || 'starter';
+  const status = tenant.subscription?.status || tenant.status || 'unknown';
+  const expiresAt = tenant.subscription?.trialExpiresAt || tenant.trialEndsAt;
+  if (expiresAt) {
+    const expiry = new Date(expiresAt);
+    const expired = expiry.getTime() <= Date.now();
+    const date = expiry.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    return `${planId} · ${status}${expired ? ' · expired' : ` · until ${date}`}`;
+  }
+  return `${planId} · ${status}`;
+}
+
+function subscriptionPlanLines(tenant: any): { plan: string; detail: string } {
+  const plan = tenant.subscription?.planId || 'starter';
+  const status = tenant.subscription?.status || tenant.status || 'unknown';
+  const expiresAt = tenant.subscription?.trialExpiresAt || tenant.trialEndsAt;
+  if (expiresAt) {
+    const expiry = new Date(expiresAt);
+    const expired = expiry.getTime() <= Date.now();
+    const date = expiry.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    return {
+      plan: plan.charAt(0).toUpperCase() + plan.slice(1),
+      detail: expired ? `${status} · expired` : `${status} · until ${date}`,
+    };
+  }
+  return {
+    plan: plan.charAt(0).toUpperCase() + plan.slice(1),
+    detail: status,
+  };
+}
 
 const TenantRow = memo(function TenantRow({
   tenant,
   getStatusIndicator,
   getTrustScore,
   onUpdateStatus,
+  onSubscriptionAction,
 }: {
   tenant: any;
   getStatusIndicator: (tenant: any) => StatusIndicator;
   getTrustScore: (tenant: any) => number;
   onUpdateStatus: (tenantId: string, status: string, storeStatus?: string) => void;
+  onSubscriptionAction?: TenantsCrmPanelProps['onSubscriptionAction'];
 }) {
   const status = getStatusIndicator(tenant);
   const score = getTrustScore(tenant);
@@ -154,15 +203,17 @@ const TenantRow = memo(function TenantRow({
   const email = tenant.contact?.email;
   const phone = tenant.contact?.phone;
 
+  const planLines = subscriptionPlanLines(tenant);
+
   return (
     <tr className="group border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]">
-      <td className="px-5 py-4 align-middle">
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] text-base font-black text-white">
             {tenant.name ? tenant.name.charAt(0).toUpperCase() : 'K'}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight text-white" title={tenant.name || 'Unnamed Kitchen'}>
+            <p className="truncate text-sm font-bold tracking-tight text-white">
               {tenant.name || 'Unnamed Kitchen'}
             </p>
             <p className="mt-0.5 text-[11px] font-medium text-gray-500">Joined {formatJoinedDate(tenant)}</p>
@@ -170,17 +221,14 @@ const TenantRow = memo(function TenantRow({
         </div>
       </td>
 
-      <td className="px-5 py-4 align-middle">
-        <code
-          className="block max-w-[200px] truncate rounded-lg border border-white/[0.06] bg-black/40 px-2.5 py-1.5 font-mono text-[11px] font-medium text-gray-400"
-          title={slug}
-        >
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
+        <code className="block max-w-full truncate rounded-lg border border-white/[0.06] bg-black/40 px-2.5 py-1.5 font-mono text-[11px] font-medium text-gray-400">
           {slug}
         </code>
       </td>
 
-      <td className="px-5 py-4 align-middle">
-        <div className="space-y-1.5 min-w-[140px]">
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
+        <div className="min-w-0 space-y-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <Mail size={12} className="shrink-0 text-gray-600" />
             <span className="truncate text-xs font-medium text-gray-300">{email || '—'}</span>
@@ -192,16 +240,46 @@ const TenantRow = memo(function TenantRow({
         </div>
       </td>
 
-      <td className="px-5 py-4 align-middle">
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
         <StatusPill status={status} />
       </td>
 
-      <td className="px-5 py-4 align-middle">
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold capitalize text-gray-200">{planLines.plan}</p>
+          <p className="mt-0.5 truncate text-[11px] leading-snug text-gray-500">{planLines.detail}</p>
+          {tenant.subscription?.founderOverride && (
+            <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-wider text-amber-400">
+              Founder override
+            </p>
+          )}
+        </div>
+      </td>
+
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
         <TrustScoreCell score={score} />
       </td>
 
-      <td className="px-5 py-4 align-middle text-right">
-        <div className="flex items-center justify-end gap-1.5">
+      <td className="min-w-0 overflow-hidden px-4 py-4 align-middle lg:px-5">
+        <div className="flex min-w-0 items-center justify-end gap-1.5 whitespace-nowrap">
+          {onSubscriptionAction && (
+            <>
+              <IconAction
+                label="Extend trial 14 days"
+                tone="neutral"
+                onClick={() => onSubscriptionAction(tenant.id, 'extendTrial', { days: 14 })}
+              >
+                <Clock size={15} />
+              </IconAction>
+              <IconAction
+                label="Grant Growth plan"
+                tone="success"
+                onClick={() => onSubscriptionAction(tenant.id, 'grantPlan', { planId: 'growth' })}
+              >
+                <Crown size={15} />
+              </IconAction>
+            </>
+          )}
           <IconAction label="View storefront" href={`/k/${slug}`} tone="neutral">
             <ExternalLink size={15} />
           </IconAction>
@@ -236,6 +314,7 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
   getTrustScore,
   onUpdateStatus,
   onSeedDefault,
+  onSubscriptionAction,
 }: TenantsCrmPanelProps) {
   const showingLabel = useMemo(
     () => `${filteredTenants.length} of ${totalTenants} kitchens`,
@@ -290,30 +369,31 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
         </button>
       </m.div>
 
-      {/* Desktop table */}
+      {/* Tablet / desktop table — horizontal scroll on narrower viewports */}
       <m.div
         variants={fadeUp}
-        className="hidden overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121212]/80 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)] sm:block"
+        className="hidden overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121212]/80 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)] md:block"
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] table-fixed border-collapse text-left">
+        <div className="-mx-px overflow-x-auto">
+          <table className="w-full min-w-[1280px] table-fixed border-collapse text-left">
             <colgroup>
-              <col style={{ width: '24%' }} />
-              <col style={{ width: '14%' }} />
               <col style={{ width: '18%' }} />
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '16%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '120px' }} />
+              <col style={{ width: '260px' }} />
             </colgroup>
             <thead className="sticky top-0 z-20">
               <tr className="border-b border-white/[0.08] bg-[#161616]/95 backdrop-blur-md">
-                {['Kitchen', 'Slug', 'Contact', 'Status', 'Trust score', 'Actions'].map((head) => (
+                {['Kitchen', 'Slug', 'Contact', 'Status', 'Plan', 'Trust score', 'Actions'].map((head) => (
                   <th
                     key={head}
                     scope="col"
-                    className={`px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 ${
+                    className={`px-4 py-3.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500 lg:px-5 ${
                       head === 'Actions' ? 'text-right' : 'text-left'
-                    }`}
+                    } ${head === 'Trust score' ? 'whitespace-nowrap' : ''}`}
                   >
                     {head}
                   </th>
@@ -323,7 +403,7 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
             <tbody>
               {filteredTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
+                  <td colSpan={7} className="px-6 py-16 text-center">
                     <Building2 size={36} className="mx-auto mb-3 text-gray-700" />
                     <p className="text-base font-bold text-white">No tenants found</p>
                     <p className="mt-1 text-sm text-gray-500">Try adjusting your search query</p>
@@ -346,6 +426,7 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
                     getStatusIndicator={getStatusIndicator}
                     getTrustScore={getTrustScore}
                     onUpdateStatus={onUpdateStatus}
+                    onSubscriptionAction={onSubscriptionAction}
                   />
                 ))
               )}
@@ -360,7 +441,7 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
       </m.div>
 
       {/* Mobile cards */}
-      <div className="space-y-3 sm:hidden">
+      <div className="space-y-3 md:hidden">
         {filteredTenants.map((tenant) => {
           const status = getStatusIndicator(tenant);
           const score = getTrustScore(tenant);
@@ -385,6 +466,10 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-white/[0.05] bg-black/30 p-3">
+                <div className="col-span-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">Plan</p>
+                  <p className="mt-1 text-xs font-medium text-gray-300">{formatSubscriptionLabel(tenant)}</p>
+                </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">Email</p>
                   <p className="mt-1 truncate text-xs font-medium text-gray-300">{tenant.contact?.email || '—'}</p>
@@ -394,12 +479,29 @@ export const TenantsCrmPanel = memo(function TenantsCrmPanel({
                   <p className="mt-1 truncate text-xs font-medium text-gray-300">{tenant.contact?.phone || '—'}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600 mb-1.5">Trust Score</p>
-                  <TrustScoreCell score={score} />
+                  <TrustScoreCell score={score} showLabel />
                 </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
+                {onSubscriptionAction && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onSubscriptionAction(tenant.id, 'extendTrial', { days: 14 })}
+                      className="flex-1 rounded-xl border border-amber-500/25 bg-amber-500/10 py-2.5 text-xs font-bold uppercase tracking-wider text-amber-300"
+                    >
+                      Extend 14d
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSubscriptionAction(tenant.id, 'grantPlan', { planId: 'growth' })}
+                      className="flex-1 rounded-xl border border-emerald-500/25 bg-emerald-500/10 py-2.5 text-xs font-bold uppercase tracking-wider text-emerald-300"
+                    >
+                      Grant Growth
+                    </button>
+                  </>
+                )}
                 <a
                   href={`/k/${slug}`}
                   target="_blank"

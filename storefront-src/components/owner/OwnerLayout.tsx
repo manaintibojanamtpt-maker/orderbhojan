@@ -20,14 +20,14 @@ import { needsStoreSetup } from '../../lib/storeSetupProgress';
 import { useOwnerMenuCount } from '../../hooks/useOwnerMenuCount';
 import { syncOwnerTenantsViaApi } from '../../lib/ownerProvisioning';
 import { cacheOwnerTenantIds } from '../../lib/ownerRedirect';
-import { FOUNDER_TENANT_ID, isFounderOwnerEmail } from '../../config/founder';
+import { FOUNDER_TENANT_ID, hasFounderTenantEntitlements, isFounderOwnerEmail } from '../../config/founder';
 import {
   resolvePreferredOwnerTenantId,
   writeOwnerActiveTenantId,
 } from '../../lib/ownerActiveTenant';
 
 const OwnerLayoutShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, userProfile, logout, refreshProfile } = useAuth();
+  const { currentUser, userProfile, logout } = useAuth();
   const { tenantInfo, tenantSlug, tenantId: contextTenantId, refreshTenant } = useTenant();
   const entitlements = useEntitlements();
   const { pendingCount, soundEnabled, showSoundPrompt, setSoundEnabled, enableSoundAlerts } = useOrderAlerts();
@@ -52,10 +52,21 @@ const OwnerLayoutShell: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const navItems = ownerNavItems
     .filter((item) => !item.ownerBranchFlag || isOwnerBranchEnabledDefault())
-    .map((item) => ({
-      ...item,
-      disabled: item.featureGate ? !entitlements.features[item.featureGate] : false,
-    }));
+    .map((item) => {
+      const founderBypass = hasFounderTenantEntitlements(
+        currentUser?.email,
+        tenantInfo?.id || contextTenantId,
+        tenantInfo?.slug || tenantSlug,
+      );
+      return {
+        ...item,
+        disabled: founderBypass
+          ? false
+          : item.featureGate
+            ? !entitlements.features[item.featureGate]
+            : false,
+      };
+    });
 
   const ownerMenuCount = useOwnerMenuCount();
 
@@ -117,12 +128,11 @@ const OwnerLayoutShell: React.FC<{ children: React.ReactNode }> = ({ children })
     void syncOwnerTenantsViaApi()
       .then((ids) => {
         if (ids.length > 0) cacheOwnerTenantIds(ids);
-        return refreshProfile();
       })
       .catch((error) => {
         console.warn('Owner tenant sync on layout mount failed:', error);
       });
-  }, [currentUser?.uid, refreshProfile]);
+  }, [currentUser?.uid]);
 
   const copyStoreLink = () => {
     const link = orderBhojanUrl || storeUrl;

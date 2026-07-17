@@ -208,9 +208,20 @@ export const marketplaceHandlers = [
   http.post(`${prefix}/checkout/place`, async ({ request }) => {
     const body = (await request.json()) as { paymentMethod?: string };
     if (body.paymentMethod === 'razorpay') {
-      return success({ draftId: 'ob_draft_mock_001' });
+      return success({ draftId: 'ob_draft_mock_001', orderNumber: 463577 });
     }
-    return success({ orderId: 'ob_ord_mock_001' });
+    if (body.paymentMethod === 'upi') {
+      return success({
+        orderId: 'ob_ord_upi_mock_001',
+        orderNumber: 463577,
+        paymentMethod: 'upi',
+        paymentStatus: 'pending',
+        amount: MOCK_QUOTE.grandTotal,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        upiUrl: 'upi://pay?pa=kitchen@paytm&pn=Mock&am=299.00&tr=ob_ord_upi_mock_001&tn=Order%20ob_ord_upi_mock_001&cu=INR',
+      });
+    }
+    return success({ orderId: 'ob_ord_mock_001', orderNumber: 463577 });
   }),
 
   http.post('/api/create-razorpay-order', async () =>
@@ -232,6 +243,7 @@ export const marketplaceHandlers = [
       success: true,
       verified: true,
       orderId: body.draftId ?? 'ob_draft_mock_001',
+      orderNumber: 463577,
     });
   }),
 

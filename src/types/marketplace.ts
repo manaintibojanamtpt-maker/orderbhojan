@@ -125,14 +125,18 @@ export interface OrderSummary {
   readonly restaurantId: string;
   readonly displayName: string;
   readonly status: string;
+  readonly paymentStatus?: string;
   readonly grandTotal: number;
   readonly createdAt: string;
+  readonly expiresAt?: string;
 }
 
 export interface OrderTrackingResponse {
   readonly orderId: string;
   readonly orderNumber: string;
   readonly status: string;
+  readonly paymentStatus?: string;
+  readonly expiresAt?: string;
   readonly timeline: readonly { readonly status: string; readonly at: string; readonly message?: string }[];
   readonly etaMinutes?: { readonly min: number; readonly max: number };
   readonly restaurant?: {

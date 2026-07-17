@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { m, AnimatePresence, useAnimation, PanInfo } from 'framer-motion';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { m, AnimatePresence } from 'framer-motion';
 
 export interface BottomSheetProps {
   isOpen: boolean;
@@ -11,6 +12,32 @@ export interface BottomSheetProps {
   panelClassName?: string;
 }
 
+let scrollLockCount = 0;
+
+function lockPageScroll() {
+  scrollLockCount += 1;
+  if (scrollLockCount !== 1) return;
+  const scrollRoot = document.getElementById('main-scroll-container');
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+  if (scrollRoot) scrollRoot.style.overflow = 'hidden';
+}
+
+function unlockPageScroll() {
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount !== 0) return;
+  const scrollRoot = document.getElementById('main-scroll-container');
+  document.documentElement.style.overflow = '';
+  document.body.style.overflow = '';
+  if (scrollRoot) scrollRoot.style.overflow = '';
+}
+
+function isMobileTouchDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) return true;
+  return navigator.maxTouchPoints > 1 && window.matchMedia('(pointer: coarse)').matches;
+}
+
 const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
   onClose,
@@ -20,25 +47,27 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   initialSnap = 0,
   panelClassName = '',
 }) => {
-  const controls = useAnimation();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const isMobileTouch = useMemo(() => isMobileTouchDevice(), []);
+  const [panelReady, setPanelReady] = useState(false);
 
   useEffect(() => {
-    const scrollRoot = document.getElementById('main-scroll-container');
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      if (scrollRoot) scrollRoot.style.overflow = 'hidden';
-      void controls.start({ y: 0, transition: { type: 'spring', bounce: 0.1, duration: 0.4 } });
-    } else {
-      document.body.style.overflow = '';
-      if (scrollRoot) scrollRoot.style.overflow = '';
-      void controls.start({ y: '100%' });
+    if (!isOpen) {
+      setPanelReady(false);
     }
+  }, [isOpen]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    setPanelReady(true);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !panelReady) return undefined;
+    lockPageScroll();
     return () => {
-      document.body.style.overflow = '';
-      if (scrollRoot) scrollRoot.style.overflow = '';
+      unlockPageScroll();
     };
-  }, [isOpen, controls]);
+  }, [isOpen, panelReady]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,79 +78,72 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  const handleDragEnd = async (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const offset = info.offset.y;
-    const velocity = info.velocity.y;
-
-    if (offset > 150 || velocity > 500) {
-      await controls.start({ y: '100%' });
-      onClose();
-    } else {
-      controls.start({ y: 0, transition: { type: 'spring', bounce: 0.2, duration: 0.4 } });
-    }
+  const panelHeightStyle = {
+    height: `${snapPoints[initialSnap]}vh`,
+    maxHeight: 'calc(100dvh - 24px)',
   };
 
-  return (
+  const panelBaseClass =
+    `fixed bottom-0 left-0 right-0 z-[1201] flex flex-col rounded-t-[32px] bg-white shadow-2xl dark:bg-gray-900 pb-safe ${panelClassName}`.trim();
+
+  const panelContent = (
+    <>
+      <div className="flex w-full shrink-0 justify-center pb-2 pt-4">
+        <div className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
+      </div>
+      {title ? (
+        <div className="shrink-0 px-6 pb-4 text-center">
+          <h3 id="bottom-sheet-title" className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {title}
+          </h3>
+        </div>
+      ) : null}
+      <div
+        className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6 no-scrollbar touch-pan-y"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {children}
+      </div>
+    </>
+  );
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
-      {isOpen && (
+      {isOpen ? (
         <>
-          <m.div
+          <m.button
+            key="bottom-sheet-backdrop"
+            type="button"
+            aria-label="Close"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: panelReady ? 1 : 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            onClick={onClose}
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
+            transition={{ duration: isMobileTouch ? 0.12 : 0.2 }}
+            onClick={panelReady ? onClose : undefined}
+            className={`fixed inset-0 z-[1200] cursor-default touch-manipulation border-0 bg-black/60 backdrop-blur-sm${panelReady ? '' : ' pointer-events-none'}`.trim()}
           />
-          <m.div
-            ref={containerRef}
+          <div
+            key="bottom-sheet-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? 'bottom-sheet-title' : undefined}
-            initial={{ y: '100%' }}
-            animate={controls}
-            exit={{ y: '100%' }}
-            onAnimationComplete={() => {
-              if (isOpen) controls.set({ y: 0 });
-            }}
-            transition={{ type: 'spring', bounce: 0.1, duration: 0.4 }}
-            drag="y"
-            dragConstraints={{ top: 0 }}
-            dragElastic={0.05}
-            onDragEnd={handleDragEnd}
-            className={`fixed bottom-0 left-0 right-0 z-[201] bg-white dark:bg-gray-900 rounded-t-[32px] shadow-2xl flex flex-col will-change-transform pb-safe ${panelClassName}`.trim()}
+            className={panelBaseClass}
             style={{
-              height: `${snapPoints[initialSnap]}vh`,
-              maxHeight: 'calc(100vh - 40px)',
-              touchAction: 'none',
+              ...panelHeightStyle,
+              transform: 'translate3d(0,0,0)',
+              WebkitTransform: 'translate3d(0,0,0)',
             }}
           >
-            <div className="w-full pt-4 pb-2 flex justify-center shrink-0 cursor-grab active:cursor-grabbing">
-              <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full" />
-            </div>
-            {title && (
-              <div className="px-6 pb-4 shrink-0 text-center">
-                <h3 id="bottom-sheet-title" className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">{title}</h3>
-              </div>
-            )}
-            <div
-              className="flex-1 overflow-y-auto px-6 pb-6 no-scrollbar overscroll-contain"
-              style={{ touchAction: 'pan-y' }}
-              role="document"
-              aria-labelledby={title ? 'bottom-sheet-title' : undefined}
-              onPointerDown={(e) => {
-                const target = e.currentTarget;
-                if (target.scrollTop > 0) {
-                  e.stopPropagation();
-                }
-              }}
-            >
-              {children}
-            </div>
-          </m.div>
+            {panelContent}
+          </div>
         </>
-      )}
-    </AnimatePresence>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
   );
 };
 

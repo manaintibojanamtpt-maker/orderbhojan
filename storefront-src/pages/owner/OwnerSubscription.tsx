@@ -14,8 +14,13 @@ import {
   isOnGrowthOnboardingTrial,
   isTrialCurrentlyActive,
   activateGrowthOnboardingTrial,
+  ownerPlanRequiresPayment,
+  isOwnerPlanActionable,
+  isGrowthTrialExpired,
+  isProTrialExpired,
 } from '../../lib/planStatus';
 import { upgradeOwnerSubscriptionPlan } from '../../lib/ownerSubscriptionApi';
+import { runOwnerSubscriptionPayment } from '../../lib/ownerSubscriptionPayment';
 import {
   FREE_PLAN,
   PAID_PLANS,
@@ -28,13 +33,36 @@ import {
 } from '../../config/pricing';
 
 const OwnerSubscription = () => {
-  const { tenantInfo, refreshTenant } = useTenant();
+  const { tenantInfo, loading: tenantLoading, refreshTenant } = useTenant();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [loadingPlan, setLoadingPlan] = useState<PaidPlanId | null>(null);
   const copy = pricingPageCopy.owner;
 
-  if (!tenantInfo) return null;
+  if (tenantLoading && !tenantInfo) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-10 text-center text-white/60">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-red-500" />
+        Loading plans &amp; billing…
+      </div>
+    );
+  }
+
+  if (!tenantInfo) {
+    return (
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-8 text-center max-w-lg mx-auto">
+        <p className="text-lg font-bold text-white">Could not load your kitchen profile</p>
+        <p className="mt-2 text-sm text-white/60">Check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => void refreshTenant()}
+          className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   const isEmailVerified = currentUser?.emailVerified || tenantInfo.kyc?.emailVerificationStatus === 'verified';
   const isMerchantAgreementAccepted = !!tenantInfo.legal?.merchantDeclarationAcceptedAt;
@@ -53,6 +81,10 @@ const OwnerSubscription = () => {
   const currentPlan = getPlanById(effectivePlanId) || FREE_PLAN;
 
   const getOwnerPlanActionLabelWithEnterprise = (plan: (typeof PAID_PLANS)[number]) => {
+    if (effectivePlanId === 'enterprise') {
+      if (plan.id === 'enterprise') return 'Current plan';
+      return copy.contactSales;
+    }
     if (plan.id === 'enterprise' && !canActivate) return copy.contactSales;
     return getOwnerPlanActionLabel(plan.id, plan.name, plan.ownerCta, tenantInfo);
   };
@@ -78,8 +110,21 @@ const OwnerSubscription = () => {
     }
 
     setLoadingPlan(planId);
+    const tenantDocId = tenantInfo.id || tenantInfo.slug;
     try {
-      const tenantDocId = tenantInfo.id || tenantInfo.slug;
+      if (ownerPlanRequiresPayment(tenantInfo, planId)) {
+        await runOwnerSubscriptionPayment({
+          tenantId: tenantDocId,
+          planId,
+          customerName: currentUser?.displayName || tenantInfo.name,
+          customerEmail: currentUser?.email || tenantInfo.contact?.email,
+          customerPhone: tenantInfo.kyc?.mobileNumber || tenantInfo.contact?.phone,
+        });
+        await refreshTenant();
+        toast.success(`${plan.name} activated. ${copy.upgradeSuccess}`);
+        return;
+      }
+
       if (
         planId === 'growth' &&
         effectivePlanId === 'starter' &&
@@ -99,6 +144,25 @@ const OwnerSubscription = () => {
         toast.success(copy.upgradeSuccess);
       }
     } catch (err: unknown) {
+      const apiErr = err as Error & { status?: number };
+      if (apiErr.status === 402 || ownerPlanRequiresPayment(tenantInfo, planId)) {
+        try {
+          await runOwnerSubscriptionPayment({
+            tenantId: tenantDocId,
+            planId,
+            customerName: currentUser?.displayName || tenantInfo.name,
+            customerEmail: currentUser?.email || tenantInfo.contact?.email,
+            customerPhone: tenantInfo.kyc?.mobileNumber || tenantInfo.contact?.phone,
+          });
+          await refreshTenant();
+          toast.success(`${plan.name} activated. ${copy.upgradeSuccess}`);
+          return;
+        } catch (paymentErr: unknown) {
+          const message = paymentErr instanceof Error ? paymentErr.message : 'Payment failed.';
+          toast.error(message);
+          return;
+        }
+      }
       const message = err instanceof Error ? err.message : 'Failed to update plan.';
       toast.error(message);
     } finally {
@@ -128,6 +192,16 @@ const OwnerSubscription = () => {
               {growthOnboardingTrial
                 ? `${PLAN_TRIALS.growthOnboardingDays}-day Growth trial · ${trialDaysLeft ?? '—'} days left · ends ${trialExpiresAt.toLocaleDateString('en-IN')}`
                 : `Trial active until ${trialExpiresAt.toLocaleDateString('en-IN')}`}
+            </p>
+          )}
+          {isGrowthTrialExpired(tenantInfo) && effectivePlanId === 'growth' && (
+            <p className="text-sm text-rose-400 mt-1">
+              Your Growth trial has expired. Pay ₹999/mo below to keep accepting live orders.
+            </p>
+          )}
+          {isProTrialExpired(tenantInfo) && effectivePlanId === 'pro' && (
+            <p className="text-sm text-rose-400 mt-1">
+              Your Pro trial has expired. Pay ₹2,999/mo below to keep Pro features active.
             </p>
           )}
           {effectivePlanId === 'starter' && (
@@ -160,10 +234,14 @@ const OwnerSubscription = () => {
               variant="owner"
               isCurrent={effectivePlanId === plan.id}
               loading={loadingPlan === plan.id}
-              disabled={(!canActivate && plan.id !== 'enterprise') || effectivePlanId === plan.id}
+              disabled={
+                effectivePlanId === 'enterprise' ||
+                (!canActivate && plan.id !== 'enterprise') ||
+                !isOwnerPlanActionable(tenantInfo, plan.id)
+              }
               onSelect={() => {
                 if (plan.id === effectivePlanId) return;
-                if (plan.id === 'enterprise' && !canActivate) {
+                if (effectivePlanId === 'enterprise' || (plan.id === 'enterprise' && !canActivate)) {
                   navigate('/contact');
                   return;
                 }

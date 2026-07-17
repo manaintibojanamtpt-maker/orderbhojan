@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-07-14T07:48:39.645Z",
+  "commit": "fcf1a12",
+  "report": {
+    "base": "http://127.0.0.1:4173",
+    "label": "local-preview",
+    "steps": {
+      "step1": {
+        "puneFallback": true,
+        "honestEmpty": false,
+        "bodySnippet": "ORDERBHOJAN · HOME KITCHENS Ghar ka khana, delivered warm Hyderabadi chicken biryani — sealed dum, delivered warm Delivering to Showing Pune kitchens until you set your location Search Close-up of steaming Hyderabadi chicken dum biryani with saffron rice CATEGORIES What's on your mind? Swipe to explore cuisines near you PIZZA BIRYANI MEALS SOUTH INDIAN NORTH INDIAN Within 18 km KITCHEN Restaurant Cloud kitchen Chef kitchen Home kitchen Open now Veg Offers 4.5+ SORT Nearest Popular Fastest Top ra",
+        "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\validation-screenshots\\local-preview-step1-home-fresh.png",
+        "consoleErrors": []
+      },
+      "step2": {
+        "hasKitchenContent": true,
+        "zeroKm": false,
+        "vegFilterClicked": true,
+        "clearFiltersClicked": false,
+        "bodySnippet": "ORDERBHOJAN · HOME KITCHENS Ghar ka khana, delivered warm Hyderabadi chicken biryani — sealed dum, delivered warm Delivering to Koregaon Park, Pune Search Close-up of steaming Hyderabadi chicken dum biryani with saffron rice CATEGORIES What's on your mind? Swipe to explore cuisines near you PIZZA BIRYANI MEALS SOUTH INDIAN NORTH INDIAN Within 18 km KITCHEN Restaurant Cloud kitchen Chef kitchen Home kitchen Open now Veg Offers 4.5+ SORT Nearest Popular Fastest Top rated Newest Nearby kitchens Featured Popular dishes TRUST Why OrderBhojan Verified home kitchens with the warmth you expect Fresh daily Hygienic Verified Live cooking Fast delivery HOME SEARCH CART ORDERS PROFILE",
+        "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\validation-screenshots\\local-preview-step2-discovery-pune.png",
+        "network": [
+          {
+            "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+            "status": 204
+          },
+          {
+            "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.5362&lng=73.8958&page=1&limit=24&maxDistanceKm=18&sort=distance",
+            "status": 204
+          },
+          {
+            "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/sync/revision",
+            "status": 200
+          },
+          {
+            "url": "https://manaintibojanam-backend.onrender.com/api/marketplace/discovery?lat=18.5362&lng=73.8958&page=1&limit=24&maxDistanceKm=18&vegOnly=true&sort=distance",
+            "status": 204
+          }
+        ]
+      },
+      "step3": {
+        "toastVisible": false,
+        "cartCleared": true,
+        "ctxCleared": true,
+        "menuOk": false,
+        "state": {
+          "cartLines": 0,
+          "cartSlug": "mana-inti-kitchen",
+          "ctxSlug": null,
+          "path": "/restaurant/mana-inti-kitchen/menu"
+        },
+        "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\validation-screenshots\\local-preview-step3-context-switch.png"
+      },
+      "step4": {
+        "addResult": "clicked",
+        "path": "/cart",
+        "bodySnippet": "OrderBhojan Koregaon Park, Pune Your cart 1 item · Subtotal ₹149 Inti Bhojanam Ghar Kha Khana Pune Ordering from this kitchen Menu Andhra Veg Thali (Mini) ₹149 each · ₹149 − 1 + Subtotal ₹149 Items 1 Proceed to checkout Continue browsing Clear HOME SEARCH CART ORDERS PROFILE",
+        "screenshot": "F:\\Manaintibojanam_final2\\orderbhojan\\validation-screenshots\\local-preview-step4-checkout-attempt.png",
+        "limitation": "Full COD not run; no payment/session guarantees in headless smoke"
+      },
+      "step5": {
+        "consoleErrors": [],
+        "badResponses": []
+      }
+    }
+  }
+}

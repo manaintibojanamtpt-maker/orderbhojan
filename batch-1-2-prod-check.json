@@ -1,0 +1,100 @@
+﻿{
+    "playwrightLive":  {
+                           "cart":  {
+                                        "snippet":  "OrderBhojan\nSet delivery location\nYour cart\n\n1 item Â· Subtotal â‚¹149\n\nInti Bhojanam Ghar Kha Khana Pune\n\nOrdering from this kitchen\n\nMenu\n\nAndhra Veg Thali (Mini)\n\nâ‚¹149 each Â· â‚¹149\n\nâˆ’\n1\n+\nSubtotal\nâ‚¹149\nItems\n1\nProceed to checkout\nContinue browsing\nClear\nHOME\nSEARCH\nCART\nORDERS\nPROFILE",
+                                        "batch1Msg":  false,
+                                        "setLocCta":  true,
+                                        "proceed":  true
+                                    },
+                           "cartNoLoc":  {
+                                             "snippet":  "OrderBhojan\nSet delivery location\nYour cart\n\n1 item Â· Subtotal â‚¹149\n\nInti Bhojanam Ghar Kha Khana Pune\n\nOrdering from this kitchen\n\nMenu\n\nAndhra Veg Thali (Mini)\n\nâ‚¹149 each Â· â‚¹149\n\nâˆ’\n1\n+\nSubtotal\nâ‚¹149\nItems\n1\nProceed to checkout\nContinue browsing\nClear\nHOME\nSEARCH\nCART\nORDERS\nPROFILE",
+                                             "batch1Msg":  false,
+                                             "proceed":  true,
+                                             "setLocCta":  true
+                                         },
+                           "checkout":  {
+                                            "snippet":  "OrderBhojan\nSet delivery location\nCheckout\n\n1 item Â· Cash on delivery\n\nDELIVER TO\n\nSet delivery location\n\nAdd address\nMOBILE NUMBER\n\nRequired for order updates and delivery coordination\n\nDelivery address is required. Add your address before checkout.\n\nBack to cart",
+                                            "sessionExpired":  false,
+                                            "addAddress":  false
+                                        },
+                           "manual":  {
+                                          "snippet":  "OrderBhojan\nSet delivery location\nCheckout\n\n1 item Â· Cash on delivery\n\nDELIVER TO\n\nSet delivery location\n\nAdd address\nMOBILE NUMBER\n\nRequired for order updates and delivery coordination\n\nDelivery address is required. Add your address before checkout.\n\nBack to cart\nConfirm delivery location\n\nUse your current location, then add flat, building, and landmark â€” same flow as the founder storefront.\n\nAuto detect my location",
+                                          "autoDetect":  true,
+                                          "formFields":  true
+                                      }
+                       },
+    "verdict":  {
+                    "founderScreenshotEra":  "CURRENT production behavior (Enter address manually -\u003e openWizard GPS flow with Auto detect my location); not Batch 2 AddressFormSheet path",
+                    "batch2":  "NOT LIVE",
+                    "batch1":  "NOT LIVE",
+                    "manualPathFixedInProduction":  "NO",
+                    "batch3OverflowProceed":  "NO",
+                    "batch3Reason":  "Batch 1/2 exist only uncommitted in workspace; production cart still shows Proceed to checkout without gate copy; checkout recovery copy and manual AddressForm routing are absent from prod bundles and live UX."
+                },
+    "prodBundleBytes":  238107,
+    "prodBundle":  "assets/index-qlX3vGvA.js",
+    "nextDeployRecommendation":  [
+                                     "Commit all Batch 1/2 files (including locationReadiness.ts and tests).",
+                                     "Push local main (4 commits ahead of origin) plus Batch 1/2 commit.",
+                                     "npm run build in orderbhojan; deploy hosting; confirm index.html hash and lazy chunks contain gate/recovery strings.",
+                                     "Re-run post-deploy proof: cart gate message, checkout Set delivery location empty state, Enter address manually opens AddressFormSheet (house/landmark/pincode) without GPS-only wizard."
+                                 ],
+    "generatedAt":  "2026-07-14T18:38:38.3274251Z",
+    "liveUrl":  "https://orderbhojan.web.app",
+    "bundleStringScan":  {
+                             "lazyChunks":  {
+                                                "checkout_index_stKK0FIW":  {
+                                                                                "Add your delivery address to complete checkout":  false,
+                                                                                "Set delivery location title empty state":  true,
+                                                                                "Session expired":  true
+                                                                            },
+                                                "cart_index_Ck_Iqq98":  {
+                                                                            "Proceed to checkout":  true,
+                                                                            "Set delivery location checkout CTA label":  false,
+                                                                            "Set your delivery location to see delivery options":  false
+                                                                        }
+                                            },
+                             "mainChunk_index_qlX3vGvA":  {
+                                                              "Set your delivery location to see delivery options":  false,
+                                                              "Auto detect":  true,
+                                                              "setManualSession":  true,
+                                                              "Enter address manually":  true,
+                                                              "hasActiveDeliveryLocation":  false,
+                                                              "Add your delivery address to complete checkout":  false
+                                                          }
+                         },
+    "deployHistory":  {
+                          "prodBundleMismatch":  "Live index-qlX3vGvA.js differs from deploy-log DoFE5dzf.js and from local uncommitted build index-B0pElf_S.js",
+                          "knownCommits":  {
+                                               "7158a2f":  "location/checkout tap handlers (in prod lineage)",
+                                               "6374e2d":  "hide unknown kitchen distance badge",
+                                               "fcf1a12":  "recovery-01 location fallback (origin/main tip)",
+                                               "9202f15":  "iOS WebKit sheet freeze (local HEAD, not on origin/main)"
+                                           },
+                          "localDeployLogBundle":  "assets/index-DoFE5dzf.js"
+                      },
+    "git":  {
+                "unpushedCommits":  [
+                                        "6374e2d",
+                                        "7158a2f",
+                                        "4dbd510",
+                                        "9202f15"
+                                    ],
+                "workingTreeBatchFiles":  [
+                                              "orderbhojan/src/features/location/domain/locationReadiness.ts (untracked)",
+                                              "orderbhojan/src/features/cart/hooks/useCartValidation.ts",
+                                              "orderbhojan/src/presentation/cart/OrderBhojanCartExperience.tsx",
+                                              "orderbhojan/src/presentation/checkout/OrderBhojanCheckoutPage.tsx",
+                                              "orderbhojan/src/features/location/ui/LocationSelectorSheet.tsx",
+                                              "orderbhojan/src/features/location/ui/AddressFormSheet.tsx",
+                                              "orderbhojan/src/features/checkout/hooks/useCheckoutFlow.ts",
+                                              "orderbhojan/tests/cart-location-gate.test.ts (untracked)",
+                                              "orderbhojan/tests/checkout-location-recovery.test.ts (untracked)"
+                                          ],
+                "originMainSha":  "fcf1a12e61139e972a922179a0b96d92a9da34c7",
+                "headSha":  "9202f158f75e39e71c7ae76e6b2a68cac3747733",
+                "headShort":  "9202f15",
+                "batch1Batch2Committed":  false,
+                "batch1Batch2CommitSha":  null
+            }
+}
