@@ -52,17 +52,7 @@ export class DirectUPIProvider implements IPaymentProvider {
     onError: (error: unknown) => void
   ): void {
     if (initializationResponse.providerData?.upiUrl) {
-      const upiUrl = String(initializationResponse.providerData.upiUrl);
-      if (typeof document !== 'undefined' && upiUrl.startsWith('upi://')) {
-        const anchor = document.createElement('a');
-        anchor.href = upiUrl;
-        anchor.style.display = 'none';
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        return;
-      }
-      window.location.href = upiUrl;
+      window.location.href = initializationResponse.providerData.upiUrl;
       return;
     }
     onError(new Error('Direct UPI is not available yet. Please use Razorpay or Cash on Delivery.'));

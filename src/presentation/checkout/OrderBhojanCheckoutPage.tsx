@@ -21,7 +21,6 @@ import { useAuth } from '@/shared/providers/AuthProvider';
 import { useCheckoutFlow } from '@/features/checkout/hooks/useCheckoutFlow';
 import { useCheckoutPrefetch } from '@/features/checkout/hooks/useCheckoutPrefetch';
 import { prefetchRazorpayCheckoutScript } from '@/features/checkout/infrastructure/razorpayCheckout';
-import { UpiPaymentPendingView } from '@/presentation/checkout/UpiPaymentPendingView';
 import { markPerf } from '@/lib/perfMarks';
 
 const DELIVERY_ADDRESS_PLACEHOLDER = 'Set delivery location';
@@ -52,11 +51,6 @@ export function OrderBhojanCheckoutPage() {
     placeRazorpayOrder,
     placeUpiOrder,
     placingMethod,
-    upiSession,
-    upiVerifying,
-    upiPollMessage,
-    openUpiApp,
-    checkUpiPayment,
   } = useCheckoutFlow();
   useCheckoutPrefetch(canCheckout);
 
@@ -146,37 +140,16 @@ export function OrderBhojanCheckoutPage() {
     await placeUpiOrder(phone.trim(), sessionUser?.displayName ?? undefined);
   };
 
-  if (status === 'awaiting_payment' && upiSession) {
-    return (
-      <UpiPaymentPendingView
-        orderNumber={upiSession.orderNumber}
-        amount={upiSession.amount}
-        upiUrl={upiSession.upiUrl}
-        expiresAt={upiSession.expiresAt}
-        verifying={upiVerifying}
-        pollMessage={upiPollMessage}
-        errorMessage={error}
-        onOpenUpi={openUpiApp}
-        onCheckPayment={() => void checkUpiPayment()}
-        onTrack={() => navigate(`/orders/${upiSession.orderId}/track`)}
-        onBrowse={() => navigate('/')}
-      />
-    );
-  }
-
-  if (orderId && status === 'success') {
-    const isRazorpayPayment = lastPaymentMethod === 'razorpay';
-    const isUpiPayment = lastPaymentMethod === 'upi';
+  if (orderId) {
+    const isOnlinePayment = lastPaymentMethod === 'razorpay' || lastPaymentMethod === 'upi';
     const orderLabel = orderNumber ?? orderId;
     return (
       <CheckoutSuccessView
         title="Order placed"
         subtitle={
-          isRazorpayPayment
+          isOnlinePayment
             ? `Your online payment for order #${orderLabel} is confirmed.`
-            : isUpiPayment
-              ? `Your UPI payment for order #${orderLabel} is confirmed.`
-              : `Your COD order #${orderLabel} is confirmed.`
+            : `Your COD order #${orderLabel} is confirmed.`
         }
         trackLabel="Track order"
         ordersLabel="View orders"

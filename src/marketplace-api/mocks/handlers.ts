@@ -215,10 +215,7 @@ export const marketplaceHandlers = [
         orderId: 'ob_ord_upi_mock_001',
         orderNumber: 463577,
         paymentMethod: 'upi',
-        paymentStatus: 'pending',
-        amount: MOCK_QUOTE.grandTotal,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-        upiUrl: 'upi://pay?pa=kitchen@paytm&pn=Mock&am=299.00&tr=ob_ord_upi_mock_001&tn=Order%20ob_ord_upi_mock_001&cu=INR',
+        upiUrl: 'upi://pay?pa=kitchen@paytm&pn=Mock&am=299&tr=ob_ord_upi_mock_001&cu=INR',
       });
     }
     return success({ orderId: 'ob_ord_mock_001', orderNumber: 463577 });

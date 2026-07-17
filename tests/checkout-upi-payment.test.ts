@@ -20,27 +20,13 @@ describe('checkout direct UPI payment', () => {
     assert.match(checkout, /razorpayLabel=\{showUpiButton \? 'Pay via UPI' : 'Pay online'\}/);
     assert.match(checkout, /handlePlaceUpi/);
     assert.match(checkout, /placeUpiOrder/);
-    assert.match(checkout, /UpiPaymentPendingView/);
   });
 
-  it('placeUpiOrder keeps payment pending until verification', () => {
+  it('placeUpiOrder opens the returned upiUrl', () => {
     const flow = readFileSync(join(root, 'src/features/checkout/hooks/useCheckoutFlow.ts'), 'utf8');
 
     assert.match(flow, /paymentMethod: 'upi'/);
-    assert.match(flow, /awaiting_payment/);
-    assert.match(flow, /pollUpiPaymentStatus/);
-    assert.match(flow, /launchUpiIntent/);
-    assert.doesNotMatch(flow, /window\.location\.href = response\.upiUrl/);
-  });
-
-  it('uses anchor-based UPI launch helper', () => {
-    const upi = readFileSync(
-      join(root, 'src/features/checkout/infrastructure/upiCheckout.ts'),
-      'utf8',
-    );
-
-    assert.match(upi, /launchUpiIntent/);
-    assert.match(upi, /document\.createElement\('a'\)/);
-    assert.match(upi, /buildUpiQrImageUrl/);
+    assert.match(flow, /response\.upiUrl/);
+    assert.match(flow, /window\.location\.href = response\.upiUrl/);
   });
 });

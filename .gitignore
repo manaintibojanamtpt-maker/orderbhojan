@@ -9,3 +9,7 @@ coverage
 .vite
 storefront-src/node_modules
 packages/node_modules
+*-proof/
+*-proof-report.json
+validation-screenshots/
+_prod-*.js

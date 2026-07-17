@@ -333,9 +333,6 @@ export class MarketplaceApiClient {
     orderNumber?: number | string;
     upiUrl?: string;
     paymentMethod?: string;
-    paymentStatus?: string;
-    amount?: number;
-    expiresAt?: string;
   }> {
     return this.http.request({
       method: 'POST',

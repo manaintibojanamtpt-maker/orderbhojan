@@ -1,6 +1,4 @@
 import { useDiscoveryHome } from '../hooks/useDiscoveryHome';
-import { readDiscoverySessionCache } from '../engine/discoverySessionCache';
-import { resolveDiscoveryCoords } from '../engine/discoveryEngine';
 import { DiscoveryCollectionRail } from './DiscoveryCollectionRail';
 import { DiscoveryFiltersBar } from './DiscoveryFiltersBar';
 import { TrendingFoodsSection } from '@/features/experience/ui/home/TrendingFoodsSection';
@@ -74,13 +72,10 @@ export function DiscoveryHomeFeed() {
   const setFilters = useDiscoveryFilterStore((s) => s.setFilters);
   const locationEnabled = useLocationFeatureEnabled();
   const activeLocation = useActiveLocation();
-  const coords = resolveDiscoveryCoords(activeLocation);
   const { openSelector } = useLocationActions();
   const online = useOnlineStatus();
   const filtersActive = hasDiscoveryFilterOverrides(filters);
-  const sessionCachedFeed = readDiscoverySessionCache(coords.lat, coords.lng, filters);
-  const feedData = query.data ?? sessionCachedFeed;
-  const showInitialSkeleton = query.isPending && !feedData;
+  const showInitialSkeleton = query.isPending && !query.data;
 
   if (showInitialSkeleton) {
     return (
@@ -105,7 +100,7 @@ export function DiscoveryHomeFeed() {
     );
   }
 
-  if (query.isError && !feedData) {
+  if (query.isError) {
     return (
       <div className="space-y-4">
         <DiscoveryFeedControls />
@@ -120,7 +115,7 @@ export function DiscoveryHomeFeed() {
     );
   }
 
-  const collections = feedData?.collections ?? [];
+  const collections = query.data?.collections ?? [];
   const visibleCollections = collections.filter((c) => c.restaurants.length > 0);
   const spotlightPlan = buildDiscoverySpotlightFeed(visibleCollections);
   const railsToRender = spotlightPlan.kitchenCollections.filter((c) => c.restaurants.length > 0);
@@ -130,7 +125,7 @@ export function DiscoveryHomeFeed() {
 
   if (visibleCollections.length === 0) {
     const usingPuneFallback = !activeLocation;
-    const locationLabel = feedData?.locationLabel ?? DEFAULT_MARKETPLACE_CITY_LABEL;
+    const locationLabel = query.data?.locationLabel ?? DEFAULT_MARKETPLACE_CITY_LABEL;
     const openNowBlocking = Boolean(filters.openNowOnly);
 
     let title = `No kitchens within ${CONSUMER_MAX_DISCOVERY_DISTANCE_KM} km`;
@@ -203,13 +198,13 @@ export function DiscoveryHomeFeed() {
 
   return (
     <PullToRefresh
-      disabled={query.isFetching && !feedData}
+      disabled={query.isFetching && !query.data}
       onRefresh={async () => {
         await query.refetch();
       }}
     >
       <div className="space-y-5">
-        {query.isFetching && feedData ? (
+        {query.isFetching && query.data ? (
           <p className="text-xs text-white/45" aria-live="polite">
             Refreshing kitchens…
           </p>
@@ -219,7 +214,7 @@ export function DiscoveryHomeFeed() {
 
         <DiscoveryNearbyHeader
           kitchenCount={totalKitchenCount}
-          locationLabel={feedData?.locationLabel}
+          locationLabel={query.data?.locationLabel}
           hasActiveLocation={Boolean(activeLocation)}
         />
 
