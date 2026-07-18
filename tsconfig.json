@@ -19,6 +19,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
@@ -41,8 +42,7 @@
       "lucide-react": [
         "./node_modules/lucide-react"
       ]
-    },
-    "baseUrl": "."
+    }
   },
   "include": [
     "src"
