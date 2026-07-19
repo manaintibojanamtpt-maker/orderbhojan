@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getActiveMenuRouteSlug, menuRouteRestaurantId } from '@/features/food/engine/foodMenuRouteContext';
 import { useRestaurantContextStore } from '@/features/restaurant/store/restaurantContextStore';
 import { notifyToast } from '@/shared/providers/BdsToastProvider';
 
@@ -41,8 +42,24 @@ const CROSS_RESTAURANT_TOAST =
 
 function readRestaurantContext(): { restaurantSlug: string; restaurantId: string } | null {
   const ctx = useRestaurantContextStore.getState();
-  if (!ctx.restaurantSlug || !ctx.restaurantId) return null;
-  return { restaurantSlug: ctx.restaurantSlug, restaurantId: ctx.restaurantId };
+  if (ctx.restaurantSlug && ctx.restaurantId) {
+    return { restaurantSlug: ctx.restaurantSlug, restaurantId: ctx.restaurantId };
+  }
+
+  const cartSlug = useCartStore.getState().restaurantSlug;
+  if (cartSlug) {
+    return { restaurantSlug: cartSlug, restaurantId: menuRouteRestaurantId(cartSlug) };
+  }
+
+  const menuRouteSlug = getActiveMenuRouteSlug();
+  if (menuRouteSlug) {
+    return {
+      restaurantSlug: menuRouteSlug,
+      restaurantId: menuRouteRestaurantId(menuRouteSlug),
+    };
+  }
+
+  return null;
 }
 
 export function buildCartLineId(

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { getMarketplaceQueryBehavior } from '@/config/marketplaceQueryPolicy';
 import { useActiveLocation } from '@/features/location';
 import { resolveRestaurantCoords } from '@/features/restaurant/engine/restaurantExperienceLayer';
@@ -9,24 +9,36 @@ import {
   hydrateFoodSessionCacheFromIdb,
   readFoodSessionCache,
 } from '../engine/foodSessionCache';
-import {
-  loadFoodMenu,
-  syncRestaurantContextFromMenuCache,
-} from '../engine/foodExperienceLayer';
+import { loadFoodMenu, syncMenuRestaurantContext } from '../engine/foodExperienceLayer';
+import { setActiveMenuRouteSlug } from '../engine/foodMenuRouteContext';
 import { foodKeys } from './foodQueryKeys';
 import { useFoodFeatureEnabled } from './useFoodFeature';
 import { useCartStore } from '@/features/cart/store/cartStore';
-import { sanitizeRestaurantSlugContext } from '@/lib/sanitizeLiveRestaurantContext';
 import type { FoodMenuResponse } from '@/types/marketplace-food';
 
-function syncMenuRestaurantContext(
+function readCachedMenu(
   slug: string,
   lat: number,
   lng: number,
+  queryClient: ReturnType<typeof useQueryClient>,
+): FoodMenuResponse | undefined {
+  return (
+    (queryClient.getQueryData(foodKeys.menu(slug, lat, lng)) as FoodMenuResponse | undefined) ??
+    readFoodSessionCache(slug, lat, lng) ??
+    undefined
+  );
+}
+
+function syncMenuContextForSlug(
+  slug: string,
+  lat: number,
+  lng: number,
+  queryClient: ReturnType<typeof useQueryClient>,
+  setRestaurant: (slug: string) => void,
   menu?: FoodMenuResponse | null,
 ): void {
-  sanitizeRestaurantSlugContext(slug);
-  syncRestaurantContextFromMenuCache(slug, lat, lng, menu);
+  setRestaurant(slug);
+  syncMenuRestaurantContext(slug, lat, lng, menu ?? readCachedMenu(slug, lat, lng, queryClient));
 }
 
 export function useFoodMenu(slug: string | undefined) {
@@ -37,34 +49,33 @@ export function useFoodMenu(slug: string | undefined) {
   const liveQuery = getMarketplaceQueryBehavior();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (slug) setRestaurant(slug);
-  }, [slug, setRestaurant]);
-
-  useEffect(() => {
-    if (!slug) return;
-    syncMenuRestaurantContext(slug, coords.lat, coords.lng);
-  }, [slug, coords.lat, coords.lng]);
-
-  useEffect(() => {
-    if (!slug) return;
-    const rehydrate = useRestaurantContextStore.persist.onFinishHydration(() => {
-      syncMenuRestaurantContext(slug, coords.lat, coords.lng, queryClient.getQueryData(
-        foodKeys.menu(slug, coords.lat, coords.lng),
-      ) as FoodMenuResponse | undefined);
-    });
-    if (useRestaurantContextStore.persist.hasHydrated()) {
-      syncMenuRestaurantContext(
-        slug,
-        coords.lat,
-        coords.lng,
-        queryClient.getQueryData(foodKeys.menu(slug, coords.lat, coords.lng)) as
-          | FoodMenuResponse
-          | undefined,
-      );
+  useLayoutEffect(() => {
+    if (!slug) {
+      setActiveMenuRouteSlug(null);
+      return;
     }
-    return rehydrate;
-  }, [slug, coords.lat, coords.lng, queryClient]);
+    syncMenuContextForSlug(slug, coords.lat, coords.lng, queryClient, setRestaurant);
+    return () => setActiveMenuRouteSlug(null);
+  }, [slug, coords.lat, coords.lng, queryClient, setRestaurant]);
+
+  useLayoutEffect(() => {
+    if (!slug) return;
+    const resync = () => {
+      syncMenuContextForSlug(slug, coords.lat, coords.lng, queryClient, setRestaurant);
+    };
+
+    const unsubContext = useRestaurantContextStore.persist.onFinishHydration(resync);
+    const unsubCart = useCartStore.persist.onFinishHydration(resync);
+
+    if (useRestaurantContextStore.persist.hasHydrated() && useCartStore.persist.hasHydrated()) {
+      resync();
+    }
+
+    return () => {
+      unsubContext();
+      unsubCart();
+    };
+  }, [slug, coords.lat, coords.lng, queryClient, setRestaurant]);
 
   useEffect(() => {
     if (!slug) return;
@@ -103,7 +114,7 @@ export function useFoodMenu(slug: string | undefined) {
     retry: 2,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!slug || !query.data) return;
     syncMenuRestaurantContext(slug, coords.lat, coords.lng, query.data);
   }, [slug, coords.lat, coords.lng, query.data]);
