@@ -1,3 +1,4 @@
+@import "./fonts.css";
 @import "tailwindcss";
 @source "../../storefront-src/design-system/**/*.{ts,tsx}";
 @import "../../storefront-src/design-system/styles/index.css";
