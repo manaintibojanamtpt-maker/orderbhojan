@@ -2,6 +2,21 @@ import { ownerApiRequest } from './ownerProvisioning';
 
 export type DeliveryProviderId = 'porter' | 'uber_direct' | 'rapido' | 'self_pickup';
 
+export interface CredentialFieldHelp {
+  key: string;
+  label: string;
+  placeholder: string;
+  helpText: string;
+  findItLabel: string;
+  findItUrl?: string;
+}
+
+export interface OnboardingStep {
+  step: number;
+  title: string;
+  body: string;
+}
+
 export interface DeliveryProviderCapabilityRow {
   id: DeliveryProviderId;
   displayName: string;
@@ -9,9 +24,28 @@ export interface DeliveryProviderCapabilityRow {
   maturity: string;
   capabilities: string[];
   docsUrl?: string;
+  merchantSetupUrl?: string;
   externalAccessNote: string;
+  merchantSummary?: string;
   requiredCredentialFields: string[];
+  credentialFieldHelp?: CredentialFieldHelp[];
+  onboardingSteps?: OnboardingStep[];
+  statusBadgeHint?: string;
+  partnerApprovalRequired?: boolean;
+  liveReadinessNote?: string;
 }
+
+export type DeliveryProviderReadiness = {
+  provider: DeliveryProviderId;
+  merchantMessage?: string;
+  canLiveDispatch?: boolean;
+  level?: string;
+  approvalState?: string;
+  liveFlagEnabled?: boolean;
+  blockedReasons?: string[];
+  warnings?: string[];
+  missing?: string[];
+};
 
 export interface DeliveryProviderConnectionPublic {
   tenantId: string;
@@ -70,9 +104,32 @@ export async function completeDeliveryConnection(
 }
 
 export async function validateDeliveryConnection(tenantId: string, provider: DeliveryProviderId) {
-  return ownerApiRequest<{ success: boolean; connection: DeliveryProviderConnectionPublic }>(
+  return ownerApiRequest<{
+    success: boolean;
+    connection: DeliveryProviderConnectionPublic;
+    readiness?: DeliveryProviderReadiness;
+  }>(
     'POST',
     `/api/owner/delivery-integrations/${encodeURIComponent(tenantId)}/${provider}/validate`,
+  );
+}
+
+export async function fetchDeliveryProviderReadiness(
+  tenantId: string,
+  provider: DeliveryProviderId,
+) {
+  return ownerApiRequest<{
+    success: boolean;
+    readiness: DeliveryProviderReadiness;
+    connectionSummary: {
+      status: string;
+      hasSecretRef: boolean;
+      errorMessage?: string;
+      lastValidatedAt?: string;
+    } | null;
+  }>(
+    'GET',
+    `/api/owner/delivery-integrations/${encodeURIComponent(tenantId)}/${provider}/readiness`,
   );
 }
 
@@ -100,7 +157,6 @@ export interface OrchestratedDispatchResponse {
   };
 }
 
-/** Resolve merchant-linked provider booking, else manual tracking fallback. */
 export async function orchestrateOwnerDispatch(
   tenantId: string,
   body: {
