@@ -27,6 +27,9 @@
       "@bhojan/location-core": [
         "packages/location-core/src/index.ts"
       ],
+      "@bhojan/voice-core": [
+        "../packages/voice-core/src/index.ts"
+      ],
       "@bhojan/location-v2": [
         "storefront-src/features/location-v2/index.ts"
       ],
