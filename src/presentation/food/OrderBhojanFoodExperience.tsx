@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { UtensilsCrossed } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { SectionHeader } from '@bhojan/storefront-design-system/primitives/SectionHeader';
 import type { FoodPublic } from '@/types/marketplace-food';
@@ -29,14 +30,15 @@ import { OrderBhojanFoodDietaryFilterBar } from './OrderBhojanFoodDietaryFilterB
 import { OrderBhojanFoodFeaturedCard } from './OrderBhojanFoodFeaturedCard';
 import { OrderBhojanFoodFloatingCart } from './OrderBhojanFoodFloatingCart';
 import { OrderBhojanFoodMenuSection } from './OrderBhojanFoodMenuSection';
-import { OrderBhojanFoodMenuSkeleton } from './OrderBhojanFoodMenuSkeleton';
 import { OrderBhojanFoodRestaurantStrip } from './OrderBhojanFoodRestaurantStrip';
+import { MenuItemSkeleton } from '@bhojan/storefront-design-system/skeleton/SkeletonSystem';
 
 function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const online = useOnlineStatus();
   const query = useFoodMenu(restaurantSlug);
+  const navKitchenName = (location.state as { kitchenName?: string } | null)?.kitchenName;
   const [customizeFood, setCustomizeFood] = useState<FoodPublic | null>(null);
   const [dietaryFilter, setDietaryFilter] = useState<MenuDietaryFilter>('all');
   const enterFromRestaurant = Boolean(
@@ -101,8 +103,35 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
 
   const restaurantQuery = useRestaurantExperience(restaurantSlug);
   const restaurantData = restaurantQuery.data;
+  const shellName =
+    restaurantData?.experience.displayName ?? navKitchenName ?? restaurantName ?? 'Menu';
 
-  if (query.isPending && !menu) return <OrderBhojanFoodMenuSkeleton />;
+  // Prefer chrome + item shimmer over a blank full-page skeleton (native feel).
+  if (query.isPending && !menu) {
+    return (
+      <div className="ob-menu-page min-h-screen bg-[#030303] text-white">
+        <OrderBhojanFoodRestaurantStrip
+          slug={restaurantSlug}
+          name={shellName}
+          onBack={() => navigate(`/restaurant/${restaurantSlug}`)}
+          onHome={() => navigate('/')}
+        />
+        <div className="ob-menu-sticky-chrome sticky top-0 z-30 border-b border-white/10 bg-[#030303]/95 backdrop-blur-md px-4 py-3">
+          <div className="mb-3 flex gap-2 overflow-hidden">
+            <div className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-white/10" />
+            <div className="h-9 w-28 shrink-0 animate-pulse rounded-full bg-white/10" />
+            <div className="h-9 w-20 shrink-0 animate-pulse rounded-full bg-white/10" />
+          </div>
+        </div>
+        <div className="flex flex-col" aria-busy="true" aria-label="Loading menu">
+          <MenuItemSkeleton />
+          <MenuItemSkeleton />
+          <MenuItemSkeleton />
+          <MenuItemSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   if (query.isError || !menu) {
     return (
@@ -150,12 +179,15 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
 
       {filteredItems.length === 0 ? (
         <section className="ob-menu-section w-full min-w-0 bg-[#030303] py-10">
-          <div className="ob-menu-container text-center">
-            <p className="text-base font-semibold text-white">No dishes match this filter</p>
-            <p className="mt-2 text-sm text-white/60">Try All or switch between Veg and Non-Veg.</p>
+          <div className="ob-menu-container flex flex-col items-center text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#e85d04]/25 bg-[#e85d04]/10">
+              <UtensilsCrossed className="h-5 w-5 text-[#f4a261]" aria-hidden />
+            </div>
+            <p className="mt-3 text-base font-bold text-white">No dishes match this filter</p>
+            <p className="mt-1.5 text-sm text-white/60">Try All or switch between Veg and Non-Veg.</p>
             <button
               type="button"
-              className="mt-4 rounded-full border border-[#FF7A00]/40 px-4 py-2 text-sm font-semibold text-[#FF7A00]"
+              className="mt-4 rounded-full border border-[#e85d04]/40 px-5 py-2.5 text-sm font-bold text-[#e85d04] transition hover:bg-[#e85d04]/10 touch-manipulation"
               onClick={() => setDietaryFilter('all')}
             >
               Show all dishes

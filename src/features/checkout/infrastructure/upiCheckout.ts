@@ -1,6 +1,13 @@
 import { getMarketplaceApiClient } from '@/marketplace-api';
 import { getAppConfig } from '@/config';
 import { openExternalUrl } from '@/lib/nativePlatform';
+import {
+  getUpiPlatform,
+  logUpiDiag,
+  shortIdentifier,
+  summarizeCandidate,
+  type UpiPlatform,
+} from '@/lib/upiDiagnostics';
 
 const VERIFIED_PAYMENT_STATUSES = new Set(['success', 'verified', 'paid']);
 const TERMINAL_FAILURE_STATUSES = new Set(['expired', 'failed']);
@@ -107,15 +114,34 @@ export function buildAndroidUpiIntent(
   options?: { readonly packageName?: string; readonly fallbackUrl?: string },
 ): string {
   const query = buildUpiQueryString(params);
-  const parts = [`intent://pay?${query}#Intent`, 'scheme=upi', 'action=android.intent.action.VIEW'];
+  const parts = [
+    `intent://pay?${query}#Intent`,
+    'scheme=upi',
+    'action=android.intent.action.VIEW',
+    'category=android.intent.category.BROWSABLE',
+  ];
   if (options?.packageName) {
     parts.push(`package=${options.packageName}`);
   }
-  if (options?.fallbackUrl) {
+  // Avoid browser_fallback_url on Capacitor/WebView — it traps users in-browser
+  // instead of opening GPay/PhonePe/Paytm for the kitchen VPA.
+  if (options?.fallbackUrl && !isNativeCapacitorLikely()) {
     parts.push(`S.browser_fallback_url=${encodeURIComponent(options.fallbackUrl)}`);
   }
   parts.push('end');
   return parts.join(';');
+}
+
+function isNativeCapacitorLikely(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      (window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.() ===
+        true || /android|iphone|ipad/i.test(window.navigator.userAgent)
+    );
+  } catch {
+    return isAndroidDevice() || isIosDevice();
+  }
 }
 
 /**
@@ -125,12 +151,15 @@ export function buildUpiAppDeepLinkCandidates(
   appId: UpiAppId,
   upiUrl: string,
   context?: UpiLaunchContext,
+  platform?: UpiPlatform,
 ): string[] {
   const params = parseUpiPayUrl(upiUrl);
   if (!params) return [];
 
   // Mandatory fields
   if (!params.pa || !params.pn) return [];
+
+  const android = (platform ?? getUpiPlatform()) === 'android';
 
   if (context) {
     params.am = formatUpiAmount(context.amount);
@@ -148,32 +177,41 @@ export function buildUpiAppDeepLinkCandidates(
   const canonical = `upi://pay?${query}`;
 
   switch (appId) {
+    // Transport/delivery preference only — the UPI message payload is never changed.
+    // Android opens a package-pinned `intent` first for a deterministic named-app launch;
+    // the canonical `upi://pay` candidate is the same payload used by QR / "Other UPI".
+    // PSP-side risk decisions happen after this layer, not here.
     case 'gpay':
-      return [
-        `tez://upi/pay?${query}`,
-        `gpay://upi/pay?${query}`,
-        isAndroidDevice()
-          ? buildAndroidUpiIntent(params, { packageName: 'com.google.android.apps.nbu.paisa.user' })
-          : canonical,
-      ].filter(Boolean);
+      return android
+        ? [
+            buildAndroidUpiIntent(params, { packageName: 'com.google.android.apps.nbu.paisa.user' }),
+            `tez://upi/pay?${query}`,
+            `gpay://upi/pay?${query}`,
+            canonical,
+          ].filter(Boolean)
+        : [`tez://upi/pay?${query}`, `gpay://upi/pay?${query}`, canonical];
     case 'phonepe':
-      return [
-        `phonepe://pay?${query}`,
-        `phonepe://upi/pay?${query}`,
-        isAndroidDevice()
-          ? buildAndroidUpiIntent(params, { packageName: 'com.phonepe.app' })
-          : canonical,
-      ];
+      return android
+        ? [
+            buildAndroidUpiIntent(params, { packageName: 'com.phonepe.app' }),
+            `phonepe://pay?${query}`,
+            `phonepe://upi/pay?${query}`,
+            canonical,
+          ]
+        : [`phonepe://pay?${query}`, `phonepe://upi/pay?${query}`, canonical].filter(Boolean);
     case 'paytm':
-      return [
-        `paytmmp://pay?${query}`,
-        isAndroidDevice()
-          ? buildAndroidUpiIntent(params, { packageName: 'net.one97.paytm' })
-          : canonical,
-      ];
+      return android
+        ? [
+            buildAndroidUpiIntent(params, { packageName: 'net.one97.paytm' }),
+            `paytmmp://pay?${query}`,
+            canonical,
+          ]
+        : [`paytmmp://pay?${query}`, canonical].filter(Boolean);
     case 'other':
-      return isAndroidDevice()
-        ? [buildAndroidUpiIntent(params, { fallbackUrl: canonical }), canonical]
+      // Prefer canonical upi:// so Android shows the system app chooser for the kitchen VPA.
+      // Then package-free intent (no browser fallback) for Capacitor WebViews.
+      return android
+        ? [canonical, buildAndroidUpiIntent(params)]
         : [canonical];
     default:
       return [];
@@ -188,14 +226,52 @@ export function buildUpiAppDeepLink(
   appId: UpiAppId,
   upiUrl: string,
   context?: UpiLaunchContext,
+  platform?: UpiPlatform,
 ): string | null {
-  return buildUpiAppDeepLinkCandidates(appId, upiUrl, context)[0] ?? null;
+  return buildUpiAppDeepLinkCandidates(appId, upiUrl, context, platform)[0] ?? null;
 }
 
 export function extractUpiPayeeAddress(upiUrl: string): string | undefined {
   const params = parseUpiPayUrl(upiUrl);
   const pa = params?.pa?.trim();
   return pa || undefined;
+}
+
+/** Indian 10-digit mobile-registered UPI local part (e.g. `9876543210@ybl`). */
+const INDIAN_MOBILE_RE = /^(?:\+?91)?[6-9]\d{9}$/;
+
+/**
+ * When the merchant's UPI ID is registered on a phone number (local part is a
+ * 10-digit Indian mobile, e.g. `9876543210@paytm`), customers who get the PSP
+ * "payment declined for security reasons" screen can instead use their UPI
+ * app's "Pay to phone number" option with this number.
+ */
+export function extractUpiMobileNumber(upiUrl: string): string | undefined {
+  const upiId = extractUpiPayeeAddress(upiUrl);
+  if (!upiId) return undefined;
+  const localPart = upiId.split('@')[0] ?? '';
+  return INDIAN_MOBILE_RE.test(localPart) ? localPart : undefined;
+}
+
+export interface UpiSecurityPayOptions {
+  readonly upiId: string;
+  /** Present only when the merchant UPI ID is a 10-digit mobile-registered VPA. */
+  readonly mobileNumber?: string;
+}
+
+/**
+ * Manual pay-by options that still work when an auto-launched UPI app declines
+ * the "instant" request for security reasons (the exact phrasing PSPs show:
+ * "payment declined for security reasons"). Callers should surface these options
+ * instead of telling the customer to blindly retry the same deep link.
+ */
+export function resolveUpiSecurityPayOptions(upiUrl: string): UpiSecurityPayOptions | null {
+  const upiId = extractUpiPayeeAddress(upiUrl);
+  if (!upiId) return null;
+  return {
+    upiId,
+    mobileNumber: extractUpiMobileNumber(upiUrl),
+  };
 }
 
 export function buildUpiCopyText(params: {
@@ -274,32 +350,57 @@ export async function launchUpiAppWithFallback(
     };
   }
 
+  const platform = getUpiPlatform();
   const candidates = buildUpiAppDeepLinkCandidates(appId, upiUrl, context);
   if (candidates.length === 0) {
     return { outcome: 'failed', message: 'Unable to build a UPI link for that app.' };
   }
 
-  const primary = candidates[0]!;
-  const opened = await openExternalUrl(primary);
-  if (!opened) {
-    return {
-      outcome: 'fallback_required',
-      deepLinkTried: primary,
-      message: 'Could not open that UPI app. Scan the QR or copy payment details.',
-    };
+  logUpiDiag('launch-start', {
+    appId,
+    platform,
+    candidateCount: candidates.length,
+    orderId: shortIdentifier(context.orderId),
+  });
+
+  // Try preferred deep link first; on Android Capacitor, upi:// / intent:// open installed apps.
+  let lastTried = candidates[0]!;
+  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+    const candidate = candidates[candidateIndex]!;
+    lastTried = candidate;
+    logUpiDiag('launch-attempt', {
+      appId,
+      platform,
+      ...summarizeCandidate(candidate, candidateIndex),
+    });
+    const opened = await openExternalUrl(candidate);
+    logUpiDiag('launch-attempt-result', { appId, platform, candidateIndex, opened });
+    if (opened) {
+      if (isIosDevice()) {
+        logUpiDiag('launch-outcome', { appId, platform, outcome: 'opened', candidateIndex });
+        return {
+          outcome: 'opened',
+          deepLinkTried: candidate,
+          message:
+            'If the UPI app did not open, scan the QR or copy payment details into GPay / PhonePe / Paytm.',
+        };
+      }
+      logUpiDiag('launch-outcome', { appId, platform, outcome: 'opened', candidateIndex });
+      return { outcome: 'opened', deepLinkTried: candidate };
+    }
   }
 
-  // OS cannot confirm the app actually handled the URL. Prefer QR on iOS after attempt.
-  if (isIosDevice()) {
-    return {
-      outcome: 'opened',
-      deepLinkTried: primary,
-      message:
-        'If the UPI app did not open, scan the QR or copy payment details into GPay / PhonePe / Paytm.',
-    };
-  }
-
-  return { outcome: 'opened', deepLinkTried: primary };
+  logUpiDiag('launch-outcome', {
+    appId,
+    platform,
+    outcome: 'fallback_required',
+    candidateCount: candidates.length,
+  });
+  return {
+    outcome: 'fallback_required',
+    deepLinkTried: lastTried,
+    message: 'Could not open that UPI app. Scan the QR or copy payment details.',
+  };
 }
 
 /** Watch for quick return from a failed app handoff (user stayed in foreground / bounced back). */
