@@ -1,5 +1,5 @@
-import { HomeExperiencePage } from '@/features/experience';
+import { PremiumHomePage } from '@/features/discovery/PremiumHomePage';
 
 export function HomePage() {
-  return <HomeExperiencePage />;
+  return <PremiumHomePage />;
 }

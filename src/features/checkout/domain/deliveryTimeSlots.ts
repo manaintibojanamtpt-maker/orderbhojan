@@ -129,9 +129,72 @@ export function buildScheduleFields(deliveryTimeSlot: string): {
   };
 }
 
-export function isKitchenClosedForOrdering(scheduling: CheckoutSchedulingContext | null | undefined): boolean {
-  if (!scheduling) return false;
-  return !scheduling.isStoreOpen && scheduling.deliverySlots.every((slot) => !isAsapSlot(slot));
+export type DeliveryServiceabilityState =
+  | 'checking'
+  | 'available'
+  | 'unavailable_closed'
+  | 'unavailable_outside_zone'
+  | 'unavailable_no_slots'
+  | 'unavailable_paused'
+  | 'unavailable_error';
+
+export interface DeliveryServiceability {
+  readonly state: DeliveryServiceabilityState;
+  readonly message: string;
+  readonly actionable: boolean;
+  readonly actionLabel?: string;
+}
+
+/**
+ * Resolve the delivery serviceability state from the scheduling context.
+ * Provides clear, actionable error messages for each failure case.
+ */
+export function resolveDeliveryServiceability(
+  scheduling: CheckoutSchedulingContext | null | undefined,
+): DeliveryServiceability {
+  if (!scheduling) {
+    return {
+      state: 'checking',
+      message: 'Checking delivery availability…',
+      actionable: false,
+    };
+  }
+
+  if (!scheduling.isStoreOpen) {
+    return {
+      state: 'unavailable_closed',
+      message: scheduling.closedMessage ?? 'This kitchen is currently closed.',
+      actionable: true,
+      actionLabel: 'Choose another restaurant',
+    };
+  }
+
+  const hasAsapSlot = scheduling.deliverySlots.some((slot) => isAsapSlot(slot));
+  const hasScheduledSlots = scheduling.deliverySlots.some((slot) => !isAsapSlot(slot));
+
+  if (!hasAsapSlot && !hasScheduledSlots) {
+    return {
+      state: 'unavailable_no_slots',
+      message: 'No delivery slots available from this kitchen right now.',
+      actionable: true,
+      actionLabel: 'Try another time',
+    };
+  }
+
+  if (!hasAsapSlot && hasScheduledSlots) {
+    return {
+      state: 'available',
+      message: 'ASAP delivery unavailable — scheduled slots available.',
+      actionable: true,
+      actionLabel: 'View slots',
+    };
+  }
+
+  return {
+    state: 'available',
+    message: `Estimated delivery in ~${scheduling.prepMinutes} min`,
+    actionable: false,
+  };
 }
 
 /**

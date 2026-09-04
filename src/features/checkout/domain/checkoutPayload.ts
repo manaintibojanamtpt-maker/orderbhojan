@@ -56,8 +56,11 @@ export function buildCheckoutPrepareSignature(input: {
     .map((line) => `${line.foodId}:${line.quantity}`)
     .sort()
     .join('|');
-  const lat = input.lat?.toFixed(4) ?? '0';
-  const lng = input.lng?.toFixed(4) ?? '0';
+  // Use 6 decimal places (~0.11m precision) to ensure address changes
+  // trigger a quote refresh. 4 decimal places (~11m) was too coarse and
+  // caused stale delivery fee/tax when the user moved within the same ~11m radius.
+  const lat = input.lat?.toFixed(6) ?? '0';
+  const lng = input.lng?.toFixed(6) ?? '0';
   const coupon = input.couponCode?.trim().toUpperCase() || 'none';
   // Do NOT include contextToken — menu refetches mint new tokens and would thrash prepare.
   return `${input.restaurantId}:${lat},${lng}:${coupon}:${lineSig}`;

@@ -3,6 +3,7 @@
 @source "../../storefront-src/design-system/**/*.{ts,tsx}";
 @import "../../storefront-src/design-system/styles/index.css";
 @import "./mib-theme.css";
+@import "./ob-customer.css";
 @layer base {
   html {
     @apply antialiased;
