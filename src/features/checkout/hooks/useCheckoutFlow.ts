@@ -1061,20 +1061,6 @@ export function useCheckoutFlow(): CheckoutFlowState {
     [],
   );
 
-  // When the delivery address changes, refresh the quote to ensure
-  // delivery fee and taxes are recalculated for the new location.
-  // The signature precision fix (6 decimal places) ensures the query key
-  // changes, but we also explicitly refresh to handle edge cases.
-  const addressVersion = useMemo(() => {
-    const coords = activeLocation?.coordinates;
-    return `${coords?.lat?.toFixed(6) ?? '0'},${coords?.lng?.toFixed(6) ?? '0'}`;
-  }, [activeLocation?.coordinates?.lat, activeLocation?.coordinates?.lng]);
-
-  useEffect(() => {
-    if (!canCheckout) return;
-    void refreshQuote();
-  }, [addressVersion, canCheckout, refreshQuote]);
-
   const reset = useCallback(() => {
     upiPollAbortRef.current?.abort();
     upiPollAbortRef.current = null;
