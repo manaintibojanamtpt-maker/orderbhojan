@@ -70,6 +70,43 @@ function clearCacheForRestaurant(restaurantId: string): void {
   deliveryFeeCache = deliveryFeeCache.filter((e) => e.restaurantId !== restaurantId);
 }
 
+/**
+ * Estimates delivery fee based on distance and tenant config.
+ * Returns null if coordinates are missing — never falls back to (0,0).
+ */
+export function estimateDeliveryFee(
+  customerLat: number | null | undefined,
+  customerLng: number | null | undefined,
+  restaurantLat: number | null | undefined,
+  restaurantLng: number | null | undefined,
+  config: DeliveryFeeConfig = DEFAULT_CONFIG
+): { fee: number; distanceKm: number } | null {
+  // CRITICAL: Never fall back to (0,0) — that produces fake distances
+  if (
+    customerLat == null ||
+    customerLng == null ||
+    restaurantLat == null ||
+    restaurantLng == null
+  ) {
+    return null;
+  }
+
+  const distanceKm = getDistance(
+    { latitude: customerLat, longitude: customerLng },
+    { latitude: restaurantLat, longitude: restaurantLng }
+  ) / 1000;
+
+  if (distanceKm > config.maxDistanceKm) {
+    return null;
+  }
+
+  if (distanceKm <= config.freeRadiusKm) {
+    return { fee: 0, distanceKm };
+  }
+
+  const fee = Math.max(config.baseFee, config.baseFee + Math.ceil(distanceKm - config.baseRadiusKm) * config.perKmRate);
+  return { fee: config.minOrderForFreeDelivery > 0 ? fee : fee, distanceKm };
+}
 function getDefaultConfig(): DeliveryFeeConfig {
   return {
     baseFee: 30,
@@ -91,6 +128,18 @@ export async function estimateLocalDeliveryFee(
   restaurantLng: number,
   experience?: RestaurantExperiencePublic | null
 ): Promise<{ fee: number | null; known: boolean; fromCache: boolean }> {
+  // Never price a route from missing/zero restaurant coordinates — a (0,0) origin
+  // must not silently produce a plausible-looking delivery fee.
+  if (
+    !Number.isFinite(customerLat) ||
+    !Number.isFinite(customerLng) ||
+    !Number.isFinite(restaurantLat) ||
+    !Number.isFinite(restaurantLng) ||
+    (restaurantLat === 0 && restaurantLng === 0)
+  ) {
+    return { fee: null, known: false, fromCache: false };
+  }
+
   // Check cache first
   const cached = readCache(restaurantId, customerLat, customerLng, restaurantLat, restaurantLng);
   if (cached) {
@@ -266,6 +315,15 @@ export function getCachedDeliveryFeeEstimate(
   restaurantLat: number,
   restaurantLng: number
 ): { fee: number | null; known: boolean } | null {
+  if (
+    !Number.isFinite(customerLat) ||
+    !Number.isFinite(customerLng) ||
+    !Number.isFinite(restaurantLat) ||
+    !Number.isFinite(restaurantLng) ||
+    (restaurantLat === 0 && restaurantLng === 0)
+  ) {
+    return null;
+  }
   const cached = readCache(restaurantId, customerLat, customerLng, restaurantLat, restaurantLng);
   if (cached) {
     return { fee: cached.fee, known: cached.known };

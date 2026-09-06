@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { useRestaurantContextStore } from '../src/features/restaurant/store/restaurantContextStore';
 import { loadRestaurantExperience } from '../src/features/restaurant/engine/restaurantExperienceLayer';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
 
 function installMemoryLocalStorage(): void {
   if (typeof globalThis.localStorage !== 'undefined') return;
@@ -17,7 +23,7 @@ function installMemoryLocalStorage(): void {
   });
 }
 
-describe('checkout local delivery fee estimate (Problem 2 fix)', () => {
+describe('checkout delivery fee source of truth (server quote authoritative)', () => {
   beforeEach(() => {
     installMemoryLocalStorage();
     localStorage.removeItem('ob-restaurant-context-m8');
@@ -38,21 +44,17 @@ describe('checkout local delivery fee estimate (Problem 2 fix)', () => {
     localStorage.removeItem('ob-restaurant-context-m8');
   });
 
-  it('localDeliveryFeeEstimate is null when deliveryFeeKnown is false', () => {
-    useRestaurantContextStore.setState({
-      deliveryFee: null,
-      deliveryFeeKnown: false,
-    });
+  it('checkout no longer exposes a local delivery fee estimate anywhere', () => {
+    const flow = readFileSync(join(root, 'src/features/checkout/hooks/useCheckoutFlow.ts'), 'utf8');
+    const page = readFileSync(join(root, 'src/presentation/checkout/OrderBhojanCheckoutPage.tsx'), 'utf8');
 
-    const storeDeliveryFee = useRestaurantContextStore.getState().deliveryFee;
-    const storeDeliveryFeeKnown = useRestaurantContextStore.getState().deliveryFeeKnown;
-
-    // This mirrors useCheckoutFlow logic: localDeliveryFeeEstimate = storeDeliveryFeeKnown ? storeDeliveryFee : null
-    const localDeliveryFeeEstimate = storeDeliveryFeeKnown ? storeDeliveryFee : null;
-    assert.equal(localDeliveryFeeEstimate, null);
+    // The server quote is the ONLY delivery-fee source for checkout.
+    assert.doesNotMatch(flow, /localDeliveryFeeEstimate|estimateLocalDeliveryFee|getCachedDeliveryFeeEstimate|restaurantLat \?\? 0/);
+    assert.doesNotMatch(page, /localDeliveryFeeEstimate|Delivery fee \(estimated\)/);
+    assert.match(page, /{ label: 'Delivery fee', amountLabel: 'Calculating…' }/);
   });
 
-  it('localDeliveryFeeEstimate returns fee when deliveryFeeKnown is true', () => {
+  it('restaurant experience delivery fee remains informational context, never a checkout display', () => {
     useRestaurantContextStore.setState({
       deliveryFee: 25,
       deliveryFeeKnown: true,
@@ -60,9 +62,8 @@ describe('checkout local delivery fee estimate (Problem 2 fix)', () => {
 
     const storeDeliveryFee = useRestaurantContextStore.getState().deliveryFee;
     const storeDeliveryFeeKnown = useRestaurantContextStore.getState().deliveryFeeKnown;
-    const localDeliveryFeeEstimate = storeDeliveryFeeKnown ? storeDeliveryFee : null;
-
-    assert.equal(localDeliveryFeeEstimate, 25);
+    assert.equal(storeDeliveryFee, 25);
+    assert.equal(storeDeliveryFeeKnown, true);
   });
 
   it('loadRestaurantExperience calls setDeliveryFee when experience has deliveryFee', async () => {

@@ -77,7 +77,6 @@ export function OrderBhojanCheckoutPage() {
     cartSyncMessages,
     appliedCouponCode,
     setAppliedCouponCode,
-    localDeliveryFeeEstimate,
     deliverySlotStatus,
     upiSession,
     upiVerifying,
@@ -279,20 +278,16 @@ export function OrderBhojanCheckoutPage() {
     if (error && /reach|network|fetch|timeout|connection/i.test(error)) {
       return 'Retry checkout';
     }
-    const estimatedTotal = estimatedSubtotal + (localDeliveryFeeEstimate ?? 0);
-    const total = quote ? `₹${quote.grandTotal}` : `₹${estimatedTotal}`;
-    if (!quoteReady && estimatedSubtotal > 0) {
-      if (selectedPaymentMethod === 'upi') return `Pay ~${total} via UPI`;
-      if (selectedPaymentMethod === 'razorpay') return `Pay ~${total} online`;
-      if (selectedPaymentMethod === 'cod') return `Place order · ~${total}`;
-      return `Continue · ~${total}`;
+    if (!quoteReady) {
+      // No authoritative quote yet — never show a fabricated total on the CTA.
+      return 'Updating total…';
     }
-    if (!quoteReady) return 'Updating total…';
+    const total = quote ? `₹${quote.grandTotal}` : '';
     if (selectedPaymentMethod === 'upi') return `Pay ${total} via UPI`;
     if (selectedPaymentMethod === 'razorpay') return `Pay ${total} online`;
     if (selectedPaymentMethod === 'cod') return `Place order · ${total}`;
     return `Continue · ${total}`;
-  }, [error, estimatedSubtotal, localDeliveryFeeEstimate, quote, quoteReady, selectedPaymentMethod]);
+  }, [error, quote, quoteReady, selectedPaymentMethod]);
 
   const handlePlaceOrder = () => {
     if (error && /reach|network|fetch|timeout|connection/i.test(error)) {
@@ -478,9 +473,8 @@ export function OrderBhojanCheckoutPage() {
       ? {
           lines: [
             { label: 'Subtotal (estimated)', amountLabel: `₹${estimatedSubtotal}` },
-            ...(localDeliveryFeeEstimate != null
-              ? [{ label: 'Delivery fee (estimated)', amountLabel: `₹${localDeliveryFeeEstimate}` }]
-              : []),
+            // No local estimate — the server quote is the only delivery-fee source.
+            { label: 'Delivery fee', amountLabel: 'Calculating…' },
             ...(appliedCouponCode
               ? [
                   {
@@ -491,13 +485,11 @@ export function OrderBhojanCheckoutPage() {
               : []),
             ...(billDeliveryLine ? [billDeliveryLine] : []),
           ],
-          totalLabel: `₹${estimatedSubtotal + (localDeliveryFeeEstimate ?? 0)}`,
+          totalLabel: `₹${estimatedSubtotal}`,
           deliveryPendingNote:
             isPreparing || discountQuoteLoading
               ? 'Updating taxes and delivery…'
-              : localDeliveryFeeEstimate != null
-              ? 'Estimated — final total updates when ready'
-              : 'Estimated — delivery fee will be confirmed',
+              : 'Delivery fee — Calculating…',
         }
       : undefined;
 
