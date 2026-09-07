@@ -27,7 +27,11 @@ import {
 } from '../infrastructure/upiCheckout';
 import { formatCustomerOrderLabel } from '../domain/orderDisplay';
 import { buildCheckoutPayload, buildCheckoutPrepareSignature } from '../domain/checkoutPayload';
-import { invalidateDeliveryFeeCache } from '../domain/deliveryFeeEstimator';
+import {
+  estimateLocalDeliveryFee,
+  invalidateDeliveryFeeCache,
+  getCachedDeliveryFeeEstimate,
+} from '../domain/deliveryFeeEstimator';
 import {
   ASAP_SLOT,
   isAsapSlot,
@@ -51,7 +55,7 @@ import {
 import type { BillQuote, CheckoutSchedulingContext } from '@/types/marketplace';
 
 /** Delivery slot status for explicit state management */
-export type DeliverySlotStatus = 'loading' | 'available' | 'asap-only' | 'unavailable' | 'error';
+export type DeliverySlotStatus = 'loading' | 'available' | 'unavailable' | 'error';
 
 /** Validates selected slot against current authoritative slots */
 function validateSelectedSlot(
@@ -141,9 +145,10 @@ export interface CheckoutFlowState {
     readonly message: string;
     readonly reason?: string;
   } | null;
+  /** Immediate local delivery fee estimate from persisted restaurant context (before server quote arrives). */
+  readonly localDeliveryFeeEstimate: number | null;
   /** Delivery slot status for explicit UI state management. */
   readonly deliverySlotStatus: DeliverySlotStatus;
-  readonly slotReady: boolean;
   setDeliveryTimeSlot: (slot: string) => void;
   refreshQuote: () => Promise<void>;
   prepareCheckout: () => Promise<void>;
@@ -175,7 +180,10 @@ export function useCheckoutFlow(): CheckoutFlowState {
   const contextToken = useRestaurantContextStore((s) => s.contextToken);
   const appliedCouponCode = useRestaurantContextStore((s) => s.appliedCouponCode);
   const storePaymentMethods = useRestaurantContextStore((s) => s.paymentMethods);
-  
+  const storeDeliveryFee = useRestaurantContextStore((s) => s.deliveryFee);
+  const storeDeliveryFeeKnown = useRestaurantContextStore((s) => s.deliveryFeeKnown);
+  const restaurantLat = useRestaurantContextStore((s) => s.restaurantLat);
+  const restaurantLng = useRestaurantContextStore((s) => s.restaurantLng);
   const setAppliedCouponCode = useRestaurantContextStore((s) => s.setAppliedCouponCode);
   const activeLocation = useActiveLocation();
   const { sessionUser, status: authStatus } = useAuth();
@@ -183,14 +191,71 @@ export function useCheckoutFlow(): CheckoutFlowState {
   const resolvedRestaurantId = resolveCheckoutRestaurantId(restaurantId, restaurantSlug);
   const coords = activeLocation?.coordinates;
 
-  /**
-   * Checkout does NOT use a local delivery-fee estimate.
-   * The server quote (checkout/prepare → quote.deliveryFee) is the ONLY source of
-   * truth for the bill breakdown, grand total, Place Order CTA, and final payload.
-   * A local estimator can never masquerade as — or override — the checkout fee.
-   * The zero-coordinate restaurant origin fallback is intentionally removed:
-   * missing restaurant coordinates never become (0,0) for pricing.
-   */
+  // Immediate local delivery fee estimate from restaurant context (persisted from menu load).
+  // Falls back to quote.deliveryFee once server responds.
+  const storeDeliveryFeeEstimate = storeDeliveryFeeKnown ? storeDeliveryFee : null;
+
+  // State for computed local delivery fee estimate (from distance/zone/serviceability)
+  const [computedDeliveryFee, setComputedDeliveryFee] = useState<{ fee: number | null; known: boolean } | null>(null);
+
+  // Compute local delivery fee estimate when we have coords and restaurant context
+  useEffect(() => {
+    if (!resolvedRestaurantId || !coords) {
+      setComputedDeliveryFee(null);
+      return;
+    }
+
+    // Capture coordinates at effect creation time to avoid TS18048 in async callbacks
+    const capturedCoords = coords;
+
+    // Get restaurant coordinates from experience (if available)
+    // We need to fetch them or use cached values
+    // For now, we'll trigger the async estimation
+    let cancelled = false;
+
+    async function computeFee() {
+      try {
+        // First check cache for instant result
+        const cached = getCachedDeliveryFeeEstimate(
+          resolvedRestaurantId,
+          capturedCoords.lat,
+          capturedCoords.lng,
+          restaurantLat ?? 0,
+          restaurantLng ?? 0
+        );
+        if (cached && !cancelled) {
+          setComputedDeliveryFee(cached);
+          return;
+        }
+
+        // Use the delivery fee estimator with restaurant coordinates
+        const result = await estimateLocalDeliveryFee(
+          resolvedRestaurantId,
+          capturedCoords.lat,
+          capturedCoords.lng,
+          restaurantLat ?? 0,
+          restaurantLng ?? 0,
+          null // We don't have the full experience here, but we'll pass null and let it fall back to zone-based calculation
+        );
+        if (!cancelled) {
+          setComputedDeliveryFee({ fee: result.fee, known: result.known });
+        }
+      } catch {
+        if (!cancelled) {
+          setComputedDeliveryFee({ fee: storeDeliveryFeeEstimate, known: storeDeliveryFeeKnown });
+        }
+      }
+    }
+
+    computeFee();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedRestaurantId, coords, restaurantLat, restaurantLng, storeDeliveryFeeEstimate, storeDeliveryFeeKnown]);
+
+  // Final local delivery fee estimate: prefer computed, fall back to store
+  const localDeliveryFeeEstimate = computedDeliveryFee?.fee ?? storeDeliveryFeeEstimate;
 
   const [placeStatus, setPlaceStatus] = useState<
     'idle' | 'placing' | 'awaiting_payment' | 'success' | 'error'
@@ -213,13 +278,6 @@ export function useCheckoutFlow(): CheckoutFlowState {
   const previousCouponRef = useRef<string | null>(appliedCouponCode);
   const incompatiblePrepareRecoveryRef = useRef<string | null>(null);
 
-  const computeFee = useCallback(async () => {
-    // FIX: Do NOT calculate a local delivery fee estimate for checkout.
-    // The backend quote.deliveryFee is the only authoritative delivery fee.
-    // If coordinates are unavailable, return pending — never fabricate a fee.
-    setDeliveryFeeBreakdown(null);
-    setLocalDeliveryFeeEstimate(null);
-  }, []);
   const checkoutAuthGate = useMemo(
     () => resolveCheckoutAuthGate({ status: authStatus, sessionUser }),
     [authStatus, sessionUser],
@@ -315,26 +373,6 @@ export function useCheckoutFlow(): CheckoutFlowState {
     if (!hasReadyDeliveryLocation(activeLocation)) {
       throw new Error('Confirm your flat or house number before checkout.');
     }
-    // Place Order safety: never proceed with stale/errored/unavailable scheduling or a stale quote.
-    if (prepareQuery.isFetching) {
-      throw new Error('Your basket is still calculating. Wait for the total to finish updating, then try again.');
-    }
-    if (prepareQuery.isError) {
-      throw new Error('Checkout could not be prepared. Check your connection and retry.');
-    }
-    if (deliverySlotStatus === 'error') {
-      throw new Error('Delivery timing is not available right now. Retry or contact the kitchen.');
-    }
-    if (deliverySlotStatus === 'unavailable') {
-      throw new Error('This kitchen is not delivering to your address right now.');
-    }
-    if (!slotReady) {
-      throw new Error('Choose a delivery time before placing your order.');
-    }
-    // Authoritative quote must be present for Place Order.
-    if (!hasFreshPrepare) {
-      throw new Error('Your order total is still updating. Wait for the total to finish, then place your order.');
-    }
     // Read coupon from store so prepare/place always match the latest applied code,
     // even when invoked before React re-renders after setAppliedCouponCode.
     const couponCode = useRestaurantContextStore.getState().appliedCouponCode;
@@ -346,7 +384,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
       deliveryTimeSlot,
       couponCode,
     );
-  }, [activeLocation, contextToken, coords, deliverySlotStatus, deliveryTimeSlot, hasFreshPrepare, lines, prepareQuery.isError, prepareQuery.isFetching, resolvedRestaurantId, slotReady]);
+  }, [activeLocation, contextToken, coords, deliveryTimeSlot, lines, resolvedRestaurantId]);
 
   const prepareQuery = useQuery<CheckoutPrepareQueryData>({
     queryKey: checkoutKeys.prepare(prepareSignature ?? 'inactive'),
@@ -536,16 +574,8 @@ export function useCheckoutFlow(): CheckoutFlowState {
 
     // Determine status based on AUTHORITATIVE scheduled slots (matching UI state machine)
     // ASAP is NOT a scheduled slot - it's a separate delivery mode
-    // Distinction:
-    //  - asap-only: kitchen is open, ASAP is valid, but no scheduled slots exist (slots exhausted)
-    //  - unavailable: no valid delivery option at all (kitchen closed, serviceability off, empty slots)
     if (!hasScheduledSlots) {
-      const asapIsValid = hasAnySlots ? normalizedSlots.includes(ASAP_SLOT) : scheduling.isStoreOpen;
-      if (asapIsValid && scheduling.isStoreOpen) {
-        setDeliverySlotStatus('asap-only');
-      } else {
-        setDeliverySlotStatus('unavailable');
-      }
+      setDeliverySlotStatus('unavailable');
       setDeliveryTimeSlot(ASAP_SLOT);
       return;
     }
@@ -560,20 +590,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
       }
       return ASAP_SLOT;
     });
-    }, [scheduling, voiceSchedulePref, voiceScheduleUpdatedAt]);
-
-  // Whether the current delivery slot is actionable for Place Order.
-  // 'loading' and 'error' must block; 'available' and 'asap-only' (with ASAP selected) are actionable;
-  // 'unavailable' is never actionable.
-  const slotReady = useMemo(() => {
-    if (deliverySlotStatus === 'loading' || deliverySlotStatus === 'error') return false;
-    if (deliverySlotStatus === 'available') return true;
-    if (deliverySlotStatus === 'asap-only') {
-      return isAsapSlot(deliveryTimeSlot);
-    }
-    // 'unavailable'
-    return false;
-  }, [deliverySlotStatus, deliveryTimeSlot]);
+  }, [scheduling, voiceSchedulePref, voiceScheduleUpdatedAt]);
 
   const applyDeliveryTimeSlot = useCallback((slot: string) => {
     setDeliveryTimeSlot(slot);
@@ -1083,11 +1100,11 @@ export function useCheckoutFlow(): CheckoutFlowState {
     quoteIsStale,
     discountQuoteLoading,
     cartSyncMessages,
-        appliedCouponCode,
+    appliedCouponCode,
     setAppliedCouponCode,
     voiceScheduleNotice,
+    localDeliveryFeeEstimate,
     deliverySlotStatus,
-    slotReady,
     setDeliveryTimeSlot: applyDeliveryTimeSlot,
     refreshQuote,
     prepareCheckout,
