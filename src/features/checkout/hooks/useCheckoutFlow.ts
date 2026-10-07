@@ -1,3 +1,5 @@
+import { useCheckoutAttempt } from './useCheckoutAttempt';
+import { getFirebaseAuth } from '@/firebase';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMarketplaceApiClient } from '@/marketplace-api';
@@ -86,15 +88,18 @@ export interface CheckoutPlaceResponse {
   readonly amount?: number;
   readonly amountInPaise?: number;
   readonly expiresAt?: string;
+  readonly guestTrackingToken?: string;
 }
 
 export interface UpiPaymentSession {
+  readonly accountId: string;
   readonly orderId: string;
   readonly orderNumber: string;
   readonly upiUrl: string;
   readonly amount: number;
   readonly expiresAt?: string;
   readonly phone: string;
+  readonly guestTrackingToken?: string;
 }
 
 export interface PlacedOrderConfirmation {
@@ -121,6 +126,7 @@ export type CheckoutFlowStatus =
   | 'error';
 
 export interface CheckoutFlowState {
+  readonly attemptRecovery: ReturnType<typeof useCheckoutAttempt>;
   readonly quote: BillQuote | null;
   readonly scheduling: CheckoutSchedulingContext | null;
   readonly deliveryTimeSlot: string;
@@ -173,6 +179,18 @@ export interface CheckoutFlowState {
   reset: () => void;
 }
 
+function persistGuestTrackingToken(orderId: string, token: string | undefined, expiresAt?: string): void {
+  if (!token || typeof window === 'undefined' || !window.sessionStorage) return;
+  try {
+    sessionStorage.setItem(
+      `guest_tracking_${orderId}`,
+      JSON.stringify({ token, expiresAt }),
+    );
+  } catch {
+    // Storage full or unavailable — token remains valid in backend
+  }
+}
+
 export function useCheckoutFlow(): CheckoutFlowState {
   const queryClient = useQueryClient();
   const lines = useCartStore((s) => s.lines);
@@ -188,6 +206,8 @@ export function useCheckoutFlow(): CheckoutFlowState {
   const setAppliedCouponCode = useRestaurantContextStore((s) => s.setAppliedCouponCode);
   const activeLocation = useActiveLocation();
   const { sessionUser, status: authStatus } = useAuth();
+
+  const attemptRecovery = useCheckoutAttempt(sessionUser?.uid);
 
   const resolvedRestaurantId = resolveCheckoutRestaurantId(restaurantId, restaurantSlug);
   const coords = activeLocation?.coordinates;
@@ -421,14 +441,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
       return sessionPrepare ? cloneCheckoutPrepareForQuery(sessionPrepare) : undefined;
     },
     refetchOnWindowFocus: false,
-    retry: (failureCount, error) => {
-      if (failureCount >= 3) return false;
-      if (error instanceof MarketplaceApiError) return error.retryable;
-      return /network|fetch|timeout|reach/i.test(
-        error instanceof Error ? error.message : String(error ?? ''),
-      );
-    },
-    retryDelay: (attempt) => Math.min(1500, 350 * 2 ** attempt),
+    retry: false, // HTTP client owns the complete deadline, including read-only retries.
   });
 
   useEffect(() => {
@@ -708,23 +721,20 @@ export function useCheckoutFlow(): CheckoutFlowState {
           notificationEmail: resolvedEmail,
         };
 
-        // Optimistic success: transition immediately; revert on failure (cart stays intact until confirmed).
-        setPlaceStatus('success');
-        setOrderId('pending');
-        setOrderNumber('Confirming…');
+        setPlaceStatus('placing');
         markPerf('pay_next_step', 'cod-optimistic');
 
-        const response = (await getMarketplaceApiClient().checkoutPlace(
-          payload,
-        )) as CheckoutPlaceResponse;
+        const response = (await attemptRecovery.place(payload, Math.round((quote?.grandTotal ?? 0) * 100), prepareQuery.dataUpdatedAt)) as CheckoutPlaceResponse;
         const placed = resolvePlacedOrder(response);
         if (!placed) {
           throw new Error('Order confirmation is missing an order id');
         }
         setOrderId(placed.orderId);
         setOrderNumber(placed.orderNumber);
+        setPlaceStatus('success');
         markPerf('pay_next_step', 'cod-success');
         useCartStore.getState().clear();
+        persistGuestTrackingToken(placed.orderId, response.guestTrackingToken, response.expiresAt);
         return placed;
       } catch (err) {
         setPlaceStatus('error');
@@ -737,7 +747,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setPlacingMethod(null);
       }
     },
-    [assertCanPlaceOrder, getPayload, sessionUser],
+    [assertCanPlaceOrder, getPayload, sessionUser, attemptRecovery, quote?.grandTotal, prepareQuery.dataUpdatedAt],
   );
 
   const placeRazorpayOrder = useCallback(
@@ -760,9 +770,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
           userEmail: resolvedEmail,
           notificationEmail: resolvedEmail,
         };
-        const response = (await getMarketplaceApiClient().checkoutPlace(
-          payload,
-        )) as CheckoutPlaceResponse;
+        const response = (await attemptRecovery.place(payload, Math.round((quote?.grandTotal ?? 0) * 100), prepareQuery.dataUpdatedAt)) as CheckoutPlaceResponse;
         const draftId = response.draftId ?? response.orderId;
         if (!draftId) {
           throw new Error('Payment session is missing a draft id');
@@ -815,11 +823,13 @@ export function useCheckoutFlow(): CheckoutFlowState {
           expectedAmountPaise: chargePaise,
         });
 
+        if (getFirebaseAuth()?.currentUser?.uid !== sessionUser?.uid) throw new Error('Account changed; check order status after signing back in.');
         setOrderId(confirmed.orderId);
         setOrderNumber(confirmed.orderNumber);
         setPlaceStatus('success');
         markPerf('pay_next_step', 'razorpay-success');
         useCartStore.getState().clear();
+        persistGuestTrackingToken(confirmed.orderId, response.guestTrackingToken, response.expiresAt);
         return {
           orderId: confirmed.orderId,
           orderNumber: confirmed.orderNumber,
@@ -838,10 +848,11 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setPlacingMethod(null);
       }
     },
-    [assertCanPlaceOrder, getPayload, quote?.grandTotal, sessionUser],
+    [assertCanPlaceOrder, getPayload, quote?.grandTotal, sessionUser, attemptRecovery, prepareQuery.dataUpdatedAt],
   );
 
   const finalizeUpiPaymentSuccess = useCallback((placed: PlacedOrderConfirmation) => {
+    if (getFirebaseAuth()?.currentUser?.uid !== sessionUser?.uid) return;
     upiPollAbortRef.current?.abort();
     upiPollAbortRef.current = null;
     setUpiSession(null);
@@ -849,10 +860,11 @@ export function useCheckoutFlow(): CheckoutFlowState {
     setUpiPollMessage(null);
     setOrderId(placed.orderId);
     setOrderNumber(placed.orderNumber);
+    if (getFirebaseAuth()?.currentUser?.uid !== sessionUser?.uid) return;
     setPlaceStatus('success');
     markPerf('pay_next_step', 'upi-success');
     useCartStore.getState().clear();
-  }, []);
+  }, [sessionUser?.uid]);
 
   const runUpiVerification = useCallback(
     async (session: UpiPaymentSession, options?: { immediate?: boolean }) => {
@@ -881,13 +893,17 @@ export function useCheckoutFlow(): CheckoutFlowState {
             orderId: session.orderId,
             phone: session.phone,
             isAuthenticated: Boolean(sessionUser?.uid),
+            signal: controller.signal,
+            guestToken: session.guestTrackingToken,
           });
+          controller.signal.throwIfAborted();
           logUpiDiag('snapshot', {
             immediate: true,
             orderShortId,
             paymentState: snapshot.paymentStatus,
           });
           if (['success', 'verified', 'paid'].includes(snapshot.paymentStatus.toLowerCase())) {
+            persistGuestTrackingToken(session.orderId, session.guestTrackingToken);
             finalizeUpiPaymentSuccess({
               orderId: session.orderId,
               orderNumber: session.orderNumber,
@@ -895,7 +911,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
             return;
           }
           if (['expired', 'failed'].includes(snapshot.paymentStatus.toLowerCase())) {
-            throw new Error('Payment expired or failed. Please place a new order.');
+            throw new Error('Payment expired or failed. Check order status before paying again.');
           }
         }
 
@@ -904,6 +920,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
           phone: session.phone,
           isAuthenticated: Boolean(sessionUser?.uid),
           signal: controller.signal,
+          guestToken: session.guestTrackingToken,
           onTick: (snapshot) => {
             pollAttempts += 1;
             setUpiPollMessage('Waiting for payment confirmation…');
@@ -923,6 +940,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         });
 
         if (result === 'verified') {
+          persistGuestTrackingToken(session.orderId, session.guestTrackingToken);
           finalizeUpiPaymentSuccess({
             orderId: session.orderId,
             orderNumber: session.orderNumber,
@@ -931,7 +949,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         }
 
         if (result === 'expired') {
-          throw new Error('Payment window expired before confirmation. Please place a new order.');
+          throw new Error('Payment window expired. Check order status before paying again.');
         }
 
         setUpiPollMessage(
@@ -947,6 +965,9 @@ export function useCheckoutFlow(): CheckoutFlowState {
         });
         setPlaceError(err instanceof Error ? err.message : 'Unable to verify UPI payment');
         setUpiPollMessage(null);
+        setUpiSession(null);
+        setPlaceStatus('error');
+        void attemptRecovery.check();
       } finally {
         if (upiPollAbortRef.current === controller) {
           upiPollAbortRef.current = null;
@@ -954,7 +975,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setUpiVerifying(false);
       }
     },
-    [finalizeUpiPaymentSuccess, sessionUser?.uid],
+    [finalizeUpiPaymentSuccess, sessionUser?.uid, attemptRecovery.check],
   );
 
   const placeUpiOrder = useCallback(
@@ -978,9 +999,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
           userEmail: resolvedEmail,
           notificationEmail: resolvedEmail,
         };
-        const response = (await getMarketplaceApiClient().checkoutPlace(
-          payload,
-        )) as CheckoutPlaceResponse;
+        const response = (await attemptRecovery.place(payload, Math.round((quote?.grandTotal ?? 0) * 100), prepareQuery.dataUpdatedAt)) as CheckoutPlaceResponse;
         const placed = resolvePlacedOrder(response);
         if (!placed) {
           throw new Error('Order confirmation is missing an order id');
@@ -1009,13 +1028,19 @@ export function useCheckoutFlow(): CheckoutFlowState {
         }
 
         const session: UpiPaymentSession = {
+          accountId: sessionUser!.uid,
           orderId: placed.orderId,
           orderNumber: placed.orderNumber,
           upiUrl: response.upiUrl,
           amount: placeAmount,
           expiresAt: response.expiresAt,
           phone: phone.trim(),
+          guestTrackingToken: response.guestTrackingToken,
         };
+
+        if (response.guestTrackingToken) {
+          persistGuestTrackingToken(placed.orderId, response.guestTrackingToken, response.expiresAt);
+        }
 
         // Keep cart until UPI is verified or customer claims payment (avoids empty-cart trap on abandon).
         setOrderId(placed.orderId);
@@ -1034,7 +1059,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setPlacingMethod(null);
       }
     },
-    [assertCanPlaceOrder, getPayload, quote?.grandTotal, runUpiVerification, sessionUser],
+    [assertCanPlaceOrder, getPayload, quote?.grandTotal, runUpiVerification, sessionUser, attemptRecovery, prepareQuery.dataUpdatedAt],
   );
 
   const checkUpiPayment = useCallback(async () => {
@@ -1052,7 +1077,6 @@ export function useCheckoutFlow(): CheckoutFlowState {
         phone: upiSession.phone,
         upiReference,
       });
-      useCartStore.getState().clear();
       setUpiPollMessage('Kitchen notified — waiting for them to verify your payment…');
     },
     [upiSession],
@@ -1080,6 +1104,11 @@ export function useCheckoutFlow(): CheckoutFlowState {
     [],
   );
 
+  useEffect(() => {
+    setUpiSession(null); setOrderId(null); setPlaceStatus('idle'); setPlaceError(null);
+    return () => { upiPollAbortRef.current?.abort(); };
+  }, [sessionUser?.uid]);
+
   const reset = useCallback(() => {
     upiPollAbortRef.current?.abort();
     upiPollAbortRef.current = null;
@@ -1101,6 +1130,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
   }, [prepareSignature, queryClient]);
 
   return {
+    attemptRecovery,
     quote,
     scheduling,
     deliveryTimeSlot,
@@ -1109,7 +1139,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
     error,
     orderId,
     orderNumber,
-    upiSession,
+    upiSession: upiSession?.accountId === sessionUser?.uid ? upiSession : null,
     upiVerifying,
     upiPollMessage,
     itemCount,

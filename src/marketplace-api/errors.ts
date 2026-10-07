@@ -49,10 +49,13 @@ export function mapUnknownError(error: unknown): MarketplaceApiError {
     return error;
   }
   if (error instanceof DOMException && error.name === 'AbortError') {
+    return new MarketplaceApiError({ code: 'CANCELLED', message: 'Request cancelled', retryable: false });
+  }
+  if (error instanceof DOMException && error.name === 'TimeoutError') {
     return new MarketplaceApiError({
       code: 'TIMEOUT',
       message: 'Request timed out — tap retry in a moment',
-      retryable: true,
+      retryable: false,
     });
   }
   const message = error instanceof Error ? error.message : String(error ?? '');

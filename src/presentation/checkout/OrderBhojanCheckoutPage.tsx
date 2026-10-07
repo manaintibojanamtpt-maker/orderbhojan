@@ -1,3 +1,4 @@
+import { CheckoutRecoveryView } from './CheckoutRecoveryView';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLocationStoreAddress, subscribeLocationStore } from '@bhojan/location-core';
@@ -58,6 +59,7 @@ export function OrderBhojanCheckoutPage() {
   const { uiStatus } = useLocationUiState();
   const { openSelector, openConfirmation } = useLocationActions();
   const {
+    attemptRecovery,
     quote,
     scheduling,
     deliveryTimeSlot,
@@ -314,6 +316,13 @@ export function OrderBhojanCheckoutPage() {
 
   if (!checkoutAuthGate.allowed && authStatus !== 'loading') {
     return <CheckoutAuthGateView />;
+  }
+
+  if ((attemptRecovery.pending || attemptRecovery.message) && status !== 'placing' && status !== 'success' && status !== 'awaiting_payment') {
+    return <CheckoutRecoveryView recovery={attemptRecovery.recovery} checking={attemptRecovery.checking} message={attemptRecovery.message}
+      onCheck={() => void attemptRecovery.check()}
+      onTrack={() => { if (attemptRecovery.recovery?.orderId) navigate('/orders/' + encodeURIComponent(attemptRecovery.recovery.orderId) + '/track'); }}
+      onContinue={() => { attemptRecovery.acknowledge(); navigate('/'); }} />;
   }
 
   const deliveryAddressLabel = formatCheckoutDeliveryAddress(activeLocation, v2Address);
