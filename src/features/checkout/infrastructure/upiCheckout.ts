@@ -1,3 +1,4 @@
+import { abortableDelay } from '@/lib/requestDeadline';
 import { getMarketplaceApiClient } from '@/marketplace-api';
 import { getAppConfig } from '@/config';
 import { openExternalUrl } from '@/lib/nativePlatform';
@@ -452,14 +453,16 @@ export interface OrderPaymentSnapshot {
 }
 
 export async function fetchOrderPaymentSnapshot(params: {
+  readonly signal?: AbortSignal;
   readonly orderId: string;
   readonly phone: string;
   readonly isAuthenticated: boolean;
+  readonly guestToken?: string;
 }): Promise<OrderPaymentSnapshot> {
   const client = getMarketplaceApiClient();
 
   if (params.isAuthenticated) {
-    const summary = await client.getOrder(params.orderId);
+    const summary = await client.getOrder(params.orderId, params.signal);
     return {
       paymentStatus: String(summary.paymentStatus ?? 'pending'),
       orderStatus: String(summary.status ?? 'PENDING_PAYMENT'),
@@ -467,7 +470,7 @@ export async function fetchOrderPaymentSnapshot(params: {
     };
   }
 
-  const tracking = await client.getGuestTracking(params.orderId, params.phone);
+  const tracking = await client.getGuestTracking(params.orderId, params.phone, params.guestToken);
   return {
     paymentStatus: String(tracking.paymentStatus ?? tracking.invoice?.paymentStatus ?? 'pending'),
     orderStatus: String(tracking.status ?? 'PENDING_PAYMENT'),
@@ -485,6 +488,7 @@ export async function pollUpiPaymentStatus(params: {
   readonly onTick?: (snapshot: OrderPaymentSnapshot) => void;
   readonly intervalMs?: number;
   readonly maxAttempts?: number;
+  readonly guestToken?: string;
 }): Promise<UpiPollResult> {
   const intervalMs = params.intervalMs ?? 5_000;
   const maxAttempts = params.maxAttempts ?? 72;
@@ -495,6 +499,7 @@ export async function pollUpiPaymentStatus(params: {
     }
 
     const snapshot = await fetchOrderPaymentSnapshot(params);
+    params.signal?.throwIfAborted();
     params.onTick?.(snapshot);
 
     if (isVerifiedPaymentStatus(snapshot.paymentStatus)) {
@@ -522,19 +527,7 @@ export async function pollUpiPaymentStatus(params: {
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-
-    const onAbort = () => {
-      window.clearTimeout(timer);
-      reject(new Error('Payment verification cancelled'));
-    };
-
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
+  return abortableDelay(ms, signal ?? new AbortController().signal);
 }
 
 export function buildUpiQrImageUrl(upiUrl: string, size = 220): string {

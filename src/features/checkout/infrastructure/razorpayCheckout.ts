@@ -1,3 +1,5 @@
+import { createPaymentScriptLoader } from './paymentScriptLoader';
+import { withRequestDeadline, waitForSignal } from '@/lib/requestDeadline';
 import { getAppConfig } from '@/config';
 import { fetchBearerToken } from '@/features/auth/application/authService';
 import { obDebugTrustEvent } from '@/lib/obDebug';
@@ -7,7 +9,6 @@ import { enterRazorpayNativeChrome, exitRazorpayNativeChrome } from './razorpayN
 const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-js';
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
-let loadPromise: Promise<boolean> | null = null;
 let checkoutOpen = false;
 
 /** Warm Razorpay SDK while checkout quote loads — COD path never awaits this. */
@@ -53,58 +54,13 @@ async function paymentRequestHeaders(): Promise<HeadersInit> {
   return headers;
 }
 
+const loadSdk = createPaymentScriptLoader({
+  id: RAZORPAY_SCRIPT_ID, src: RAZORPAY_SCRIPT_URL,
+  ready: () => Boolean((window as RazorpayWindow).Razorpay),
+  active: () => checkoutOpen, document: () => document,
+});
 function loadRazorpayScript(): Promise<boolean> {
-  if (typeof window === 'undefined') {
-    return Promise.resolve(false);
-  }
-
-  if ((window as RazorpayWindow).Razorpay) {
-    return Promise.resolve(true);
-  }
-
-  if (loadPromise) {
-    return loadPromise;
-  }
-
-  loadPromise = new Promise((resolve) => {
-    const finish = (success: boolean) => {
-      if (!success) {
-        loadPromise = null;
-      }
-      resolve(success);
-    };
-
-    const existing = document.getElementById(RAZORPAY_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => finish(Boolean((window as RazorpayWindow).Razorpay)), {
-        once: true,
-      });
-      existing.addEventListener('error', () => finish(false), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = RAZORPAY_SCRIPT_ID;
-    script.src = RAZORPAY_SCRIPT_URL;
-    script.async = true;
-
-    const timeout = window.setTimeout(() => finish(false), 15_000);
-
-    script.onload = () => {
-      window.clearTimeout(timeout);
-      finish(Boolean((window as RazorpayWindow).Razorpay));
-    };
-
-    script.onerror = () => {
-      window.clearTimeout(timeout);
-      script.remove();
-      finish(false);
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return loadPromise;
+  return typeof window === 'undefined' ? Promise.resolve(false) : loadSdk();
 }
 
 async function ensureRazorpayLoaded(): Promise<void> {
@@ -123,59 +79,17 @@ interface RazorpayWindow extends Window {
   };
 }
 
-async function paymentFetchJson<T>(
-  path: string,
-  body: Record<string, unknown>,
-  attempts = 3,
-): Promise<T> {
-  const url = `${getApiBaseUrl()}${path}`;
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: await paymentRequestHeaders(),
-        body: JSON.stringify(body),
-      });
-
-      const data = (await response.json().catch(() => ({}))) as T & {
-        success?: boolean;
-        error?: string;
-      };
-
-      if (!response.ok || data.success === false) {
-        throw new Error(
-          (typeof data.error === 'string' && data.error) ||
-            `Payment request failed (${response.status})`,
-        );
-      }
-
-      return data;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err ?? '');
-      lastError =
-        /failed to fetch|networkerror|load failed|network request failed/i.test(message)
-          ? new Error(
-              'Couldn’t reach payment servers. Check your connection and try again.',
-            )
-          : err instanceof Error
-            ? err
-            : new Error(message || 'Payment request failed');
-
-      const retryable =
-        /couldn’t reach|failed to fetch|network|timed out|503|502|429/i.test(
-          lastError.message,
-        ) || /failed to fetch|networkerror/i.test(message);
-
-      if (!retryable || attempt >= attempts - 1) {
-        throw lastError;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
-    }
-  }
-
-  throw lastError ?? new Error('Payment request failed');
+async function paymentFetchJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  // No automatic mutation retry. Recover the existing checkout attempt on ambiguity.
+  return withRequestDeadline(30_000, undefined, async signal => {
+    const headers = await waitForSignal(paymentRequestHeaders, signal);
+    const response = await waitForSignal(() => fetch(getApiBaseUrl() + path, {
+      method: 'POST', headers, body: JSON.stringify(body), signal,
+    }), signal);
+    const data = await waitForSignal(() => response.json(), signal) as T & { success?: boolean; error?: string };
+    if (!response.ok || data.success !== true) throw new Error(data.error || 'Payment result is unknown. Check order status.');
+    return data;
+  });
 }
 
 export async function createRazorpayOrder(params: {
@@ -224,7 +138,7 @@ export async function verifyRazorpayPayment(
   return {
     orderId: data.orderId ?? draftId,
     orderNumber: data.orderNumber ?? null,
-    verified: data.verified !== false,
+    verified: data.verified === true,
   };
 }
 
@@ -391,6 +305,7 @@ export async function runRazorpayCheckoutFlow(params: {
     });
 
     const verified = await verifyRazorpayPayment(paymentResponse, params.draftId);
+    if (!verified.verified) throw new Error('Payment verification is pending. Check order status.');
     return {
       orderId: verified.orderId,
       orderNumber: formatCustomerOrderLabel(

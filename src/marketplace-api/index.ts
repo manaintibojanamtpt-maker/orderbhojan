@@ -367,13 +367,14 @@ export class MarketplaceApiClient {
     return this.http.request({
       method: 'POST',
       path: `${MARKETPLACE_PREFIX}/checkout/prepare`,
+      readOnly: true,
       body,
       signal: options?.signal,
       timeoutMs: options?.timeoutMs ?? 12_000,
     });
   }
 
-  checkoutPlace(body: Record<string, unknown>): Promise<{
+  checkoutPlace(body: Record<string, unknown>, options?: { authToken: string; signal: AbortSignal }): Promise<{
     orderId?: string;
     draftId?: string;
     orderNumber?: number | string;
@@ -388,7 +389,16 @@ export class MarketplaceApiClient {
       method: 'POST',
       path: `${MARKETPLACE_PREFIX}/checkout/place`,
       body,
+      ...options,
     });
+  }
+
+  recoverCheckoutAttempt(attemptId: string, signal?: AbortSignal): Promise<import('@/features/checkout/infrastructure/checkoutAttempt').CheckoutRecovery> {
+    return this.http.request({ path: `${MARKETPLACE_PREFIX}/checkout/attempts/${encodeURIComponent(attemptId)}`, signal, timeoutMs: 12_000 });
+  }
+
+  checkoutCapabilities(): Promise<{ contract: string }> {
+    return this.http.request({ path: `${MARKETPLACE_PREFIX}/checkout/capabilities`, timeoutMs: 5000 });
   }
 
   listOrders(): Promise<{ orders: OrderSummary[] }> {
@@ -397,9 +407,10 @@ export class MarketplaceApiClient {
     });
   }
 
-  getOrder(orderId: string): Promise<OrderSummary> {
+  getOrder(orderId: string, signal?: AbortSignal): Promise<OrderSummary> {
     return this.http.request({
       path: `${MARKETPLACE_PREFIX}/orders/${encodeURIComponent(orderId)}`,
+      signal,
     });
   }
 
@@ -409,10 +420,19 @@ export class MarketplaceApiClient {
     });
   }
 
-  getGuestTracking(orderId: string, phone: string): Promise<OrderTrackingResponse> {
+  getGuestTracking(orderId: string, phone: string, guestToken?: string): Promise<OrderTrackingResponse> {
     return this.http.request({
       path: `${MARKETPLACE_PREFIX}/orders/${encodeURIComponent(orderId)}/guest-tracking`,
       query: { phone },
+      ...(guestToken ? { headers: { Authorization: `Guest ${guestToken}` } } : {}),
+    });
+  }
+
+  issueGuestTrackingToken(orderId: string, phone: string): Promise<{ token: string; expiresAt: string }> {
+    return this.http.request({
+      method: 'POST',
+      path: `${MARKETPLACE_PREFIX}/orders/${encodeURIComponent(orderId)}/guest-token`,
+      body: { phone },
     });
   }
 

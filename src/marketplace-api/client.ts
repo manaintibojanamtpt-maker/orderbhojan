@@ -2,6 +2,7 @@ import { getAppConfig } from '@/config';
 import { shouldBypassMarketplaceHttpCache } from '@/config/marketplaceQueryPolicy';
 import { generateCorrelationId } from '@/utils';
 import type { ApiResult } from '@/types/marketplace';
+import { withRequestDeadline, waitForSignal, abortableDelay } from '@/lib/requestDeadline';
 import {
   mapApiFailureToError,
   mapUnknownError,
@@ -22,6 +23,8 @@ export interface MarketplaceRequestOptions {
   readonly signal?: AbortSignal;
   readonly bypassHttpCache?: boolean;
   readonly timeoutMs?: number;
+  /** Only for read-only POSTs, never a generic opt-in for order mutations. */
+  readonly readOnly?: boolean;
 }
 
 export interface MarketplaceClientConfig {
@@ -52,39 +55,41 @@ export class MarketplaceHttpClient {
 
   async request<T>(options: MarketplaceRequestOptions): Promise<T> {
     const correlationId = options.correlationId ?? this.sessionCorrelationId;
-    let lastError: MarketplaceApiError | null = null;
-
-    for (let attempt = 0; attempt <= this.config.retryAttempts; attempt++) {
+    // timeoutMs is an overall budget, not a fresh allowance per retry.
+    try {
+      return await withRequestDeadline(options.timeoutMs ?? this.config.timeoutMs, options.signal, async (signal) => {
+        for (let attempt = 0; ; attempt++) {
       try {
-        return await this.executeOnce<T>(options, correlationId);
+        return await this.executeOnce<T>(options, correlationId, signal);
       } catch (error) {
+        signal.throwIfAborted();
         const mapped = mapUnknownError(error);
-        lastError = mapped;
-        const shouldRetry = mapped.retryable && attempt < this.config.retryAttempts;
+        const safe = (options.method ?? 'GET') === 'GET' || options.readOnly === true;
+        const shouldRetry = safe && mapped.retryable && attempt < this.config.retryAttempts;
         if (!shouldRetry) {
           throw mapped;
         }
-        await new Promise((r) => setTimeout(r, this.config.retryDelayMs * (attempt + 1)));
+        await abortableDelay(this.config.retryDelayMs * (attempt + 1), signal);
       }
+        }
+      });
+    } catch (error) {
+      throw mapUnknownError(error);
     }
-
-    throw lastError ?? new MarketplaceApiError({ code: 'UNKNOWN', message: 'Request failed' });
   }
 
   private async executeOnce<T>(
     options: MarketplaceRequestOptions,
     correlationId: string,
+    signal: AbortSignal,
   ): Promise<T> {
     const url = this.buildUrl(options.path, options.query);
-    const controller = new AbortController();
-    const timeoutMs = options.timeoutMs ?? this.config.timeoutMs;
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     const token =
       options.authToken !== undefined
         ? options.authToken
         : this.config.getAuthToken
-          ? await this.config.getAuthToken()
+          ? await waitForSignal(() => this.config.getAuthToken!(), signal)
           : null;
 
     const headers: Record<string, string> = {
@@ -105,13 +110,13 @@ export class MarketplaceHttpClient {
       headers['X-Context-Token'] = options.contextToken;
     }
 
-    try {
-      const response = await fetch(url, {
+      signal.throwIfAborted();
+      const response = await waitForSignal(() => fetch(url, {
         method: options.method ?? 'GET',
         headers,
         body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-        signal: options.signal ?? controller.signal,
-      });
+        signal,
+      }), signal);
 
       const responseCorrelationId =
         response.headers.get('X-Correlation-Id') ?? correlationId;
@@ -119,7 +124,7 @@ export class MarketplaceHttpClient {
       let payload: ApiResult<T> | null = null;
       const contentType = response.headers.get('content-type') ?? '';
       if (contentType.includes('application/json')) {
-        payload = (await response.json()) as ApiResult<T>;
+        payload = (await waitForSignal(() => response.json(), signal)) as ApiResult<T>;
       }
 
       if (!response.ok) {
@@ -175,9 +180,6 @@ export class MarketplaceHttpClient {
       }
 
       return payload as T;
-    } finally {
-      clearTimeout(timeout);
-    }
   }
 
   private buildUrl(

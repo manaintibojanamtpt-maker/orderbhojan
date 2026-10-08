@@ -127,10 +127,10 @@ export function ConsumerAssistantSheet({
         ? 'listening'
         : speaking
           ? 'speaking'
-          : loading
-            ? 'thinking'
-            : validating
-              ? 'validating'
+          : validating
+            ? 'validating'
+            : loading
+              ? 'thinking'
               : null;
   const starters =
     assistMode === 'post_order'
@@ -258,7 +258,9 @@ export function ConsumerAssistantSheet({
                     <li key={`${action.type}-${idx}`}>
                       {action.type.replace(/_/g, ' ')}
                       {typeof action.payload?.name === 'string' ? ` · ${action.payload.name}` : ''}
-                      {typeof action.payload?.itemId === 'string' ? ` (${action.payload.itemId})` : ''}
+                      {typeof action.payload?.quantity === 'number' && action.payload.quantity > 1
+                        ? ` (${action.payload.quantity}x)`
+                        : ''}
                     </li>
                   ))}
                 </ul>
@@ -311,7 +313,9 @@ export function ConsumerAssistantSheet({
                   <span className="h-3 w-0.5 animate-pulse rounded-full bg-[#FF7A00]" />
                 </span>
                 <span className="font-medium text-[#FFA043]">
-                  Listening… speak in Telugu, Hindi, or English
+                  {pendingValidation?.status === 'validated' && pendingValidation.valid
+                    ? 'Listening for "Confirm" or next item…'
+                    : 'Listening… speak in Telugu, Hindi, or English'}
                 </span>
               </div>
             ) : statusPhase === 'speaking' ? (
@@ -323,15 +327,21 @@ export function ConsumerAssistantSheet({
                 </span>
                 <span className="font-medium text-emerald-300">Speaking…</span>
               </div>
-            ) : statusPhase === 'thinking' ? (
+            ) : statusPhase === 'validating' || validating ? (
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 animate-ping rounded-full bg-emerald-400" />
+                <span className="text-emerald-200">Validating order plan…</span>
+              </div>
+            ) : statusPhase === 'thinking' || loading ? (
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 animate-ping rounded-full bg-amber-400" />
                 <span className="text-amber-200">Finding dishes & kitchens…</span>
               </div>
-            ) : statusPhase === 'validating' || validating ? (
-              <span>Validating cart plan…</span>
             ) : applying ? (
-              <span>Adding to cart…</span>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                <span className="text-emerald-200">Adding to cart…</span>
+              </div>
             ) : null}
           </div>
         )}
@@ -445,7 +455,13 @@ export function ConsumerAssistantSheet({
                 submit();
               }
             }}
-            placeholder={listening ? 'Listening…' : 'Ask OrderBhojan…'}
+            placeholder={
+              listening
+                ? pendingValidation?.status === 'validated' && pendingValidation.valid
+                  ? 'Say "confirm" or next dish…'
+                  : 'Listening…'
+                : 'Ask OrderBhojan…'
+            }
             disabled={loading || listening}
             className="max-h-28 min-h-[42px] flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-[#fffaf3] placeholder:text-[#8a7f72] focus:border-[#FF7A00]/50 focus:outline-none"
           />
@@ -482,10 +498,10 @@ export function ConsumerAssistantSheet({
           </button>
         </div>
         {showMic ? (
-          <p className="mt-2 text-[10px] text-[#8a7f72]">
+          <p className="mt-2 text-[11px] text-[#8a7f72]">
             {voiceAgentActive
-              ? 'Live mode: listen → reply by voice → listen again. Say “confirm” to apply a validated plan, or “stop listening” to pause.'
-              : 'Tap mic for one turn, or Start live voice agent for continuous talk. Cart still needs Confirm.'}
+              ? 'Listening continuously in Telugu, Hindi, or English. Say “confirm” anytime to add to cart, or “stop” to pause.'
+              : 'Speak or type in Telugu, Hindi, or English. Confirm anytime to add items to your cart.'}
           </p>
         ) : null}
       </footer>

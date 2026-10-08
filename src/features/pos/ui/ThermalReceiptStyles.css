@@ -1,0 +1,55 @@
+/**
+ * 80mm / 58mm Thermal Printer Receipt CSS for POS
+ */
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #thermal-print-area,
+  #thermal-print-area * {
+    visibility: visible;
+  }
+
+  #thermal-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 78mm;
+    margin: 0;
+    padding: 2mm 3mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11pt;
+    line-height: 1.25;
+    color: #000;
+    background: #fff;
+  }
+
+  .print-center {
+    text-align: center;
+  }
+
+  .print-bold {
+    font-weight: 900;
+  }
+
+  .print-large {
+    font-size: 15pt;
+  }
+
+  .print-dashed {
+    border-bottom: 1px dashed #000;
+    margin: 4px 0;
+  }
+
+  .print-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 2px 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
