@@ -2,7 +2,8 @@
   "src/features/checkout/hooks/useCheckoutAttempt.ts:react-hooks/set-state-in-effect": 1,
   "src/features/checkout/hooks/useCheckoutAttempt.ts:react-hooks/exhaustive-deps": 1,
   "src/features/checkout/hooks/useCheckoutFlow.ts:react-hooks/set-state-in-effect": 3,
-  "src/features/checkout/hooks/useCheckoutFlow.ts:react-hooks/preserve-manual-memoization": 4,
+  "src/features/checkout/hooks/useCheckoutFlow.ts:react-hooks/preserve-manual-memoization": 3,
+  "src/features/checkout/hooks/useCheckoutFlow.ts:react-hooks/exhaustive-deps": 1,
   "src/features/checkout/hooks/useCheckoutPromoOffers.ts:react-hooks/exhaustive-deps": 2,
   "src/presentation/checkout/OrderBhojanCheckoutPage.tsx:react-hooks/set-state-in-effect": 5
 }
