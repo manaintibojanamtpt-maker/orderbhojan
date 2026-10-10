@@ -97,7 +97,7 @@ async function bootstrap() {
 
   renderApp();
 
-  if (config.features.mswEnabled) {
+  if (import.meta.env.DEV && config.features.mswEnabled) {
     try {
       const { startMockServiceWorker } = await import('@/marketplace-api/mocks/browser');
       await startMockServiceWorker();
