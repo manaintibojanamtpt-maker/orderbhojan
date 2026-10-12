@@ -24,6 +24,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Checkout backend sibling for customer integration tests
+        run: git clone --depth 1 --branch review/phaseb-projection-grants https://github.com/manaintibojanamtpt-maker/manaintibojanam-backend.git ../manaintibojanam-backend || git clone --depth 1 https://github.com/manaintibojanamtpt-maker/manaintibojanam-backend.git ../manaintibojanam-backend
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
       - name: Build marketplace contracts
         run: npm run build --prefix packages/marketplace-contracts
 
