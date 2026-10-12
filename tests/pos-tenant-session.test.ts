@@ -256,6 +256,54 @@ test('POS tenant session: selection', async (t) => {
     );
     assert.equal(result.tenantId, 'tenant_two');
   });
+
+  await t.test('binds requested tenant context when authorized by server', async () => {
+    const deps = depsWith(
+      {
+        '/api/v1/pos/tenants': listRoute(
+          [
+            { tenantId: 'tenant_a', role: 'owner', name: 'Kitchen A' },
+            { tenantId: 'tenant_b', role: 'manager', name: 'Kitchen B' },
+          ],
+          'owner_multi'
+        ),
+      },
+      'token-abc'
+    );
+    deps.requestedTenantId = 'tenant_b';
+
+    const result = await loadAuthorizedPosTenantsWith(deps);
+
+    assert.equal(result.status, 'ready');
+    assert.equal(result.tenantId, 'tenant_b', 'binds explicitly requested authorized tenant');
+    assert.equal(result.role, 'manager');
+  });
+
+  await t.test('denies cross-tenant launch and refuses to silently open another restaurant', async () => {
+    const deps = depsWith(
+      {
+        '/api/v1/pos/tenants': listRoute(
+          [
+            { tenantId: 'tenant_a', role: 'owner', name: 'Kitchen A' },
+          ],
+          'owner_strict'
+        ),
+      },
+      'token-abc'
+    );
+    // Attacker or misconfigured link requests an unauthorized tenant
+    deps.requestedTenantId = 'tenant_unauthorized_other';
+
+    const result = await loadAuthorizedPosTenantsWith(deps);
+
+    assert.equal(result.status, 'locked_out', 'must lock out when requested tenant is unauthorized');
+    assert.equal(result.reason, 'unauthorized_tenant');
+    assert.equal(result.tenantId, null, 'must NEVER silently bind another restaurant');
+    assert.equal(result.role, null);
+    assert.equal(result.requestedTenantId, 'tenant_unauthorized_other');
+    assert.equal(result.tenants?.length, 1, 'preserves authorized tenants so user can choose');
+    assert.equal(result.tenants?.[0]?.tenantId, 'tenant_a');
+  });
 });
 
 test('POS tenant session: switching', async (t) => {
