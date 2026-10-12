@@ -25,7 +25,9 @@ jobs:
         run: npm ci
 
       - name: Checkout backend sibling for customer integration tests
-        run: git clone --depth 1 --branch review/phaseb-projection-grants https://github.com/manaintibojanamtpt-maker/manaintibojanam-backend.git ../manaintibojanam-backend || git clone --depth 1 https://github.com/manaintibojanamtpt-maker/manaintibojanam-backend.git ../manaintibojanam-backend
+        run: |
+          git clone --depth 50 --branch review/phaseb-projection-grants https://github.com/manaintibojanamtpt-maker/manaintibojanam-backend.git ../manaintibojanam-backend
+          git -C ../manaintibojanam-backend checkout 439f1a30e8ce23391105e8344ff9c25ede1fed39
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
