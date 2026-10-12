@@ -10,7 +10,7 @@ const repoRoot = resolve(root, '..');
 
 describe('location timeout recovery', () => {
   it('uses a longer GPS timeout and maps TIMEOUT distinctly', () => {
-    const coreGeo = readFileSync(join(repoRoot, 'packages/location-core/src/geolocation.ts'), 'utf8');
+    const coreGeo = readFileSync(join(root, 'packages/location-core/src/geolocation.ts'), 'utf8');
     const flow = readFileSync(join(root, 'src/features/location/application/obLocationFlowService.ts'), 'utf8');
     const selector = readFileSync(join(root, 'src/features/location/ui/LocationSelectorSheet.tsx'), 'utf8');
     const actions = readFileSync(join(root, 'src/features/location/hooks/useLocationActions.ts'), 'utf8');

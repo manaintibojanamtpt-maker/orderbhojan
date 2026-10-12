@@ -92,19 +92,21 @@ function canClearForRestaurantMismatch(
   hasItems: boolean
 ): boolean {
   // Check hydration state
-  // UNKNOWN hydration (persist middleware not initialized OR hasHydrated returns false)
-  // MUST NOT trigger a destructive clear.
-  // If persist middleware is unavailable (Node tests without localStorage), infer
-  // hydration from CONFIRMED state: non-null restaurantSlug/contextToken for context,
-  // and non-null restaurantSlug or non-empty lines for cart.
-  // Use || not ?? because hasHydrated() can return FALSE (boolean), not just null/undefined.
+  // useRestaurantContextStore.persist.hasHydrated
+  // useCartStore.persist.hasHydrated
+  // Don't clear during hydration race
+  const contextPersist = (useRestaurantContextStore as unknown as { persist?: { hasHydrated?: () => boolean } }).persist;
+  const cartPersist = (useCartStore as unknown as { persist?: { hasHydrated?: () => boolean } }).persist;
+
   const contextHydrated =
-    useRestaurantContextStore.persist?.hasHydrated?.() ||
-    (useRestaurantContextStore.getState().restaurantSlug !== null &&
-      useRestaurantContextStore.getState().contextToken !== null);
+    typeof contextPersist?.hasHydrated === 'function'
+      ? contextPersist.hasHydrated()
+      : Boolean(useRestaurantContextStore.getState().restaurantSlug && useRestaurantContextStore.getState().contextToken);
+
   const cartHydrated =
-    useCartStore.persist?.hasHydrated?.() ||
-    (useCartStore.getState().restaurantSlug !== null || useCartStore.getState().lines.length > 0);
+    typeof cartPersist?.hasHydrated === 'function'
+      ? cartPersist.hasHydrated()
+      : Boolean(useCartStore.getState().restaurantSlug || useCartStore.getState().lines.length > 0);
 
   if (!contextHydrated || !cartHydrated) {
     return false; // Don't clear during hydration race / unknown state

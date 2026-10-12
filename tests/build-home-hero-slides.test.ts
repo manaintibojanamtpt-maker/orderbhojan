@@ -28,7 +28,7 @@ describe('buildHomeHeroSlides', () => {
     assert.equal(merged[1]?.headline, 'Flat 30% off');
     assert.equal(merged[1]?.subline, 'Test Kitchen — order before it ends');
     assert.equal(merged[1]?.cta, 'Order now');
-    assert.equal(merged[1]?.ctaPath, '/restaurant/test-kitchen');
+    assert.equal(merged[1]?.ctaPath, '/restaurant/test-kitchen/menu');
   });
 
   it('keeps superadmin custom imageUrl food slides contiguous before offers', () => {

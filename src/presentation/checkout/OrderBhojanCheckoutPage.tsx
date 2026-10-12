@@ -89,7 +89,7 @@ export function OrderBhojanCheckoutPage() {
     upiPollMessage,
     checkUpiPayment,
     notifyKitchenUpiPaid,
-    prepareCheckout,
+    refreshQuote,
   } = useCheckoutFlow();
   useCheckoutPrefetch(canCheckout);
   useKitchenPaymentMethodsPrefetch(canCheckout);
@@ -299,7 +299,7 @@ export function OrderBhojanCheckoutPage() {
 
   const handlePlaceOrder = () => {
     if (error && /reach|network|fetch|timeout|connection/i.test(error)) {
-      void prepareCheckout();
+      void refreshQuote();
       return;
     }
     if (!selectedPaymentMethod) return;

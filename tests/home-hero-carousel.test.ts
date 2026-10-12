@@ -25,7 +25,7 @@ describe('home hero carousel', () => {
       'utf8',
     );
     const view = readFileSync(
-      join(root, '../src/design-system/adapters/marketplace/MarketplaceDiscoveryHeroView.tsx'),
+      join(root, 'storefront-src/design-system/adapters/marketplace/MarketplaceDiscoveryHeroView.tsx'),
       'utf8',
     );
 
@@ -39,7 +39,7 @@ describe('home hero carousel', () => {
 
   it('keeps cinematic layout available and compact promo readable', () => {
     const view = readFileSync(
-      join(root, '../src/design-system/adapters/marketplace/MarketplaceDiscoveryHeroView.tsx'),
+      join(root, 'storefront-src/design-system/adapters/marketplace/MarketplaceDiscoveryHeroView.tsx'),
       'utf8',
     );
     const theme = readFileSync(join(root, 'src/styles/mib-theme.css'), 'utf8');

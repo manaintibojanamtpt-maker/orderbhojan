@@ -91,10 +91,23 @@ export function mergeRemoteFirebaseConfigPreferRemote(
 
 export async function fetchRemoteClientConfig(
   baseUrl: string,
+  timeoutMs = 5000,
 ): Promise<RemoteClientConfig | null> {
   const url = `${baseUrl.replace(/\/$/, '')}/api/client-config`;
+  const controller = new AbortController();
+  let timer: NodeJS.Timeout | undefined;
+
   try {
-    const response = await fetch(url, { credentials: 'same-origin' });
+    const fetchPromise = fetch(url, { credentials: 'same-origin', signal: controller.signal });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const err = new Error('The operation was aborted due to timeout');
+        err.name = 'TimeoutError';
+        controller.abort(err);
+        reject(err);
+      }, timeoutMs);
+    });
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
     if (!response.ok) {
       return null;
     }
@@ -103,23 +116,44 @@ export async function fetchRemoteClientConfig(
       return null;
     }
     return payload;
-  } catch {
+  } catch (err: unknown) {
+    const isTimeout =
+      (err instanceof Error && err.name === 'TimeoutError') || controller.signal.aborted;
+    if (isTimeout) {
+      const timeoutError = new Error('TimeoutError');
+      timeoutError.name = 'TimeoutError';
+      throw timeoutError;
+    }
     return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
-export async function hydrateFirebaseConfig(config: AppConfig): Promise<AppConfig> {
+export async function hydrateFirebaseConfig(
+  config: AppConfig,
+  timeoutMs = 5000,
+): Promise<AppConfig> {
   let hydrated = applyFirebaseDefaults(config);
   const usesLiveBackend = hydrated.marketplaceApiBaseUrl.includes('manaintibojanam-backend');
   const wrongProdFirebaseProject =
     import.meta.env?.PROD && usesLiveBackend && hydrated.firebase.projectId === 'orderbhojan';
 
-  if (!isFirebaseConfigIncomplete(hydrated) && !wrongProdFirebaseProject) {
+  if (!isFirebaseConfigIncomplete(hydrated) && !wrongProdFirebaseProject && timeoutMs === undefined) {
     return hydrated;
   }
 
-  const remote = await fetchRemoteClientConfig(hydrated.marketplaceApiBaseUrl);
+  const remote = await fetchRemoteClientConfig(hydrated.marketplaceApiBaseUrl, timeoutMs);
   if (remote) {
+    if (
+      remote.firebase.projectId &&
+      hydrated.firebase.projectId &&
+      remote.firebase.projectId !== hydrated.firebase.projectId
+    ) {
+      throw new Error(
+        `Refusing unintended Firebase project: expected ${hydrated.firebase.projectId}, got ${remote.firebase.projectId}`,
+      );
+    }
     hydrated =
       wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)

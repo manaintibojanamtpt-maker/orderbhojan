@@ -10,16 +10,16 @@ export class ConfigValidationError extends Error {
 export function validateAppConfig(config: AppConfig): void {
   const errors: string[] = [];
 
-  if (!config.marketplaceApiBaseUrl.startsWith('http')) {
-    errors.push('marketplaceApiBaseUrl must be an absolute URL');
+  if (!config.marketplaceApiBaseUrl || !config.marketplaceApiBaseUrl.startsWith('http')) {
+    errors.push('marketplaceApiBaseUrl must be an explicit absolute URL');
   }
 
   if (!config.marketplaceApiVersion) {
     errors.push('marketplaceApiVersion is required');
   }
 
-  if (config.api.timeoutMs < 1000 || config.api.timeoutMs > 120_000) {
-    errors.push('api.timeoutMs must be between 1000 and 120000');
+  if (Number.isNaN(config.api.timeoutMs) || config.api.timeoutMs < 1000 || config.api.timeoutMs > 120_000) {
+    errors.push('api.timeoutMs must be between 1000 and 120000 (invalid timeout)');
   }
 
   if (config.environment === 'production') {
