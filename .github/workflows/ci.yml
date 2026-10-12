@@ -37,7 +37,17 @@ jobs:
         run: node scripts/link-storefront-peer-deps.mjs
 
       - name: Production readiness gate
-        run: npm run gate:prod
+        run: npm run gate:prod 2>&1 | tee gate-output.log
+
+      - name: Publish gate summary
+        if: always()
+        run: |
+          if [ -f gate-output.log ]; then
+            echo "### Gate Log Output" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Full Gate Log</summary><pre>" >> $GITHUB_STEP_SUMMARY
+            cat gate-output.log >> $GITHUB_STEP_SUMMARY
+            echo "</pre></details>" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Security audit
         run: npm audit --audit-level=high
