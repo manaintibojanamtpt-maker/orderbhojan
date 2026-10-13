@@ -2,10 +2,36 @@ import { obDebugTrustEvent } from '@/lib/obDebug';
 
 export const AUTH_RETURN_TO_KEY = 'auth_return_to';
 
-function isSafeReturnPath(path: string | null | undefined): path is string {
+export function isSafeReturnPath(path: string | null | undefined): path is string {
   if (!path) return false;
-  const trimmed = path.trim();
-  return trimmed.startsWith('/') && !trimmed.startsWith('//');
+  let decoded = path.trim();
+  try {
+    decoded = decodeURIComponent(decoded).trim();
+  } catch {
+    return false;
+  }
+  // Prevent protocol-relative URLs, leading backslashes, and backslash bypasses
+  if (
+    !decoded.startsWith('/') ||
+    decoded.startsWith('//') ||
+    decoded.startsWith('/\\') ||
+    decoded.startsWith('\\')
+  ) {
+    return false;
+  }
+  // Disallow control characters or newlines
+  if (/[\x00-\x1F\x7F]/.test(decoded)) {
+    return false;
+  }
+  try {
+    const dummyOrigin = 'http://localhost';
+    const parsed = new URL(decoded, dummyOrigin);
+    if (parsed.origin !== dummyOrigin) return false;
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  } catch {
+    return false;
+  }
+  return true;
 }
 
 export function persistAuthReturnTo(returnTo: string): void {

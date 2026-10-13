@@ -16,6 +16,7 @@ import {
   rememberActiveTenant,
   type PosTenantSessionDeps,
 } from '../src/features/pos/services/posTenantSession';
+import { isSafeReturnPath } from '../src/features/auth/domain/authReturnTo';
 
 /** Minimal Response stand-in: the session only reads `ok` and `json()`. */
 const jsonResponse = (body: unknown, ok = true) =>
@@ -385,5 +386,49 @@ test('POS tenant session: switching', async (t) => {
     };
 
     assert.equal(await confirmTenantAuthorizedWith(deps, 'tenant_b'), false);
+  });
+});
+
+test('auth returnTo safe path validation: prevents open redirects', async (t) => {
+  await t.test('accepts valid internal paths with query parameters', () => {
+    assert.equal(isSafeReturnPath('/pos?tenantId=restaurant-1'), true);
+    assert.equal(isSafeReturnPath('/owner/pos'), true);
+    assert.equal(isSafeReturnPath('/orders'), true);
+    assert.equal(isSafeReturnPath('/checkout?step=review'), true);
+  });
+
+  await t.test('rejects protocol-relative URLs', () => {
+    assert.equal(isSafeReturnPath('//evil.com'), false);
+    assert.equal(isSafeReturnPath('//evil.com/path'), false);
+    assert.equal(isSafeReturnPath('///evil.com'), false);
+  });
+
+  await t.test('rejects backslash bypass variants', () => {
+    assert.equal(isSafeReturnPath('/\\evil.com'), false);
+    assert.equal(isSafeReturnPath('\\evil.com'), false);
+    assert.equal(isSafeReturnPath('\\\\evil.com'), false);
+    assert.equal(isSafeReturnPath('/\\/\\evil.com'), false);
+  });
+
+  await t.test('rejects encoded protocol-relative and backslash bypasses', () => {
+    assert.equal(isSafeReturnPath('%2F%2Fevil.com'), false);
+    assert.equal(isSafeReturnPath('%2F%5Cevil.com'), false);
+    assert.equal(isSafeReturnPath('%5C%5Cevil.com'), false);
+    assert.equal(isSafeReturnPath('/%2Fevil.com'), false);
+  });
+
+  await t.test('rejects absolute URLs and javascript/data schemes', () => {
+    assert.equal(isSafeReturnPath('https://evil.com'), false);
+    assert.equal(isSafeReturnPath('http://evil.com/login'), false);
+    assert.equal(isSafeReturnPath('javascript:alert(1)'), false);
+    assert.equal(isSafeReturnPath('data:text/html,<h1>evil</h1>'), false);
+  });
+
+  await t.test('rejects empty, null, undefined, or control characters', () => {
+    assert.equal(isSafeReturnPath(''), false);
+    assert.equal(isSafeReturnPath(null), false);
+    assert.equal(isSafeReturnPath(undefined), false);
+    assert.equal(isSafeReturnPath('   '), false);
+    assert.equal(isSafeReturnPath('/pos\n/evil'), false);
   });
 });
