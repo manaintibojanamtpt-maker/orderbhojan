@@ -87,10 +87,15 @@ export interface PosTenantSessionDeps {
   getToken: () => Promise<string | null>;
   /** Performs the authorized request. Injected so tests can drive it directly. */
   request: (url: string, init: RequestInit) => Promise<Response | null>;
+  /** Optional requested tenant id, e.g. from ?tenantId= query param */
+  requestedTenantId?: string | null;
 }
 
 const defaultDeps: PosTenantSessionDeps = {
-  getToken: () => getFirebaseIdToken(),
+  getToken: () =>
+    typeof window !== 'undefined' && (window as any).__mockPosToken
+      ? Promise.resolve((window as any).__mockPosToken)
+      : getFirebaseIdToken(),
   request: async (url, init) => {
     try {
       return await fetch(url, init);
@@ -98,6 +103,10 @@ const defaultDeps: PosTenantSessionDeps = {
       return null;
     }
   },
+  requestedTenantId:
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('tenantId')
+      : null,
 };
 
 export interface LoadPosTenantsResult {
@@ -105,11 +114,13 @@ export interface LoadPosTenantsResult {
   uid?: string;
   tenants?: AuthorizedPosTenant[];
   /** Present when locked out, so the UI can say something specific. */
-  reason?: 'unauthenticated' | 'no_tenants' | 'error';
+  reason?: 'unauthenticated' | 'no_tenants' | 'error' | 'unauthorized_tenant';
   message?: string;
   /** The tenant to bind, or null when there is nothing to bind. */
   tenantId: string | null;
   role: string | null;
+  /** Rejected requested tenant id if explicit launch was unauthorized */
+  requestedTenantId?: string | null;
 }
 
 const fetchJson = async <T>(
@@ -189,9 +200,53 @@ export const loadAuthorizedPosTenantsWith = async (
     };
   }
 
-  // Prefer the remembered tenant, but only if the server still authorizes it.
+  // Determine requested tenant from dependency or window.location.search
+  const requested = typeof deps.requestedTenantId === 'string' && deps.requestedTenantId.trim()
+    ? deps.requestedTenantId.trim()
+    : (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('tenantId')?.trim() ?? null
+        : null);
+
+  // If a specific tenant was requested explicitly:
+  // Strictly validate against the server's authorized tenants list.
+  // If NOT authorized, do NOT silently open another restaurant!
+  // Return clear locked_out state with unauthorized_tenant reason so user can select an authorized restaurant or contact admin.
+  if (requested) {
+    const requestedMatch = tenants.find((entry) => entry.tenantId === requested);
+    if (!requestedMatch) {
+      return {
+        status: 'locked_out',
+        reason: 'unauthorized_tenant',
+        message: `You do not have permission to open the register for restaurant "${requested}".`,
+        uid,
+        tenants,
+        tenantId: null,
+        role: null,
+        requestedTenantId: requested,
+      };
+    }
+    // Remember the authorized requested tenant
+    if (uid && requestedMatch.tenantId) {
+      rememberTenant(uid, requestedMatch.tenantId);
+    }
+    return {
+      status: 'ready',
+      uid,
+      tenants,
+      tenantId: requestedMatch.tenantId,
+      role: requestedMatch.role,
+    };
+  }
+
+  // When no explicit tenant was requested in the URL:
+  // Prefer remembered tenant (if server still authorizes it), otherwise first tenant.
   const remembered = uid ? readRememberedTenant(uid) : null;
   const preferred = tenants.find((entry) => entry.tenantId === remembered) ?? tenants[0];
+
+  // Remember the bound tenant so offline / subsequent loads stay pinned to it
+  if (uid && preferred?.tenantId) {
+    rememberTenant(uid, preferred.tenantId);
+  }
 
   return {
     status: 'ready',

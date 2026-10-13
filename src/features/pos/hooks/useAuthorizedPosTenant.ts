@@ -90,10 +90,10 @@ export const useAuthorizedPosTenant = (): PosTenantSession => {
         return;
       }
       setStatus('locked_out');
-      setTenants([]);
+      setTenants(result.tenants ?? []);
       setTenantId(null);
       setRole(null);
-      setUid('');
+      setUid(result.uid ?? '');
       setMessage(result.message ?? 'Sign in to use the POS.');
       return;
     }

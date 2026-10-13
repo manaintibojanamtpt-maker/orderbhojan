@@ -16,6 +16,8 @@ import {
   rememberActiveTenant,
   type PosTenantSessionDeps,
 } from '../src/features/pos/services/posTenantSession';
+import { isSafeReturnPath } from '../src/features/auth/domain/authReturnTo';
+import { classifyCommandResponse } from '../src/features/pos/services/posCommandPlanner';
 
 /** Minimal Response stand-in: the session only reads `ok` and `json()`. */
 const jsonResponse = (body: unknown, ok = true) =>
@@ -256,6 +258,54 @@ test('POS tenant session: selection', async (t) => {
     );
     assert.equal(result.tenantId, 'tenant_two');
   });
+
+  await t.test('binds requested tenant context when authorized by server', async () => {
+    const deps = depsWith(
+      {
+        '/api/v1/pos/tenants': listRoute(
+          [
+            { tenantId: 'tenant_a', role: 'owner', name: 'Kitchen A' },
+            { tenantId: 'tenant_b', role: 'manager', name: 'Kitchen B' },
+          ],
+          'owner_multi'
+        ),
+      },
+      'token-abc'
+    );
+    deps.requestedTenantId = 'tenant_b';
+
+    const result = await loadAuthorizedPosTenantsWith(deps);
+
+    assert.equal(result.status, 'ready');
+    assert.equal(result.tenantId, 'tenant_b', 'binds explicitly requested authorized tenant');
+    assert.equal(result.role, 'manager');
+  });
+
+  await t.test('denies cross-tenant launch and refuses to silently open another restaurant', async () => {
+    const deps = depsWith(
+      {
+        '/api/v1/pos/tenants': listRoute(
+          [
+            { tenantId: 'tenant_a', role: 'owner', name: 'Kitchen A' },
+          ],
+          'owner_strict'
+        ),
+      },
+      'token-abc'
+    );
+    // Attacker or misconfigured link requests an unauthorized tenant
+    deps.requestedTenantId = 'tenant_unauthorized_other';
+
+    const result = await loadAuthorizedPosTenantsWith(deps);
+
+    assert.equal(result.status, 'locked_out', 'must lock out when requested tenant is unauthorized');
+    assert.equal(result.reason, 'unauthorized_tenant');
+    assert.equal(result.tenantId, null, 'must NEVER silently bind another restaurant');
+    assert.equal(result.role, null);
+    assert.equal(result.requestedTenantId, 'tenant_unauthorized_other');
+    assert.equal(result.tenants?.length, 1, 'preserves authorized tenants so user can choose');
+    assert.equal(result.tenants?.[0]?.tenantId, 'tenant_a');
+  });
 });
 
 test('POS tenant session: switching', async (t) => {
@@ -337,5 +387,75 @@ test('POS tenant session: switching', async (t) => {
     };
 
     assert.equal(await confirmTenantAuthorizedWith(deps, 'tenant_b'), false);
+  });
+});
+
+test('auth returnTo safe path validation: prevents open redirects', async (t) => {
+  await t.test('accepts valid internal paths with query parameters', () => {
+    assert.equal(isSafeReturnPath('/pos?tenantId=restaurant-1'), true);
+    assert.equal(isSafeReturnPath('/owner/pos'), true);
+    assert.equal(isSafeReturnPath('/orders'), true);
+    assert.equal(isSafeReturnPath('/checkout?step=review'), true);
+  });
+
+  await t.test('rejects protocol-relative URLs', () => {
+    assert.equal(isSafeReturnPath('//evil.com'), false);
+    assert.equal(isSafeReturnPath('//evil.com/path'), false);
+    assert.equal(isSafeReturnPath('///evil.com'), false);
+  });
+
+  await t.test('rejects backslash bypass variants', () => {
+    assert.equal(isSafeReturnPath('/\\evil.com'), false);
+    assert.equal(isSafeReturnPath('\\evil.com'), false);
+    assert.equal(isSafeReturnPath('\\\\evil.com'), false);
+    assert.equal(isSafeReturnPath('/\\/\\evil.com'), false);
+  });
+
+  await t.test('rejects encoded protocol-relative and backslash bypasses', () => {
+    assert.equal(isSafeReturnPath('%2F%2Fevil.com'), false);
+    assert.equal(isSafeReturnPath('%2F%5Cevil.com'), false);
+    assert.equal(isSafeReturnPath('%5C%5Cevil.com'), false);
+    assert.equal(isSafeReturnPath('/%2Fevil.com'), false);
+  });
+
+  await t.test('rejects absolute URLs and javascript/data schemes', () => {
+    assert.equal(isSafeReturnPath('https://evil.com'), false);
+    assert.equal(isSafeReturnPath('http://evil.com/login'), false);
+    assert.equal(isSafeReturnPath('javascript:alert(1)'), false);
+    assert.equal(isSafeReturnPath('data:text/html,<h1>evil</h1>'), false);
+  });
+
+  await t.test('rejects empty, null, undefined, or control characters', () => {
+    assert.equal(isSafeReturnPath(''), false);
+    assert.equal(isSafeReturnPath(null), false);
+    assert.equal(isSafeReturnPath(undefined), false);
+    assert.equal(isSafeReturnPath('   '), false);
+    assert.equal(isSafeReturnPath('/pos\n/evil'), false);
+  });
+});
+
+test('POS disablement command response classification', async (t) => {
+  await t.test('classifies 503 POS_DISABLED as retryable to preserve queued commands', () => {
+    const res = classifyCommandResponse(503, {
+      error: { code: 'POS_DISABLED', message: 'Point of Sale is currently disabled.' },
+    });
+    assert.equal(res.outcome, 'retryable');
+    assert.equal(res.reason, 'SERVER');
+  });
+
+  await t.test('classifies 403 POS_DISABLED as retryable instead of permanently blocked', () => {
+    const res = classifyCommandResponse(403, {
+      error: { code: 'POS_DISABLED', message: 'Point of Sale is currently disabled.' },
+    });
+    assert.equal(res.outcome, 'retryable');
+    assert.equal(res.reason, 'SERVER');
+  });
+
+  await t.test('classifies ordinary 403 authorization failures as blocked', () => {
+    const res = classifyCommandResponse(403, {
+      error: { code: 'FORBIDDEN_ROLE', message: 'Cashier cannot execute this command.' },
+    });
+    assert.equal(res.outcome, 'blocked');
+    assert.equal(res.reason, 'FORBIDDEN');
   });
 });
