@@ -459,3 +459,74 @@ test('POS disablement command response classification', async (t) => {
     assert.equal(res.reason, 'FORBIDDEN');
   });
 });
+
+test('POS endpoint resolution and API base URL routing', async (t) => {
+  await t.test('calls backend API base URL when resolving POS endpoints', async () => {
+    let requestedUrl = '';
+    const deps: PosTenantSessionDeps = {
+      apiBaseUrl: 'https://manaintibojanam-backend.onrender.com',
+      getToken: async () => 'test-token',
+      request: async (url) => {
+        requestedUrl = url;
+        return {
+          ok: true,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({
+            success: true,
+            uid: 'owner_1',
+            tenants: [{ tenantId: 'tenant_1', role: 'owner', name: 'Mana Inti' }],
+          }),
+        } as unknown as Response;
+      },
+    };
+
+    const res = await loadAuthorizedPosTenantsWith(deps);
+    assert.equal(res.status, 'ready');
+    assert.equal(res.tenantId, 'tenant_1');
+    assert.equal(requestedUrl, 'https://manaintibojanam-backend.onrender.com/api/v1/pos/tenants');
+  });
+
+  await t.test('rejects HTML responses from static SPA host rewrites as locked out', async () => {
+    const deps: PosTenantSessionDeps = {
+      getToken: async () => 'test-token',
+      request: async () => {
+        return {
+          ok: true,
+          headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+          json: async () => {
+            throw new SyntaxError('Unexpected token <');
+          },
+        } as unknown as Response;
+      },
+    };
+
+    const res = await loadAuthorizedPosTenantsWith(deps);
+    assert.equal(res.status, 'locked_out');
+    assert.equal(res.reason, 'unauthenticated');
+  });
+
+  await t.test('matches requested tenant by display name if query holds restaurant name', async () => {
+    const deps: PosTenantSessionDeps = {
+      requestedTenantId: 'Mana Inti Bojanam Pune',
+      getToken: async () => 'test-token',
+      request: async () => {
+        return {
+          ok: true,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({
+            success: true,
+            uid: 'owner_1',
+            tenants: [
+              { tenantId: 'tenant_pune_123', role: 'owner', name: 'Mana Inti Bojanam Pune' },
+            ],
+          }),
+        } as unknown as Response;
+      },
+    };
+
+    const res = await loadAuthorizedPosTenantsWith(deps);
+    assert.equal(res.status, 'ready');
+    assert.equal(res.tenantId, 'tenant_pune_123');
+    assert.equal(res.role, 'owner');
+  });
+});

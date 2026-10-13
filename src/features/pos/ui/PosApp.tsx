@@ -19,6 +19,7 @@ import { posDb } from '../db/posDatabase';
 import { getOrderSyncService } from '../services/orderSyncService';
 import { useAuthorizedPosTenant } from '../hooks/useAuthorizedPosTenant';
 import { getFirebaseAuth } from '@/firebase/init';
+import { getAppConfig } from '@/config';
 import { audioAlert } from '../services/audioAlertService';
 import { wakeLockService } from '../services/wakeLockService';
 import type { PosOrder } from '../domain/pos.types';
@@ -81,14 +82,17 @@ export const PosApp: React.FC = () => {
   // One service instance per tab; it owns the durable queue lifecycle.
   const syncService = useMemo(
     () =>
-      getOrderSyncService(async () => {
-        const auth = getFirebaseAuth();
-        const user = auth?.currentUser;
-        if (!user) return null;
-        // Fresh token per attempt so an offline queue does not replay with an
-        // expired credential.
-        return user.getIdToken();
-      }),
+      getOrderSyncService(
+        async () => {
+          const auth = getFirebaseAuth();
+          const user = auth?.currentUser;
+          if (!user) return null;
+          // Fresh token per attempt so an offline queue does not replay with an
+          // expired credential.
+          return user.getIdToken();
+        },
+        getAppConfig().marketplaceApiBaseUrl
+      ),
     []
   );
 
