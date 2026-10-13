@@ -17,6 +17,7 @@ import {
   type PosTenantSessionDeps,
 } from '../src/features/pos/services/posTenantSession';
 import { isSafeReturnPath } from '../src/features/auth/domain/authReturnTo';
+import { classifyCommandResponse } from '../src/features/pos/services/posCommandPlanner';
 
 /** Minimal Response stand-in: the session only reads `ok` and `json()`. */
 const jsonResponse = (body: unknown, ok = true) =>
@@ -430,5 +431,31 @@ test('auth returnTo safe path validation: prevents open redirects', async (t) =>
     assert.equal(isSafeReturnPath(undefined), false);
     assert.equal(isSafeReturnPath('   '), false);
     assert.equal(isSafeReturnPath('/pos\n/evil'), false);
+  });
+});
+
+test('POS disablement command response classification', async (t) => {
+  await t.test('classifies 503 POS_DISABLED as retryable to preserve queued commands', () => {
+    const res = classifyCommandResponse(503, {
+      error: { code: 'POS_DISABLED', message: 'Point of Sale is currently disabled.' },
+    });
+    assert.equal(res.outcome, 'retryable');
+    assert.equal(res.reason, 'SERVER');
+  });
+
+  await t.test('classifies 403 POS_DISABLED as retryable instead of permanently blocked', () => {
+    const res = classifyCommandResponse(403, {
+      error: { code: 'POS_DISABLED', message: 'Point of Sale is currently disabled.' },
+    });
+    assert.equal(res.outcome, 'retryable');
+    assert.equal(res.reason, 'SERVER');
+  });
+
+  await t.test('classifies ordinary 403 authorization failures as blocked', () => {
+    const res = classifyCommandResponse(403, {
+      error: { code: 'FORBIDDEN_ROLE', message: 'Cashier cannot execute this command.' },
+    });
+    assert.equal(res.outcome, 'blocked');
+    assert.equal(res.reason, 'FORBIDDEN');
   });
 });
