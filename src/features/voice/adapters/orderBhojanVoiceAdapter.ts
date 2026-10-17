@@ -282,6 +282,12 @@ export function createOrderBhojanVoiceAdapter(
           userConfirmed: true,
           validation: plan,
           deps: deps.cartMutators,
+          planContext: {
+            proposalId: pending.planId || plan.conversationId,
+            restaurantId: pending.restaurant?.restaurantId || '',
+            restaurantSlug: pending.restaurant?.restaurantSlug,
+            expectedCartRevision: useCartStore.getState().revision,
+          },
         });
         if (!applied.mutatedState) {
           return {

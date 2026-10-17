@@ -1,9 +1,23 @@
 import type { CartPlanAction, CartPlanValidationResult } from '@/features/assistant/domain/cartPlanContract';
-import type { CartLineInput } from '../store/cartStore';
+import type {
+  CartLineInput,
+  AtomicPlanCommitParams,
+  AtomicPlanCommitResult,
+} from '../store/cartStore';
+
+export interface CartPlanContext {
+  readonly proposalId?: string;
+  readonly restaurantId?: string;
+  readonly restaurantSlug?: string;
+  readonly userSessionId?: string | null;
+  readonly expectedCartRevision?: number;
+  readonly expiresAt?: number;
+}
 
 export interface ApplyConfirmedCartPlanDeps {
-  readonly addItem: (line: CartLineInput, quantity?: number) => void;
-  readonly setQuantity: (lineId: string, quantity: number) => void;
+  readonly addItem?: (line: CartLineInput, quantity?: number) => void;
+  readonly setQuantity?: (lineId: string, quantity: number) => void;
+  readonly commitAtomicBatchPlan?: (params: AtomicPlanCommitParams) => AtomicPlanCommitResult;
 }
 
 export interface ApplyConfirmedCartPlanResult {
@@ -11,6 +25,9 @@ export interface ApplyConfirmedCartPlanResult {
   readonly skipped: readonly { readonly reason: string; readonly action: CartPlanAction }[];
   /** True only when at least one cart mutation ran after explicit confirm. */
   readonly mutatedState: boolean;
+  readonly reason?: string;
+  readonly error?: string;
+  readonly newRevision?: number;
 }
 
 function payloadString(payload: Readonly<Record<string, unknown>> | undefined, key: string): string | undefined {
@@ -68,6 +85,7 @@ export function applyConfirmedCartPlan(params: {
   readonly userConfirmed: true;
   readonly validation: CartPlanValidationResult;
   readonly deps: ApplyConfirmedCartPlanDeps;
+  readonly planContext?: CartPlanContext;
 }): ApplyConfirmedCartPlanResult {
   if (params.userConfirmed !== true) {
     throw new Error('Cart plan apply requires explicit userConfirmed: true');
@@ -83,6 +101,46 @@ export function applyConfirmedCartPlan(params: {
     };
   }
 
+  // 1. Single validated atomic state transition when commitAtomicBatchPlan is available
+  if (typeof params.deps.commitAtomicBatchPlan === 'function') {
+    const proposalId =
+      params.planContext?.proposalId ||
+      params.validation.conversationId ||
+      `prop_${Date.now()}`;
+    const restaurantId = params.planContext?.restaurantId || '';
+
+    const atomicResult = params.deps.commitAtomicBatchPlan({
+      proposalId,
+      restaurantId,
+      restaurantSlug: params.planContext?.restaurantSlug,
+      userSessionId: params.planContext?.userSessionId,
+      expectedCartRevision: params.planContext?.expectedCartRevision,
+      expiresAt: params.planContext?.expiresAt,
+      actions: params.validation.proposedActions,
+    });
+
+    if (!atomicResult.success) {
+      return {
+        appliedCount: 0,
+        skipped: params.validation.proposedActions.map((action) => ({
+          reason: atomicResult.error || atomicResult.reason || 'Commit failed',
+          action,
+        })),
+        mutatedState: false,
+        reason: atomicResult.reason,
+        error: atomicResult.error,
+      };
+    }
+
+    return {
+      appliedCount: atomicResult.appliedCount,
+      skipped: [],
+      mutatedState: true,
+      newRevision: atomicResult.newRevision,
+    };
+  }
+
+  // 2. Fallback sequential execution for legacy callers or minimal test doubles
   const skipped: { reason: string; action: CartPlanAction }[] = [];
   let appliedCount = 0;
 
@@ -93,7 +151,7 @@ export function applyConfirmedCartPlan(params: {
         skipped.push({ reason: parsed.error, action });
         continue;
       }
-      params.deps.addItem(parsed.line, parsed.quantity);
+      params.deps.addItem?.(parsed.line, parsed.quantity);
       appliedCount += 1;
       continue;
     }
@@ -108,7 +166,7 @@ export function applyConfirmedCartPlan(params: {
         skipped.push({ reason: 'Update requires lineId/foodId and quantity', action });
         continue;
       }
-      params.deps.setQuantity(lineId, Math.max(0, Math.round(quantity)));
+      params.deps.setQuantity?.(lineId, Math.max(0, Math.round(quantity)));
       appliedCount += 1;
       continue;
     }
@@ -122,7 +180,7 @@ export function applyConfirmedCartPlan(params: {
         skipped.push({ reason: 'Remove requires lineId/foodId', action });
         continue;
       }
-      params.deps.setQuantity(lineId, 0);
+      params.deps.setQuantity?.(lineId, 0);
       appliedCount += 1;
       continue;
     }

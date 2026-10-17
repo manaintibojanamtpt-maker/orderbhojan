@@ -223,6 +223,7 @@ export function useAssistantConversation() {
   const restaurantSlug = useRestaurantContextStore((s) => s.restaurantSlug);
   const addItem = useCartStore((s) => s.addItem);
   const setQuantity = useCartStore((s) => s.setQuantity);
+  const commitAtomicBatchPlan = useCartStore((s) => s.commitAtomicBatchPlan);
   const activeLocation = useActiveLocation();
 
   const postOrderMode = postOrderFlag && (Boolean(orderContext?.orderId) || Boolean(orderContext?.snapshot));
@@ -1510,7 +1511,13 @@ const usePostOrderPath =
       const result = applyConfirmedCartPlan({
         userConfirmed: true,
         validation: pendingValidation,
-        deps: { addItem, setQuantity },
+        deps: { addItem, setQuantity, commitAtomicBatchPlan },
+        planContext: {
+          proposalId: (pendingValidation as any).proposalId || pendingValidation.conversationId,
+          restaurantId: planRestaurant?.restaurantId || restaurantId || '',
+          restaurantSlug: planRestaurant?.restaurantSlug || restaurantSlug || undefined,
+          expectedCartRevision: useCartStore.getState().revision,
+        },
       });
 
       reportCartPlanDecisionQuietly({

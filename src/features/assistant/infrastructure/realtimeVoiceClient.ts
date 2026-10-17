@@ -44,9 +44,34 @@ export interface AntiAliasedResampler {
 }
 
 /**
- * Creates an anti-aliased stateful resampler using a 2nd-order Butterworth low-pass filter
- * with continuous delay-line state retention across audio chunks, followed by linear interpolation decimation.
- * Prevents high-frequency aliasing (> 8kHz) into the speech band when downsampling from 48kHz / 44.1kHz to 16kHz.
+ * Barge-in and acoustic echo rejection helpers.
+ */
+export function shouldTriggerBargeIn(rms: number, noiseFloor: number, isSpeaking: boolean): boolean {
+  if (!isSpeaking) return false;
+  // During active assistant playback, require elevated speech energy to distinguish
+  // genuine deliberate user speech from speaker acoustic echo/leakage
+  const bargeInThreshold = Math.max(0.025, noiseFloor * 3.5);
+  return rms >= bargeInThreshold;
+}
+
+export function updateAdaptiveNoiseFloor(
+  currentFloor: number,
+  rms: number,
+  isSpeaking: boolean,
+  hasDetectedSpeech: boolean,
+): number {
+  // Never adapt noise floor during assistant playback to prevent speaker echo contamination
+  if (isSpeaking) return currentFloor;
+  if (!hasDetectedSpeech || rms < currentFloor * 1.5) {
+    return Math.max(0.001, Math.min(0.05, currentFloor * 0.95 + rms * 0.05));
+  }
+  return currentFloor;
+}
+
+/**
+ * Creates an anti-aliased resampler using a 4th-order (cascaded 2-stage biquad)
+ * Butterworth low-pass filter to guarantee steep stopband roll-off (> 24 dB rejection)
+ * and passband flat response (< 0.5 dB ripple).
  */
 export function createAntiAliasedResampler(
   inputSampleRate: number,
@@ -59,37 +84,50 @@ export function createAntiAliasedResampler(
     };
   }
 
-  let s1 = 0;
-  let s2 = 0;
-
-  // Design low-pass cutoff at ~7.2kHz to attenuate everything above 8kHz Nyquist
+  // 4th-order Butterworth low-pass filter (2 cascaded biquad stages)
   const nyquist = inputSampleRate / 2;
-  const cutoff = Math.min(7200, (targetSampleRate / 2) * 0.9);
+  const cutoff = Math.min(6800, (targetSampleRate / 2) * 0.88);
   const normalizedCutoff = Math.min(0.95, cutoff / nyquist);
-
   const w0 = Math.PI * normalizedCutoff;
-  const alpha = Math.sin(w0) / (2 * Math.SQRT1_2); // Q = 0.7071 (Butterworth)
   const cosw0 = Math.cos(w0);
+  const sinw0 = Math.sin(w0);
 
-  const b0 = (1 - cosw0) / 2;
-  const b1 = 1 - cosw0;
-  const b2 = (1 - cosw0) / 2;
-  const a0 = 1 + alpha;
-  const a1 = -2 * cosw0;
-  const a2 = 1 - alpha;
+  // Q values for 4-pole Butterworth: 1 / (2 * cos(3pi/8)) and 1 / (2 * cos(pi/8))
+  const Q1 = 0.5411961;
+  const Q2 = 1.306563;
 
-  const nb0 = b0 / a0;
-  const nb1 = b1 / a0;
-  const nb2 = b2 / a0;
-  const na1 = a1 / a0;
-  const na2 = a2 / a0;
+  function calcCoeffs(q: number) {
+    const alpha = sinw0 / (2 * q);
+    const b0 = (1 - cosw0) / 2;
+    const b1 = 1 - cosw0;
+    const b2 = (1 - cosw0) / 2;
+    const a0 = 1 + alpha;
+    const a1 = -2 * cosw0;
+    const a2 = 1 - alpha;
+    return {
+      nb0: b0 / a0,
+      nb1: b1 / a0,
+      nb2: b2 / a0,
+      na1: a1 / a0,
+      na2: a2 / a0,
+    };
+  }
 
+  const stage1 = calcCoeffs(Q1);
+  const stage2 = calcCoeffs(Q2);
+
+  let s1a = 0;
+  let s2a = 0;
+  let s1b = 0;
+  let s2b = 0;
   let isInitialized = false;
 
   return {
     reset: () => {
-      s1 = 0;
-      s2 = 0;
+      s1a = 0;
+      s2a = 0;
+      s1b = 0;
+      s2b = 0;
       isInitialized = false;
     },
     resample: (input: Float32Array): Float32Array => {
@@ -97,19 +135,28 @@ export function createAntiAliasedResampler(
 
       if (!isInitialized) {
         const x0 = input[0];
-        s1 = (1 - nb0) * x0;
-        s2 = (nb2 - na2) * x0;
+        s1a = (1 - stage1.nb0) * x0;
+        s2a = (stage1.nb2 - stage1.na2) * x0;
+        s1b = (1 - stage2.nb0) * x0;
+        s2b = (stage2.nb2 - stage2.na2) * x0;
         isInitialized = true;
       }
 
-      // 1. Continuous delay-line anti-aliasing filter
+      // 1. Continuous delay-line 4th-order Butterworth anti-aliasing filter
       const filtered = new Float32Array(input.length);
       for (let i = 0; i < input.length; i++) {
         const x = input[i];
-        const y = nb0 * x + s1;
-        s1 = nb1 * x - na1 * y + s2;
-        s2 = nb2 * x - na2 * y;
-        filtered[i] = y;
+        // Stage 1
+        const y1 = stage1.nb0 * x + s1a;
+        s1a = stage1.nb1 * x - stage1.na1 * y1 + s2a;
+        s2a = stage1.nb2 * x - stage1.na2 * y1;
+
+        // Stage 2
+        const y2 = stage2.nb0 * y1 + s1b;
+        s1b = stage2.nb1 * y1 - stage2.na1 * y2 + s2b;
+        s2b = stage2.nb2 * y1 - stage2.na2 * y2;
+
+        filtered[i] = y2;
       }
 
       // 2. High-fidelity interpolation decimation
@@ -121,7 +168,8 @@ export function createAntiAliasedResampler(
         const indexFloor = Math.floor(originIndex);
         const indexCeil = Math.min(filtered.length - 1, indexFloor + 1);
         const fraction = originIndex - indexFloor;
-        result[i] = filtered[indexFloor] * (1 - fraction) + filtered[indexCeil] * fraction;
+        const sample = filtered[indexFloor] * (1 - fraction) + filtered[indexCeil] * fraction;
+        result[i] = Math.max(-1, Math.min(1, sample));
       }
       return result;
     },
@@ -318,16 +366,19 @@ export class RealtimeVoiceSession {
         this.events.onLevelChange?.(Math.min(1, rms * 4));
 
         // Adaptive background noise floor tracking (frozen during assistant playback to prevent speaker echo contamination)
-        if (!this.isSpeaking && (!this.hasDetectedSpeechInTurn || rms < this.estimatedNoiseFloor * 1.5)) {
-          this.estimatedNoiseFloor = Math.max(0.001, Math.min(0.05, this.estimatedNoiseFloor * 0.95 + rms * 0.05));
-        }
+        this.estimatedNoiseFloor = updateAdaptiveNoiseFloor(
+          this.estimatedNoiseFloor,
+          rms,
+          this.isSpeaking,
+          this.hasDetectedSpeechInTurn,
+        );
 
         // Dynamic thresholds relative to ambient noise floor
         const dynamicSpeechThreshold = Math.max(0.012, this.estimatedNoiseFloor * 2.5);
         const dynamicSilenceThreshold = Math.max(0.008, this.estimatedNoiseFloor * 1.6);
 
         // Instant barge-in cancellation (< 20ms) when user starts speaking while audio is playing
-        if (this.isSpeaking && rms >= dynamicSpeechThreshold) {
+        if (shouldTriggerBargeIn(rms, this.estimatedNoiseFloor, this.isSpeaking)) {
           this.streamingPlayer?.stop();
           this.isSpeaking = false;
           this.socket.emit('playback:interrupt');

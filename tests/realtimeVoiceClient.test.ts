@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { downsampleTo16k, isVoiceStreamingSupported } from '../src/features/assistant/infrastructure/realtimeVoiceClient';
+import {
+  downsampleTo16k,
+  isVoiceStreamingSupported,
+  shouldTriggerBargeIn,
+  updateAdaptiveNoiseFloor,
+} from '../src/features/assistant/infrastructure/realtimeVoiceClient';
 
 describe('RealtimeVoiceClient Infrastructure Tests', () => {
   describe('downsampleTo16k', () => {
@@ -41,36 +46,84 @@ describe('RealtimeVoiceClient Infrastructure Tests', () => {
       assert.ok(Math.abs(resampled[0] - 0.5) < 0.001);
     });
 
-    it('attenuates out-of-band frequencies (anti-alias filter rejection)', () => {
-      // 12 kHz tone at 48 kHz sampling rate (above 8 kHz Nyquist of 16 kHz target)
-      // Must be attenuated by the 7.2 kHz low-pass filter
+    it('maintains high passband quality (< 1.5 dB attenuation)', () => {
+      // Test tones at 500Hz, 1kHz, 2kHz, and 3.5kHz at 48kHz input
+      // Butterworth maximally flat response guarantees < 1.5 dB attenuation (ratio > 0.841)
+      const freqs = [500, 1000, 2000, 3500];
       const sampleCount = 4800; // 100ms
-      const highFreqInput = new Float32Array(sampleCount);
-      for (let i = 0; i < sampleCount; i++) {
-        highFreqInput[i] = Math.sin((2 * Math.PI * 12000 * i) / 48000);
+      for (const freq of freqs) {
+        const input = new Float32Array(sampleCount);
+        for (let i = 0; i < sampleCount; i++) {
+          input[i] = Math.sin((2 * Math.PI * freq * i) / 48000);
+        }
+        const resampled = downsampleTo16k(input, 48000);
+        // Exclude initial filter transient
+        const steady = resampled.slice(200);
+        let sumSq = 0;
+        for (let i = 0; i < steady.length; i++) sumSq += steady[i] * steady[i];
+        const rms = Math.sqrt(sumSq / steady.length);
+        const expectedRms = 1 / Math.SQRT2; // RMS of unit sine wave is ~0.7071
+        const ratio = rms / expectedRms;
+        const attenuationDb = -20 * Math.log10(ratio);
+        assert.ok(
+          attenuationDb < 1.5,
+          `Expected ${freq}Hz passband attenuation < 1.5 dB, got ${attenuationDb.toFixed(2)} dB (ratio ${ratio.toFixed(3)})`,
+        );
+      }
+    });
+
+    it('achieves steep stopband rejection (> 24 dB) via 4th-order Butterworth filter', () => {
+      // 14 kHz and 16 kHz tones at 48 kHz sampling rate
+      // 4th order filter (24 dB/octave) guarantees > 24 dB rejection (ratio < 0.063)
+      const sampleCount = 4800;
+      const testFreqs = [14000, 16000];
+      for (const freq of testFreqs) {
+        const highFreqInput = new Float32Array(sampleCount);
+        for (let i = 0; i < sampleCount; i++) {
+          highFreqInput[i] = Math.sin((2 * Math.PI * freq * i) / 48000);
+        }
+
+        const resampled = downsampleTo16k(highFreqInput, 48000);
+        const steady = resampled.slice(200);
+        let sumSq = 0;
+        for (let i = 0; i < steady.length; i++) sumSq += steady[i] * steady[i];
+        const rms = Math.sqrt(sumSq / steady.length);
+        const expectedRms = 1 / Math.SQRT2;
+        const ratio = rms / expectedRms;
+        const attenuationDb = -20 * Math.log10(ratio);
+        assert.ok(
+          attenuationDb > 24,
+          `Expected ${freq}Hz stopband rejection > 24 dB, got ${attenuationDb.toFixed(2)} dB (ratio ${ratio.toFixed(4)})`,
+        );
+      }
+    });
+
+    it('resamples correctly across irregular transport chunk boundaries without distortion or drift', () => {
+      const irregularChunkSizes = [128, 256, 512, 1024, 768, 2048, 384, 4096];
+      let totalInputSamples = 0;
+      let totalOutputSamples = 0;
+
+      for (const size of irregularChunkSizes) {
+        const chunk = new Float32Array(size);
+        for (let i = 0; i < size; i++) {
+          chunk[i] = Math.sin((2 * Math.PI * 1000 * (totalInputSamples + i)) / 48000);
+        }
+        totalInputSamples += size;
+        const resampled = downsampleTo16k(chunk, 48000);
+        totalOutputSamples += resampled.length;
+
+        // Verify no NaNs or Infinities
+        for (let i = 0; i < resampled.length; i++) {
+          assert.ok(Number.isFinite(resampled[i]), `Resampled sample ${i} is not finite`);
+          assert.ok(Math.abs(resampled[i]) <= 1.2, `Resampled sample ${i} exceeds amplitude bounds`);
+        }
       }
 
-      // 1 kHz tone at 48 kHz sampling rate (well within passband)
-      const passbandInput = new Float32Array(sampleCount);
-      for (let i = 0; i < sampleCount; i++) {
-        passbandInput[i] = Math.sin((2 * Math.PI * 1000 * i) / 48000);
-      }
-
-      const highResampled = downsampleTo16k(highFreqInput, 48000);
-      const passResampled = downsampleTo16k(passbandInput, 48000);
-
-      // Compute RMS of both resampled signals
-      let highRms = 0;
-      for (let i = 0; i < highResampled.length; i++) highRms += highResampled[i] * highResampled[i];
-      highRms = Math.sqrt(highRms / highResampled.length);
-
-      let passRms = 0;
-      for (let i = 0; i < passResampled.length; i++) passRms += passResampled[i] * passResampled[i];
-      passRms = Math.sqrt(passRms / passResampled.length);
-
-      // Anti-aliasing filter must attenuate 12 kHz signal by > 10 dB relative to passband
-      const attenuationRatio = highRms / passRms;
-      assert.ok(attenuationRatio < 0.35, `Expected high frequency attenuation < 0.35 (-10 dB), got ${attenuationRatio.toFixed(3)}`);
+      const expectedOutput = Math.round(totalInputSamples / 3);
+      assert.ok(
+        Math.abs(totalOutputSamples - expectedOutput) <= 1,
+        `Expected ~${expectedOutput} samples from ${totalInputSamples} input samples, got ${totalOutputSamples}`,
+      );
     });
 
     it('preserves exact output sample length with zero drift over long streaming sessions', () => {
@@ -91,6 +144,45 @@ describe('RealtimeVoiceClient Infrastructure Tests', () => {
       // Exactly 10.0 seconds at 16,000 Hz must yield 160,000 samples (zero sample drift)
       const expectedTotalSamples = 160000;
       assert.equal(totalOutputSamples, expectedTotalSamples, `Long session sample drift detected: expected ${expectedTotalSamples}, got ${totalOutputSamples}`);
+    });
+  });
+
+  describe('barge-in and acoustic echo rejection', () => {
+    it('freezes adaptive noise floor during active assistant speech to avoid speaker echo contamination', () => {
+      const initialFloor = 0.005;
+      const speakerAcousticEchoRms = 0.022; // Loud playback sound picked up by microphone
+
+      // During active speech (isSpeaking: true), noise floor must NOT be corrupted by playback audio
+      const floorDuringPlayback = updateAdaptiveNoiseFloor(initialFloor, speakerAcousticEchoRms, true, false);
+      assert.equal(floorDuringPlayback, initialFloor, 'Noise floor must remain frozen during playback');
+
+      // When assistant is silent, ambient room noise is tracked normally
+      const ambientRoomRms = 0.008;
+      const floorDuringSilence = updateAdaptiveNoiseFloor(initialFloor, ambientRoomRms, false, false);
+      assert.ok(floorDuringSilence > initialFloor, 'Noise floor adapts to ambient room noise when silent');
+    });
+
+    it('rejects assistant playback echo as user speech and triggers barge-in only on deliberate user speech', () => {
+      const noiseFloor = 0.006;
+
+      // 1. When assistant is not speaking, barge-in does not trigger
+      assert.equal(shouldTriggerBargeIn(0.04, noiseFloor, false), false);
+
+      // 2. When assistant IS speaking, normal acoustic speaker leakage (e.g. RMS 0.018) is rejected
+      const acousticEchoRms = 0.018;
+      assert.equal(
+        shouldTriggerBargeIn(acousticEchoRms, noiseFloor, true),
+        false,
+        'Assistant speaker echo must NOT trigger false barge-in',
+      );
+
+      // 3. When user speaks clearly into the mic (e.g. RMS 0.045), barge-in triggers immediately
+      const deliberateSpeechRms = 0.045;
+      assert.equal(
+        shouldTriggerBargeIn(deliberateSpeechRms, noiseFloor, true),
+        true,
+        'Genuine user utterance must trigger instant barge-in',
+      );
     });
   });
 
