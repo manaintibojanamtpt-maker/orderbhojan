@@ -175,6 +175,11 @@ export default defineConfig({
         target: process.env.VITE_MARKETPLACE_API_PROXY ?? 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/api/voice': {
+        target: process.env.VITE_MARKETPLACE_API_PROXY ?? 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });
