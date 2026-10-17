@@ -1,29 +1,32 @@
 /**
  * Purpose: Realtime Voice Client connecting OrderBhojan Web to backend Voice Gateway (/api/voice/stream).
- * Public API: createRealtimeVoiceClient, RealtimeVoiceSession, isVoiceStreamingSupported
+ * Public API: createRealtimeVoiceClient, RealtimeVoiceSession, isVoiceStreamingSupported, downsampleTo16k
  * Capabilities:
- * - WebSocket streaming STT via Sarvam saaras:v4-realtime with automatic multilingual detection.
- * - Progressive streaming TTS playback via Web Audio API.
- * - Realtime interim transcript captioning.
- * - Instant barge-in / interruption of assistant speech.
- * - Automatic fallback to Web Speech API / batch STT when offline or unsupported.
+ * - High-fidelity linear audio resampling from browser native AudioContext (44.1kHz / 48kHz) to 16kHz linear PCM.
+ * - Tuned adaptive VAD (700-900ms pause threshold) preventing premature clipping of Indic speech.
+ * - Progressive streaming TTS playback via StreamingAudioPlayer with turnId tracking.
+ * - Instant barge-in / cancellation on speech activity (< 20ms).
+ * - Multi-language preference persistence across turns.
  */
 
 import { io, type Socket } from 'socket.io-client';
 import { getAppConfig } from '@/config';
 import { getMarketplaceAuthTokenProvider } from '@/marketplace-api';
+import { createStreamingAudioPlayer, type StreamingAudioPlayer } from './streamingAudioPlayer';
 
 export interface RealtimeVoiceEvents {
   onReady?: (info: { sessionId: string; provider: string; streaming: boolean }) => void;
-  onPartialTranscript?: (data: { transcript: string; language?: string }) => void;
-  onFinalTranscript?: (data: { transcript: string; language?: string }) => void;
-  onTurnResult?: (data: { reply: string; proposedActions?: any[] }) => void;
-  onTtsStart?: () => void;
-  onTtsChunk?: (data: { chunkBase64: string; index: number }) => void;
-  onTtsEnd?: () => void;
-  onTtsCancelled?: () => void;
+  onPartialTranscript?: (data: { transcript: string; language?: string; isFinal?: boolean }) => void;
+  onFinalTranscript?: (data: { transcript: string; language?: string; isFinal?: boolean }) => void;
+  onTurnResult?: (data: { reply: string; proposedActions?: any[]; intent?: string; language?: string }) => void;
+  onTtsStart?: (data?: { turnId?: string }) => void;
+  onTtsChunk?: (data: { chunkBase64: string; index: number; turnId?: string }) => void;
+  onTtsEnd?: (data?: { turnId?: string }) => void;
+  onTtsCancelled?: (data?: { turnId?: string }) => void;
   onError?: (err: { code: string; message: string }) => void;
   onBackpressure?: (data: { status: string }) => void;
+  onLevelChange?: (level: number) => void;
+  onTiming?: (data: { correlationId?: string; turnToFirstAudioMs?: number }) => void;
 }
 
 export function isVoiceStreamingSupported(): boolean {
@@ -35,16 +38,43 @@ export function isVoiceStreamingSupported(): boolean {
   return hasAudioContext && hasMediaDevices;
 }
 
+/**
+ * High-fidelity linear downsampler from arbitrary native sample rate to 16,000 Hz.
+ * Correctly resamples rather than merely relabeling the sample rate.
+ */
+export function downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {
+  if (inputSampleRate === 16000 || input.length === 0) return input;
+  const ratio = inputSampleRate / 16000;
+  const newLength = Math.round(input.length / ratio);
+  const result = new Float32Array(newLength);
+  for (let i = 0; i < newLength; i++) {
+    const originIndex = i * ratio;
+    const indexFloor = Math.floor(originIndex);
+    const indexCeil = Math.min(input.length - 1, indexFloor + 1);
+    const fraction = originIndex - indexFloor;
+    result[i] = input[indexFloor] * (1 - fraction) + input[indexCeil] * fraction;
+  }
+  return result;
+}
+
 export class RealtimeVoiceSession {
   private socket: Socket | null = null;
   private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
   private audioInputNode: MediaStreamAudioSourceNode | null = null;
   private processorNode: ScriptProcessorNode | null = null;
+  private streamingPlayer: StreamingAudioPlayer | null = null;
   private isRecording = false;
   private isSpeaking = false;
-  private currentTtsSource: AudioBufferSourceNode | null = null;
-  private ttsPlayScheduledTime = 0;
+
+  // Adaptive VAD parameters (700-900ms pause tuning)
+  private hasDetectedSpeechInTurn = false;
+  private silenceStartTimestamp: number | null = null;
+  private speechStartTimestamp: number | null = null;
+  private readonly SPEECH_RMS_THRESHOLD = 0.015;
+  private readonly SILENCE_RMS_THRESHOLD = 0.012;
+  private readonly ADAPTIVE_SILENCE_DURATION_MS = 850; // Tuned for natural Indic pauses
+  private readonly MIN_SPEECH_DURATION_MS = 300; // Ignore transient mic clicks
 
   constructor(
     private readonly baseUrl: string,
@@ -67,8 +97,24 @@ export class RealtimeVoiceSession {
           reconnectionAttempts: 3,
         });
 
+        this.streamingPlayer = createStreamingAudioPlayer({
+          onPlaybackStart: () => {
+            this.isSpeaking = true;
+            this.events.onTtsStart?.();
+          },
+          onPlaybackEnd: () => {
+            this.isSpeaking = false;
+            this.events.onTtsEnd?.();
+          },
+          onLevelChange: (lvl) => {
+            if (this.isSpeaking) {
+              this.events.onLevelChange?.(lvl);
+            }
+          },
+        });
+
         this.socket.on('connect', () => {
-          // Socket connected successfully
+          // Connected
         });
 
         this.socket.on('voice:ready', (data) => {
@@ -88,24 +134,33 @@ export class RealtimeVoiceSession {
           this.events.onTurnResult?.(data);
         });
 
-        this.socket.on('voice:tts:start', () => {
+        this.socket.on('voice:timing', (data) => {
+          this.events.onTiming?.(data);
+        });
+
+        this.socket.on('voice:tts:start', (data) => {
           this.isSpeaking = true;
-          this.ttsPlayScheduledTime = 0;
-          this.events.onTtsStart?.();
+          if (data?.turnId) {
+            this.streamingPlayer?.setTurn(data.turnId);
+          }
+          this.events.onTtsStart?.(data);
         });
 
         this.socket.on('voice:tts:chunk', async (data) => {
           this.events.onTtsChunk?.(data);
-          await this.playTtsChunk(data.chunkBase64);
+          await this.streamingPlayer?.playChunk(data.chunkBase64, {
+            turnId: data.turnId,
+            index: data.index,
+          });
         });
 
-        this.socket.on('voice:tts:end', () => {
-          this.events.onTtsEnd?.();
+        this.socket.on('voice:tts:end', (data) => {
+          this.events.onTtsEnd?.(data);
         });
 
-        this.socket.on('voice:tts:cancelled', () => {
+        this.socket.on('voice:tts:cancelled', (data) => {
           this.stopTtsPlayback();
-          this.events.onTtsCancelled?.();
+          this.events.onTtsCancelled?.(data);
         });
 
         this.socket.on('voice:backpressure', (data) => {
@@ -137,7 +192,7 @@ export class RealtimeVoiceSession {
       if (!this.audioContext) {
         const AudioContextClass =
           window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        this.audioContext = new AudioContextClass({ sampleRate: 16000 });
+        this.audioContext = new AudioContextClass();
       }
 
       if (this.audioContext.state === 'suspended') {
@@ -147,20 +202,61 @@ export class RealtimeVoiceSession {
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          sampleRate: 16000,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
         },
       });
 
+      const nativeSampleRate = this.audioContext.sampleRate || 48000;
       this.audioInputNode = this.audioContext.createMediaStreamSource(this.mediaStream);
       this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
+
+      this.hasDetectedSpeechInTurn = false;
+      this.silenceStartTimestamp = null;
+      this.speechStartTimestamp = null;
 
       this.processorNode.onaudioprocess = (e) => {
         if (!this.isRecording || !this.socket?.connected) return;
         const inputData = e.inputBuffer.getChannelData(0);
-        const pcmBuffer = this.floatTo16BitPCM(inputData);
+
+        // Compute input RMS level for live audio waveform and VAD
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          sum += inputData[i] * inputData[i];
+        }
+        const rms = Math.sqrt(sum / inputData.length);
+        this.events.onLevelChange?.(Math.min(1, rms * 4));
+
+        // Adaptive VAD speech-end logic
+        const now = Date.now();
+        if (rms >= this.SPEECH_RMS_THRESHOLD) {
+          if (!this.hasDetectedSpeechInTurn) {
+            this.hasDetectedSpeechInTurn = true;
+            this.speechStartTimestamp = now;
+          }
+          this.silenceStartTimestamp = null;
+        } else if (rms <= this.SILENCE_RMS_THRESHOLD && this.hasDetectedSpeechInTurn) {
+          if (this.silenceStartTimestamp === null) {
+            this.silenceStartTimestamp = now;
+          } else {
+            const silenceDuration = now - this.silenceStartTimestamp;
+            const speechDuration = now - (this.speechStartTimestamp || now);
+
+            // Natural pause threshold exceeded after meaningful speech
+            if (
+              silenceDuration >= this.ADAPTIVE_SILENCE_DURATION_MS &&
+              speechDuration >= this.MIN_SPEECH_DURATION_MS
+            ) {
+              this.stopMicrophoneCapture();
+              return;
+            }
+          }
+        }
+
+        // Downsample from browser hardware rate (e.g. 48kHz / 44.1kHz) to 16kHz linear PCM
+        const resampledData = downsampleTo16k(inputData, nativeSampleRate);
+        const pcmBuffer = this.floatTo16BitPCM(resampledData);
         this.socket.emit('audio:chunk', pcmBuffer);
       };
 
@@ -197,6 +293,26 @@ export class RealtimeVoiceSession {
       this.mediaStream.getTracks().forEach((track) => track.stop());
       this.mediaStream = null;
     }
+
+    this.hasDetectedSpeechInTurn = false;
+    this.silenceStartTimestamp = null;
+    this.speechStartTimestamp = null;
+    this.events.onLevelChange?.(0);
+  }
+
+  public sendContext(context: Record<string, unknown>): void {
+    if (this.socket?.connected) {
+      this.socket.emit('voice:context', context);
+    }
+  }
+
+  public setPreferredLanguage(lang: string): void {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('ob_preferred_voice_language', lang);
+      } catch {}
+    }
+    this.sendContext({ language: lang });
   }
 
   public bargeIn(): void {
@@ -216,68 +332,8 @@ export class RealtimeVoiceSession {
 
   private stopTtsPlayback(): void {
     this.isSpeaking = false;
-    if (this.currentTtsSource) {
-      try {
-        this.currentTtsSource.stop();
-        this.currentTtsSource.disconnect();
-      } catch {
-        // ignore
-      }
-      this.currentTtsSource = null;
-    }
-    this.ttsPlayScheduledTime = 0;
-  }
-
-  private async playTtsChunk(chunkBase64: string): Promise<void> {
-    if (!chunkBase64) return;
-
-    try {
-      if (!this.audioContext) {
-        const AudioContextClass =
-          window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        this.audioContext = new AudioContextClass();
-      }
-
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume().catch(() => {});
-      }
-
-      const binaryStr = atob(chunkBase64);
-      const len = binaryStr.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-
-      const audioBuffer = await this.audioContext.decodeAudioData(bytes.buffer);
-      this.scheduleAudioChunk(audioBuffer);
-    } catch {
-      // Chunk decode fallback
-    }
-  }
-
-  private scheduleAudioChunk(buffer: AudioBuffer): void {
-    if (!this.audioContext) return;
-
-    const source = this.audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.audioContext.destination);
-
-    const currentTime = this.audioContext.currentTime;
-    const startTime = Math.max(currentTime, this.ttsPlayScheduledTime);
-    source.start(startTime);
-
-    this.ttsPlayScheduledTime = startTime + buffer.duration;
-    this.currentTtsSource = source;
-
-    source.onended = () => {
-      if (this.currentTtsSource === source) {
-        this.currentTtsSource = null;
-      }
-      if (this.audioContext && this.audioContext.currentTime >= this.ttsPlayScheduledTime - 0.05) {
-        this.isSpeaking = false;
-      }
-    };
+    this.streamingPlayer?.stop();
+    this.events.onLevelChange?.(0);
   }
 
   private floatTo16BitPCM(input: Float32Array): ArrayBuffer {

@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, Square } from 'lucide-react';
+import { Mic, Square, Globe } from 'lucide-react';
 import type { CartPlanValidationResult } from '../domain/cartPlanContract';
 import { summarizePendingCartPlan } from '../domain/summarizePendingCartPlan';
 import type { AssistantThreadMessage } from './useAssistantConversation';
 import type { ConsumerAssistHint } from '../types';
+import { AudioReactiveWaveform } from './AudioReactiveWaveform';
+
+function triggerHaptic(type: 'light' | 'medium' | 'success' | 'error' = 'light') {
+  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      if (type === 'light') navigator.vibrate(15);
+      else if (type === 'medium') navigator.vibrate(35);
+      else if (type === 'success') navigator.vibrate([20, 40, 20]);
+      else if (type === 'error') navigator.vibrate([40, 60, 40]);
+    } catch {}
+  }
+}
 
 const ORDERING_STARTERS = [
   'What vegetarian options look good?',
@@ -73,8 +85,8 @@ export function ConsumerAssistantSheet({
   voiceAvailable = false,
   personalizationEnabled = false,
   assistMode = 'ordering',
-  voiceLanguage: _voiceLanguage = 'en-IN',
-  onVoiceLanguageChange: _onVoiceLanguageChange,
+  voiceLanguage = 'en-IN',
+  onVoiceLanguageChange,
   onClose,
   onSend,
   onVoiceStart,
@@ -193,6 +205,43 @@ export function ConsumerAssistantSheet({
           Close
         </button>
       </header>
+
+      {voiceEnabled ? (
+        <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-4 py-1.5 text-xs">
+          <div className="flex items-center gap-1.5 text-[#d0c4b5]">
+            <Globe className="h-3.5 w-3.5 text-[#FF7A00]" />
+            <span className="text-[11px] font-medium">Language:</span>
+          </div>
+          <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Speech language selection">
+            {[
+              { id: 'en-IN', label: 'English' },
+              { id: 'te-IN', label: 'తెలుగు' },
+              { id: 'hi-IN', label: 'हिंदी' },
+            ].map((l) => {
+              const isSelected = voiceLanguage === l.id;
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    onVoiceLanguageChange?.(l.id);
+                  }}
+                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition ${
+                    isSelected
+                      ? 'bg-[#FF7A00] text-black font-semibold shadow-sm'
+                      : 'bg-white/5 text-[#d0c4b5] hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && !loading && (
@@ -442,7 +491,16 @@ export function ConsumerAssistantSheet({
         </div>
       ) : null}
 
-      <footer className="border-t border-white/10 p-3">
+      <footer className="border-t border-white/10 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+        {listening || speaking ? (
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-3 py-1">
+            <span className="text-[11px] font-medium text-[#d0c4b5]">
+              {listening ? 'Listening to speech…' : 'OrderBhojan speaking…'}
+            </span>
+            <AudioReactiveWaveform isActive={true} mode={listening ? 'listening' : 'speaking'} />
+          </div>
+        ) : null}
+
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}
@@ -463,16 +521,18 @@ export function ConsumerAssistantSheet({
                 : 'Ask OrderBhojan…'
             }
             disabled={loading || listening}
-            className="max-h-28 min-h-[42px] flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-[#fffaf3] placeholder:text-[#8a7f72] focus:border-[#FF7A00]/50 focus:outline-none"
+            className="max-h-28 min-h-[48px] flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-[#fffaf3] placeholder:text-[#8a7f72] focus:border-[#FF7A00]/50 focus:outline-none"
           />
           {showMic ? (
             <button
               type="button"
               onClick={() => {
                 if (listening) {
+                  triggerHaptic('light');
                   onVoiceCancel?.();
                   return;
                 }
+                triggerHaptic('medium');
                 onVoiceStart?.();
               }}
               disabled={micBusy && !listening}
@@ -481,8 +541,8 @@ export function ConsumerAssistantSheet({
               data-testid="consumer-assistant-mic"
               className={
                 listening
-                  ? 'shrink-0 rounded-xl border border-red-400/40 bg-red-500/20 px-3 py-2.5 text-red-200'
-                  : 'shrink-0 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-2.5 text-[#FF7A00] disabled:opacity-40'
+                  ? 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-red-400/40 bg-red-500/20 px-3 text-red-200'
+                  : 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-white/15 bg-white/[0.04] px-3 text-[#FF7A00] disabled:opacity-40 hover:bg-white/10 transition'
               }
             >
               {listening ? <Square size={18} fill="currentColor" /> : <Mic size={18} />}
@@ -490,9 +550,12 @@ export function ConsumerAssistantSheet({
           ) : null}
           <button
             type="button"
-            onClick={submit}
+            onClick={() => {
+              triggerHaptic('light');
+              submit();
+            }}
             disabled={loading || listening || !draft.trim()}
-            className="shrink-0 rounded-xl bg-[#FF7A00] px-3 py-2.5 text-sm font-semibold text-black disabled:opacity-40"
+            className="shrink-0 flex items-center justify-center min-h-[48px] rounded-xl bg-[#FF7A00] px-4 text-sm font-semibold text-black disabled:opacity-40 hover:opacity-95 transition"
           >
             Send
           </button>
