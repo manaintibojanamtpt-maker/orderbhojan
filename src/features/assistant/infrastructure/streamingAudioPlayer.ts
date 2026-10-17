@@ -6,7 +6,7 @@
  * - Explicit PCM negotiation: never treats unrecognized container bytes as raw PCM.
  * - 16-bit PCM byte alignment: buffers dangling odd bytes across transport chunks.
  * - Out-of-order chunk sequencing and bounded buffer management.
- * - Instant barge-in cancellation in < 20ms with upstream discard.
+ * - Synchronous software playback cancellation: dispatches AudioBufferSourceNode.stop(0) and clears queued buffers.
  * - Realtime RMS level analysis for audio-reactive waveforms.
  */
 

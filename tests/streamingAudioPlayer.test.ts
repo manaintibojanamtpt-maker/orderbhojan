@@ -194,7 +194,7 @@ describe('StreamingAudioPlayer (Progressive TTS, Framing & Turn Cancellation)', 
     assert.equal(player.playing, false);
   });
 
-  it('barge-in stop executes in < 20ms and clears active playback', () => {
+  it('dispatches software stop and clears active playback synchronously', () => {
     let stoppedSource = false;
 
     class MockAudioBufferSourceNode {
@@ -229,7 +229,7 @@ describe('StreamingAudioPlayer (Progressive TTS, Framing & Turn Cancellation)', 
     player.stop();
     const elapsed = performance.now() - start;
 
-    assert.ok(elapsed < 20, `Barge-in took ${elapsed}ms, expected < 20ms`);
+    assert.ok(elapsed < 20, `Software stop dispatch took ${elapsed}ms`);
     assert.equal(player.playing, false);
   });
 });
