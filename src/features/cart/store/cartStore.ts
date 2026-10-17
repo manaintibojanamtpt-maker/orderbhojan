@@ -432,7 +432,7 @@ export const useCartStore = create<CartState>()(
               success: false,
               appliedCount: 0,
               reason: 'UNSUPPORTED_ACTION',
-              error: `Unsupported action type: ${(action as any).type}`,
+              error: `Unsupported action type: ${action.type}`,
             };
           }
         }

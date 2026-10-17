@@ -61,5 +61,42 @@ try {
   assert.equal(await page.evaluate(()=>visualViewport.scale),2);
   const viewport=readFileSync('index.html','utf8').match(/<meta name="viewport"[^>]+>/)?.[0];
   assert.ok(viewport&&!/user-scalable=no|maximum-scale=1/.test(viewport));passed++;
-  console.log(`Browser checks: ${passed} passed. Mounted checkout/recovery components, simulated network/provider; no real payment or Android process kill.`);
+
+  // 5. Browser Integration: Assistant Real Confirm Button Scenarios
+  await page.goto('http://127.0.0.1:5187/__customer_test?mode=assistant_confirm');
+  await page.locator('#btn-load-three-dosas').waitFor();
+
+  // Step 1: Load 3 initial dosas
+  await page.locator('#btn-load-three-dosas').click();
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3');
+  assert.equal(await page.locator('#cart-line-count').textContent(), '1');
+  assert.equal(await page.locator('#cart-revision').textContent(), '1');
+
+  // Step 2: Real Confirm button click -> executes split plan atomically
+  await page.locator('#btn-confirm-split').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'SUCCESS');
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3'); // 2 regular + 1 without onion = 3 total units
+  assert.equal(await page.locator('#cart-line-count').textContent(), '2');
+  assert.equal(await page.locator('#cart-revision').textContent(), '2');
+
+  // Step 3: Repeated confirmation (replay protection)
+  await page.locator('#btn-confirm-split').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'PROPOSAL_REPLAYED');
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3'); // Cart untouched
+
+  // Step 4: Validation failure leaves cart unchanged
+  await page.locator('#btn-confirm-bad').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'VALIDATION_FAILED');
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3'); // Cart untouched
+
+  // Step 5: Expired proposal rejected
+  await page.locator('#btn-confirm-expired').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'PROPOSAL_EXPIRED');
+
+  // Step 6: Restaurant mismatch rejected
+  await page.locator('#btn-confirm-wrong-rest').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'RESTAURANT_MISMATCH');
+  passed++;
+
+  console.log(`Browser checks: ${passed} passed. Mounted checkout/recovery and assistant confirm components in real browser; no real payment or Android process kill.`);
 } finally {await browser?.close();await server.close();}
