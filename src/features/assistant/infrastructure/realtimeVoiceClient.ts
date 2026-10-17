@@ -317,8 +317,8 @@ export class RealtimeVoiceSession {
         const rms = Math.sqrt(sum / inputData.length);
         this.events.onLevelChange?.(Math.min(1, rms * 4));
 
-        // Adaptive background noise floor tracking
-        if (!this.hasDetectedSpeechInTurn || rms < this.estimatedNoiseFloor * 1.5) {
+        // Adaptive background noise floor tracking (frozen during assistant playback to prevent speaker echo contamination)
+        if (!this.isSpeaking && (!this.hasDetectedSpeechInTurn || rms < this.estimatedNoiseFloor * 1.5)) {
           this.estimatedNoiseFloor = Math.max(0.001, Math.min(0.05, this.estimatedNoiseFloor * 0.95 + rms * 0.05));
         }
 

@@ -40,6 +40,58 @@ describe('RealtimeVoiceClient Infrastructure Tests', () => {
       assert.equal(resampled.length, 1600);
       assert.ok(Math.abs(resampled[0] - 0.5) < 0.001);
     });
+
+    it('attenuates out-of-band frequencies (anti-alias filter rejection)', () => {
+      // 12 kHz tone at 48 kHz sampling rate (above 8 kHz Nyquist of 16 kHz target)
+      // Must be attenuated by the 7.2 kHz low-pass filter
+      const sampleCount = 4800; // 100ms
+      const highFreqInput = new Float32Array(sampleCount);
+      for (let i = 0; i < sampleCount; i++) {
+        highFreqInput[i] = Math.sin((2 * Math.PI * 12000 * i) / 48000);
+      }
+
+      // 1 kHz tone at 48 kHz sampling rate (well within passband)
+      const passbandInput = new Float32Array(sampleCount);
+      for (let i = 0; i < sampleCount; i++) {
+        passbandInput[i] = Math.sin((2 * Math.PI * 1000 * i) / 48000);
+      }
+
+      const highResampled = downsampleTo16k(highFreqInput, 48000);
+      const passResampled = downsampleTo16k(passbandInput, 48000);
+
+      // Compute RMS of both resampled signals
+      let highRms = 0;
+      for (let i = 0; i < highResampled.length; i++) highRms += highResampled[i] * highResampled[i];
+      highRms = Math.sqrt(highRms / highResampled.length);
+
+      let passRms = 0;
+      for (let i = 0; i < passResampled.length; i++) passRms += passResampled[i] * passResampled[i];
+      passRms = Math.sqrt(passRms / passResampled.length);
+
+      // Anti-aliasing filter must attenuate 12 kHz signal by > 10 dB relative to passband
+      const attenuationRatio = highRms / passRms;
+      assert.ok(attenuationRatio < 0.35, `Expected high frequency attenuation < 0.35 (-10 dB), got ${attenuationRatio.toFixed(3)}`);
+    });
+
+    it('preserves exact output sample length with zero drift over long streaming sessions', () => {
+      // Simulate 10 seconds of streaming audio delivered in 100ms chunks (100 chunks)
+      const chunkCount = 100;
+      const chunkSize48k = 4800; // 100ms at 48kHz
+      let totalOutputSamples = 0;
+
+      for (let c = 0; c < chunkCount; c++) {
+        const chunk = new Float32Array(chunkSize48k);
+        for (let i = 0; i < chunkSize48k; i++) {
+          chunk[i] = Math.sin((2 * Math.PI * 440 * (c * chunkSize48k + i)) / 48000);
+        }
+        const resampled = downsampleTo16k(chunk, 48000);
+        totalOutputSamples += resampled.length;
+      }
+
+      // Exactly 10.0 seconds at 16,000 Hz must yield 160,000 samples (zero sample drift)
+      const expectedTotalSamples = 160000;
+      assert.equal(totalOutputSamples, expectedTotalSamples, `Long session sample drift detected: expected ${expectedTotalSamples}, got ${totalOutputSamples}`);
+    });
   });
 
   describe('isVoiceStreamingSupported', () => {
