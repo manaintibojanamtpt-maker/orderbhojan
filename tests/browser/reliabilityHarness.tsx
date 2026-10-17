@@ -5,6 +5,7 @@ import { CheckoutPageView } from '../../storefront-src/design-system/cart/Checko
 import { readCheckoutAttempt, type CheckoutRecovery } from '../../src/features/checkout/infrastructure/checkoutAttempt';
 import { useCartStore, cartItemCount } from '../../src/features/cart/store/cartStore';
 import { applyConfirmedCartPlan } from '../../src/features/cart/domain/applyConfirmedCartPlan';
+import { ConsumerAssistantSheet } from '../../src/features/assistant/ui/ConsumerAssistantSheet';
 import '../../src/styles/globals.css';
 
 function AssistantConfirmHarness() {
@@ -145,12 +146,124 @@ function AssistantConfirmHarness() {
   );
 }
 
+function RealAssistantSheetHarness() {
+  const lines = useCartStore((s) => s.lines);
+  const revision = useCartStore((s) => s.revision);
+  const [sessionUser, setSessionUser] = useState<string>('usr_test_customer');
+  const [proposalOriginSession, setProposalOriginSession] = useState<string>('usr_test_customer');
+  const [lastOutcome, setLastOutcome] = useState<string>('READY');
+  const [pendingValidation, setPendingValidation] = useState<any>({
+    schemaVersion: '5.0',
+    conversationId: 'conv_real_sheet_1',
+    status: 'validated',
+    valid: true,
+    proposedActions: [
+      { type: 'cart_update_plan', payload: { lineId: 'dosa_plain', quantity: 2 } },
+      { type: 'cart_add_plan', payload: { foodId: 'dosa_plain', name: 'Masala Dosa', price: 80, quantity: 1, instructions: 'without onion' } },
+    ],
+  });
+
+  const loadThreeDosas = () => {
+    useCartStore.setState({
+      lines: [
+        {
+          lineId: 'dosa_plain',
+          foodId: 'dosa_plain',
+          name: 'Masala Dosa',
+          price: 80,
+          quantity: 3,
+          restaurantSlug: 'swathi-tiffin',
+          restaurantId: 'rest_swathi',
+        },
+      ],
+      restaurantSlug: 'swathi-tiffin',
+      revision: 1,
+      userSessionId: 'usr_test_customer',
+      visible: true,
+    });
+    setSessionUser('usr_test_customer');
+    setProposalOriginSession('usr_test_customer');
+    setLastOutcome('LOADED');
+  };
+
+  const handleConfirmPlan = () => {
+    const res = applyConfirmedCartPlan({
+      userConfirmed: true,
+      validation: pendingValidation,
+      deps: { commitAtomicBatchPlan: useCartStore.getState().commitAtomicBatchPlan },
+      planContext: {
+        proposalId: 'prop_real_sheet_split',
+        restaurantId: 'rest_swathi',
+        restaurantSlug: 'swathi-tiffin',
+        userSessionId: proposalOriginSession,
+        expectedCartRevision: 1,
+      },
+    });
+
+    if (res.mutatedState) {
+      setLastOutcome('CONFIRMED_SUCCESS');
+      setPendingValidation(null);
+    } else {
+      setLastOutcome(res.reason || 'CONFIRMATION_REJECTED');
+    }
+  };
+
+  const handleSwitchAccount = () => {
+    setSessionUser('usr_test_customer_2');
+    useCartStore.setState({ userSessionId: 'usr_test_customer_2' });
+  };
+
+  return (
+    <div className="p-4 bg-[#0a0a0a] text-white space-y-3">
+      <div className="flex gap-4 text-xs border-b border-white/10 pb-2">
+        <div>Session: <span id="sheet-session-user">{sessionUser}</span></div>
+        <div>Cart Items: <span id="sheet-cart-item-count">{cartItemCount(lines)}</span></div>
+        <div>Cart Lines: <span id="sheet-cart-line-count">{lines.length}</span></div>
+        <div>Revision: <span id="sheet-cart-revision">{revision}</span></div>
+        <div>Outcome: <span id="sheet-confirm-outcome">{lastOutcome}</span></div>
+      </div>
+      <div className="flex gap-2">
+        <button id="btn-sheet-load-three-dosas" type="button" onClick={loadThreeDosas} className="px-2 py-1 bg-neutral-700 rounded text-xs">Load 3 Dosas</button>
+        <button id="btn-sheet-switch-account" type="button" onClick={handleSwitchAccount} className="px-2 py-1 bg-amber-700 rounded text-xs">Switch to Customer 2</button>
+      </div>
+      <div className="max-w-md border border-white/10 rounded-2xl overflow-hidden bg-[#110e0c]">
+        <ConsumerAssistantSheet
+          messages={[
+            { id: '1', role: 'user', text: 'Add three dosas' },
+            { id: '2', role: 'assistant', text: 'Added 3 Masala Dosas' },
+            { id: '3', role: 'user', text: 'One without onion' },
+            { id: '4', role: 'assistant', text: 'Customized: 2 regular + 1 without onion. Tap confirm below to add.' },
+          ]}
+          input=""
+          onInputChange={() => {}}
+          onSend={() => {}}
+          loading={false}
+          validating={false}
+          applying={false}
+          error={null}
+          onClearError={() => {}}
+          starters={[]}
+          pendingValidation={pendingValidation}
+          onConfirmPlan={handleConfirmPlan}
+          onDismissPlan={() => setPendingValidation(null)}
+          isPostOrder={false}
+          onFollowHint={() => {}}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Harness() {
   const [recovery, setRecovery] = useState<CheckoutRecovery | null>(null);
   const [checking, setChecking] = useState(false);
   const [method, setMethod] = useState<'upi' | 'cod' | 'razorpay' | null>('upi');
   const [phone, setPhone] = useState('');
   const mode = new URLSearchParams(location.search).get('mode');
+
+  if (mode === 'real_assistant_sheet') {
+    return <RealAssistantSheetHarness />;
+  }
 
   if (mode === 'assistant_confirm') {
     return <AssistantConfirmHarness />;
