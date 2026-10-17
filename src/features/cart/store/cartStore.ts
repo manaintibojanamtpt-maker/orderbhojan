@@ -310,9 +310,15 @@ export const useCartStore = create<CartState>()(
           };
         }
 
-        // 6. Atomically compute candidate next state in memory
-        // If ANY action cannot be computed, NOT A SINGLE LINE is mutated!
-        let candidate: CartLine[] = current.lines.map((l) => ({ ...l }));
+        // 6. Atomically compute candidate next state in memory with deep isolation
+        // If ANY action cannot be computed, NOT A SINGLE LINE or nested addon is mutated!
+        const deepCloneCartLines = (lines: readonly CartLine[]): CartLine[] =>
+          lines.map((l) => ({
+            ...l,
+            addons: l.addons ? l.addons.map((a) => ({ ...a })) : undefined,
+          }));
+
+        let candidate: CartLine[] = deepCloneCartLines(current.lines);
         const targetSlug =
           params.restaurantSlug ||
           current.restaurantSlug ||

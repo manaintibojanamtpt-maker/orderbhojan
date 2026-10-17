@@ -445,4 +445,68 @@ describe('Atomic Cart Confirmation and Stale-Plan Protection', () => {
     assert.equal(customDosa?.quantity, 1);
     assert.equal(cartItemCount(lines), 5, 'Total units: 2 coffees + 3 dosas = 5');
   });
+
+  it('failure-after-first-action asserts both cart values and original nested objects remain unchanged', () => {
+    const originalAddons = Object.freeze([
+      { id: 'addon_ghee', label: 'Desi Ghee', price: 25 },
+    ]);
+    const originalLine = Object.freeze({
+      lineId: 'dosa_plain',
+      foodId: 'dosa_plain',
+      name: 'Masala Dosa',
+      price: 80,
+      quantity: 3,
+      instructions: 'crispy',
+      addons: originalAddons,
+      restaurantSlug: 'swathi-tiffin',
+      restaurantId: 'rest_swathi',
+    });
+
+    useCartStore.setState({
+      lines: [originalLine],
+      restaurantSlug: 'swathi-tiffin',
+      revision: 1,
+      userSessionId: 'sess_alice',
+      visible: true,
+    });
+
+    // Action 1: Valid update (reduces quantity to 2)
+    // Action 2: Invalid action (attempts to add an item with negative price -50)
+    const validation = createMockValidation([
+      {
+        type: 'cart_update_plan',
+        payload: { lineId: 'dosa_plain', quantity: 2 },
+      },
+      {
+        type: 'cart_add_plan',
+        payload: { foodId: 'bad_item', name: 'Corrupt Dish', price: -50, quantity: 1 },
+      },
+    ]);
+
+    const result = applyConfirmedCartPlan({
+      userConfirmed: true,
+      validation,
+      deps: { commitAtomicBatchPlan: useCartStore.getState().commitAtomicBatchPlan },
+      planContext: {
+        proposalId: 'prop_fail_step2',
+        restaurantId: 'rest_swathi',
+        expectedCartRevision: 1,
+      },
+    });
+
+    assert.equal(result.mutatedState, false);
+    assert.equal(result.appliedCount, 0);
+    assert.equal(result.reason, 'VALIDATION_FAILED');
+
+    // Verify complete store isolation and reference preservation:
+    const storeLines = useCartStore.getState().lines;
+    assert.equal(storeLines.length, 1);
+    assert.equal(storeLines[0].quantity, 3, 'Original quantity must NOT be updated to 2');
+    assert.equal(storeLines[0].instructions, 'crispy');
+    // Verify nested objects are strictly unchanged and unmodified
+    assert.equal(storeLines[0].addons, originalAddons, 'Addons reference must remain strictly identical');
+    assert.equal(storeLines[0].addons?.[0].price, 25);
+    assert.equal(storeLines[0].addons?.[0].label, 'Desi Ghee');
+    assert.equal(useCartStore.getState().revision, 1);
+  });
 });
