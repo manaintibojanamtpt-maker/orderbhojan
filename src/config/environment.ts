@@ -12,6 +12,8 @@ export interface AppConfig {
     readonly messagingSenderId: string;
     readonly appId: string;
     readonly measurementId?: string;
+    readonly firestoreEmulatorHost?: string;
+    readonly authEmulatorHost?: string;
   };
   readonly features: {
     readonly mswEnabled: boolean;
@@ -48,6 +50,11 @@ function isLiveMarketplaceBuild(): boolean {
 
 function resolveFirebaseProjectId(liveMarketplace: boolean): string {
   const explicit = readEnv('VITE_FIREBASE_PROJECT_ID');
+  if (import.meta.env?.PROD) {
+    if (!explicit || explicit.startsWith('demo-') || explicit === 'orderbhojan') {
+      return 'bhojanos-prod';
+    }
+  }
   if (liveMarketplace && import.meta.env?.PROD && (!explicit || explicit === 'orderbhojan')) {
     return 'bhojanos-prod';
   }
@@ -100,19 +107,26 @@ function resolveMarketplaceApiBaseUrl(liveMarketplace: boolean): string {
 export function loadAppConfig(): AppConfig {
   const liveMarketplace = isLiveMarketplaceBuild();
   const marketplaceApiBaseUrl = resolveMarketplaceApiBaseUrl(liveMarketplace);
+  const projectId = resolveFirebaseProjectId(liveMarketplace);
+  const isDev = !import.meta.env?.PROD;
 
   return {
     environment: resolveEnvironment(),
     marketplaceApiBaseUrl,
     marketplaceApiVersion: readEnv('VITE_MARKETPLACE_API_VERSION', '1.0'),
     firebase: {
-      apiKey: readEnv('VITE_FIREBASE_API_KEY'),
+      apiKey: readEnv('VITE_FIREBASE_API_KEY') || (isDev && projectId.startsWith('demo-') ? 'demo-api-key' : ''),
       authDomain: readEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-      projectId: resolveFirebaseProjectId(liveMarketplace),
+      projectId,
       storageBucket: readEnv('VITE_FIREBASE_STORAGE_BUCKET'),
       messagingSenderId: readEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-      appId: readEnv('VITE_FIREBASE_APP_ID'),
+      appId: readEnv('VITE_FIREBASE_APP_ID') || (isDev && projectId.startsWith('demo-') ? 'demo-app-id' : ''),
       measurementId: readEnv('VITE_FIREBASE_MEASUREMENT_ID') || undefined,
+      firestoreEmulatorHost:
+        import.meta.env?.DEV
+          ? (readEnv('VITE_FIRESTORE_EMULATOR_HOST') || (projectId.startsWith('demo-') ? '127.0.0.1:8185' : undefined))
+          : undefined,
+      authEmulatorHost: import.meta.env?.DEV ? (readEnv('VITE_AUTH_EMULATOR_HOST') || undefined) : undefined,
     },
     features: {
       mswEnabled:

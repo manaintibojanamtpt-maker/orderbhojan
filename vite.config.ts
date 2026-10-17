@@ -4,15 +4,25 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules/firebase/auth') || id.includes('node_modules/@firebase/auth')) return 'firebase-auth';
-          if (id.includes('node_modules/firebase/firestore') || id.includes('node_modules/@firebase/firestore')) return 'firebase-firestore';
-          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase-core';
-          if (id.includes('node_modules/@capacitor')) return 'capacitor-bridge';
+export default defineConfig(({ mode }) => {
+  const isProd = mode === 'production';
+
+  return {
+    define: isProd
+      ? {
+          'import.meta.env.VITE_FIREBASE_PROJECT_ID': JSON.stringify('bhojanos-prod'),
+          'import.meta.env.VITE_FIRESTORE_EMULATOR_HOST': JSON.stringify(''),
+          'import.meta.env.VITE_AUTH_EMULATOR_HOST': JSON.stringify(''),
+        }
+      : {},
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/firebase/auth') || id.includes('node_modules/@firebase/auth')) return 'firebase-auth';
+            if (id.includes('node_modules/firebase/firestore') || id.includes('node_modules/@firebase/firestore')) return 'firebase-firestore';
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase-core';
+            if (id.includes('node_modules/@capacitor')) return 'capacitor-bridge';
           if (id.includes('node_modules/zustand')) return 'state-vendor';
           if (id.includes('node_modules/framer-motion')) return 'motion';
           if (id.includes('node_modules/@tanstack/react-query')) return 'query';
@@ -183,4 +193,5 @@ export default defineConfig({
       },
     },
   },
+};
 });

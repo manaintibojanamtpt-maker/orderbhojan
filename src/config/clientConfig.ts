@@ -65,6 +65,8 @@ export function mergeRemoteFirebaseConfig(
       messagingSenderId: config.firebase.messagingSenderId || remoteFirebase.messagingSenderId || '',
       appId: config.firebase.appId || remoteFirebase.appId || '',
       measurementId: config.firebase.measurementId,
+      firestoreEmulatorHost: config.firebase.firestoreEmulatorHost,
+      authEmulatorHost: config.firebase.authEmulatorHost,
     },
   };
 }
@@ -85,6 +87,8 @@ export function mergeRemoteFirebaseConfigPreferRemote(
       messagingSenderId: remoteFirebase.messagingSenderId || config.firebase.messagingSenderId,
       appId: remoteFirebase.appId || config.firebase.appId,
       measurementId: config.firebase.measurementId,
+      firestoreEmulatorHost: config.firebase.firestoreEmulatorHost,
+      authEmulatorHost: config.firebase.authEmulatorHost,
     },
   };
 }

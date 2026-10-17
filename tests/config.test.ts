@@ -54,4 +54,41 @@ describe('config validation', () => {
     const webClient = services.client[0]?.oauth_client.find((entry) => entry.client_type === 3);
     assert.equal(webClient?.client_id, BHOJANOS_PROD_GOOGLE_WEB_CLIENT_ID);
   });
+
+  it('rejects demo project or emulator host in production config', () => {
+    const config = loadAppConfig();
+    assert.throws(
+      () =>
+        validateAppConfig({
+          ...config,
+          environment: 'production',
+          firebase: {
+            ...config.firebase,
+            projectId: 'demo-bhojanos-dev',
+            apiKey: 'fake-api-key',
+            authDomain: 'fake.firebaseapp.com',
+            appId: 'fake-app-id',
+          },
+        }),
+      /must not be a demo\/emulator project in production/,
+    );
+
+    assert.throws(
+      () =>
+        validateAppConfig({
+          ...config,
+          environment: 'production',
+          firebase: {
+            ...config.firebase,
+            projectId: 'bhojanos-prod',
+            apiKey: 'fake-api-key',
+            authDomain: 'fake.firebaseapp.com',
+            appId: 'fake-app-id',
+            firestoreEmulatorHost: '127.0.0.1:8185',
+          },
+        }),
+      /must not be set in production/,
+    );
+  });
 });
+
