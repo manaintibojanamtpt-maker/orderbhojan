@@ -1,20 +1,30 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
 
+  if (isProd) {
+    const projectId = env.VITE_FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+    const firestoreEmulator = env.VITE_FIRESTORE_EMULATOR_HOST || process.env.VITE_FIRESTORE_EMULATOR_HOST;
+    const authEmulator = env.VITE_AUTH_EMULATOR_HOST || process.env.VITE_AUTH_EMULATOR_HOST;
+
+    if (projectId && projectId.startsWith('demo-')) {
+      throw new Error(`[Production Safety] Production build cannot target demo project: ${projectId}. Remove demo config or build with production environment.`);
+    }
+    if (firestoreEmulator) {
+      throw new Error(`[Production Safety] Production build cannot configure VITE_FIRESTORE_EMULATOR_HOST: ${firestoreEmulator}`);
+    }
+    if (authEmulator) {
+      throw new Error(`[Production Safety] Production build cannot configure VITE_AUTH_EMULATOR_HOST: ${authEmulator}`);
+    }
+  }
+
   return {
-    define: isProd
-      ? {
-          'import.meta.env.VITE_FIREBASE_PROJECT_ID': JSON.stringify('bhojanos-prod'),
-          'import.meta.env.VITE_FIRESTORE_EMULATOR_HOST': JSON.stringify(''),
-          'import.meta.env.VITE_AUTH_EMULATOR_HOST': JSON.stringify(''),
-        }
-      : {},
     build: {
       rollupOptions: {
         output: {
