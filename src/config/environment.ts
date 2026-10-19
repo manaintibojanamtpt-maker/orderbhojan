@@ -48,17 +48,15 @@ function isLiveMarketplaceBuild(): boolean {
   return Boolean(import.meta.env?.PROD);
 }
 
-function resolveFirebaseProjectId(liveMarketplace: boolean): string {
+export const CANONICAL_FIREBASE_PROJECT_ID = 'bhojanos-prod';
+
+export function resolveFirebaseProjectId(liveMarketplace: boolean): string {
   const explicit = readEnv('VITE_FIREBASE_PROJECT_ID');
-  if (import.meta.env?.PROD) {
-    if (!explicit || explicit.startsWith('demo-') || explicit === 'orderbhojan') {
-      return 'bhojanos-prod';
-    }
+  if (explicit) {
+    return explicit;
   }
-  if (liveMarketplace && import.meta.env?.PROD && (!explicit || explicit === 'orderbhojan')) {
-    return 'bhojanos-prod';
-  }
-  return explicit || (liveMarketplace ? 'bhojanos-prod' : 'orderbhojan');
+  // Intentional documented default: bhojanos-prod for production / live marketplace, orderbhojan for mock dev
+  return liveMarketplace || import.meta.env?.PROD ? CANONICAL_FIREBASE_PROJECT_ID : 'orderbhojan';
 }
 
 /** Live Render backend — used when production builds accidentally inherit a loopback proxy. */

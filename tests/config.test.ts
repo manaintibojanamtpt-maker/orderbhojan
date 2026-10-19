@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isNonRoutableDevApiHost, loadAppConfig } from '../src/config/environment';
+import {
+  CANONICAL_FIREBASE_PROJECT_ID,
+  isNonRoutableDevApiHost,
+  loadAppConfig,
+  resolveFirebaseProjectId,
+} from '../src/config/environment';
 import { validateAppConfig } from '../src/config/validation';
 import { ConfigValidationError } from '../src/config/validation';
 import {
@@ -80,6 +85,22 @@ describe('config validation', () => {
           environment: 'production',
           firebase: {
             ...config.firebase,
+            projectId: 'orderbhojan', // Hosting alias accidentally used as Firestore projectId
+            apiKey: 'fake-api-key',
+            authDomain: 'fake.firebaseapp.com',
+            appId: 'fake-app-id',
+          },
+        }),
+      /firebase\.projectId must be 'bhojanos-prod' in production; got 'orderbhojan'/,
+    );
+
+    assert.throws(
+      () =>
+        validateAppConfig({
+          ...config,
+          environment: 'production',
+          firebase: {
+            ...config.firebase,
             projectId: 'bhojanos-prod',
             apiKey: 'fake-api-key',
             authDomain: 'fake.firebaseapp.com',
@@ -89,6 +110,14 @@ describe('config validation', () => {
         }),
       /must not be set in production/,
     );
+  });
+
+  it('preserves configured project without silent substitution and defaults explicitly', () => {
+    assert.equal(CANONICAL_FIREBASE_PROJECT_ID, 'bhojanos-prod');
+    // When explicit project is set, resolveFirebaseProjectId returns it as-is without redirecting
+    // When omitted, defaults to CANONICAL_FIREBASE_PROJECT_ID in live marketplace
+    assert.equal(resolveFirebaseProjectId(true), 'bhojanos-prod');
+    assert.equal(resolveFirebaseProjectId(false), 'orderbhojan');
   });
 });
 

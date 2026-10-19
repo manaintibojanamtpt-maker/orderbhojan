@@ -1,4 +1,4 @@
-import type { AppConfig } from './environment';
+import { CANONICAL_FIREBASE_PROJECT_ID, type AppConfig } from './environment';
 
 export class ConfigValidationError extends Error {
   constructor(message: string) {
@@ -25,6 +25,8 @@ export function validateAppConfig(config: AppConfig): void {
   if (config.environment === 'production') {
     if (config.firebase.projectId.startsWith('demo-')) {
       errors.push('firebase.projectId must not be a demo/emulator project in production');
+    } else if (config.firebase.projectId !== CANONICAL_FIREBASE_PROJECT_ID) {
+      errors.push(`firebase.projectId must be '${CANONICAL_FIREBASE_PROJECT_ID}' in production; got '${config.firebase.projectId}'`);
     }
     if (config.firebase.firestoreEmulatorHost) {
       errors.push('firebase.firestoreEmulatorHost must not be set in production');
