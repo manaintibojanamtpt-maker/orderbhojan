@@ -119,5 +119,12 @@ describe('config validation', () => {
     assert.equal(resolveFirebaseProjectId(true), 'bhojanos-prod');
     assert.equal(resolveFirebaseProjectId(false), 'orderbhojan');
   });
+
+  it('allows development environment to retain emulator configuration', () => {
+    const config = loadAppConfig();
+    if (config.environment === 'development') {
+      assert.doesNotThrow(() => validateAppConfig(config));
+    }
+  });
 });
 

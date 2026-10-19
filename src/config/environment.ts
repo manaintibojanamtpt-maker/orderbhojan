@@ -94,8 +94,8 @@ function resolveMarketplaceApiBaseUrl(liveMarketplace: boolean): string {
             : 'http://localhost:5174'
           : LIVE_MARKETPLACE_API_DEFAULT;
 
-  // Capacitor/`vite build` must never ship localhost from a leftover .env proxy.
-  if (import.meta.env?.PROD && isNonRoutableDevApiHost(marketplaceApiBaseUrl)) {
+  // Capacitor/`vite build` must never ship localhost in production from a leftover .env proxy.
+  if (resolveEnvironment() === 'production' && isNonRoutableDevApiHost(marketplaceApiBaseUrl)) {
     marketplaceApiBaseUrl = LIVE_MARKETPLACE_API_DEFAULT;
   }
 
@@ -106,7 +106,7 @@ export function loadAppConfig(): AppConfig {
   const liveMarketplace = isLiveMarketplaceBuild();
   const marketplaceApiBaseUrl = resolveMarketplaceApiBaseUrl(liveMarketplace);
   const projectId = resolveFirebaseProjectId(liveMarketplace);
-  const isDev = !import.meta.env?.PROD;
+  const isDev = !import.meta.env?.PROD || resolveEnvironment() === 'development';
 
   return {
     environment: resolveEnvironment(),
@@ -121,10 +121,13 @@ export function loadAppConfig(): AppConfig {
       appId: readEnv('VITE_FIREBASE_APP_ID') || (isDev && projectId.startsWith('demo-') ? 'demo-app-id' : ''),
       measurementId: readEnv('VITE_FIREBASE_MEASUREMENT_ID') || undefined,
       firestoreEmulatorHost:
-        import.meta.env?.DEV
+        import.meta.env?.DEV || resolveEnvironment() === 'development'
           ? (readEnv('VITE_FIRESTORE_EMULATOR_HOST') || (projectId.startsWith('demo-') ? '127.0.0.1:8185' : undefined))
           : undefined,
-      authEmulatorHost: import.meta.env?.DEV ? (readEnv('VITE_AUTH_EMULATOR_HOST') || undefined) : undefined,
+      authEmulatorHost:
+        import.meta.env?.DEV || resolveEnvironment() === 'development'
+          ? (readEnv('VITE_AUTH_EMULATOR_HOST') || undefined)
+          : undefined,
     },
     features: {
       mswEnabled:
