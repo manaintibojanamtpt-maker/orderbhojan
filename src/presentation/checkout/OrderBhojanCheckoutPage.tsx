@@ -113,13 +113,6 @@ export function OrderBhojanCheckoutPage() {
   }, [appliedCouponCode, error]);
 
   useEffect(() => {
-    if (appliedCouponCode || selectableCodes.length === 0) return;
-    const primaryCode = selectableCodes[0]?.code;
-    if (!primaryCode) return;
-    setPromoInput(primaryCode);
-  }, [appliedCouponCode, selectableCodes]);
-
-  useEffect(() => {
     if (!promoApplying || discountQuoteLoading) return;
     setPromoApplying(false);
   }, [discountQuoteLoading, promoApplying]);
@@ -458,6 +451,14 @@ export function OrderBhojanCheckoutPage() {
     voiceScheduleNotice,
   });
 
+  // Delivery timing is metadata, not a charge. Keep it out of bill lines so it
+  // never appears as a duplicate "Delivery" row next to the delivery fee.
+  const deliveryTimingNote = billDeliveryLine
+    ? billDeliveryLine.amountLabel
+    : isAsapSlot(deliveryTimeSlot)
+      ? 'Deliver now'
+      : undefined;
+
   const billView = quote
     ? {
         lines: [
@@ -475,14 +476,15 @@ export function OrderBhojanCheckoutPage() {
                 },
               ]
             : []),
-          ...(billDeliveryLine ? [billDeliveryLine] : []),
         ],
         totalLabel: `₹${quote.grandTotal}`,
         deliveryPendingNote: quote.deliveryPending
           ? 'Delivery fee pending address confirmation'
           : quoteIsStale || quoteIsRefreshing
             ? 'Updating taxes and delivery for your address…'
-            : undefined,
+            : deliveryTimingNote
+              ? deliveryTimingNote
+              : undefined,
       }
     : !isPreparing && estimatedSubtotal > 0
       ? {
@@ -499,15 +501,16 @@ export function OrderBhojanCheckoutPage() {
                   },
                 ]
               : []),
-            ...(billDeliveryLine ? [billDeliveryLine] : []),
           ],
           totalLabel: `₹${estimatedSubtotal + (localDeliveryFeeEstimate ?? 0)}`,
           deliveryPendingNote:
             discountQuoteLoading
               ? 'Updating taxes and delivery…'
               : localDeliveryFeeEstimate != null
-              ? 'Estimated — final total updates when ready'
-              : 'Estimated — delivery fee will be confirmed',
+                ? 'Estimated — final total updates when ready'
+                : deliveryTimingNote
+                  ? deliveryTimingNote
+                  : 'Estimated — delivery fee will be confirmed',
         }
       : undefined;
 

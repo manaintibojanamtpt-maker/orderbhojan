@@ -23,7 +23,7 @@ export function ConsumerAssistantFab({
       className="group fixed z-[85] flex h-14 w-14 items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]/70"
       style={{
         right: '14px',
-        bottom: 'calc(96px + var(--ob-safe-bottom, 0px))',
+        bottom: 'calc(160px + var(--ob-safe-bottom, 0px))',
       }}
       aria-label={
         open

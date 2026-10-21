@@ -79,18 +79,24 @@ export function mapTrackingTimelineSteps(tracking: OrderTrackingResponse): {
 
 export function mapTrackingHero(
   tracking: OrderTrackingResponse,
-  options: { etaLabel: string | null; liveActive: boolean },
+  options: { etaLabel: string | null; liveActive: boolean; scheduledForLabel?: string | null },
 ): TrackingHeroViewModel {
   const phase = normalizeTrackingStatus(tracking.status);
   const isTerminal = phase === 'DELIVERED' || phase === 'CANCELLED';
   const isPrepPhase = phase === 'ACCEPTED' || phase === 'PREPARING';
+  const isScheduled = tracking.deliveryType === 'scheduled' || Boolean(tracking.scheduledFor);
+
+  // For scheduled orders, never show a generic immediate-delivery ETA.
+  // Show the scheduled delivery time instead. Only show ETA for ASAP orders.
+  const showEta = !isScheduled && Boolean(options.etaLabel) && !isTerminal;
 
   return {
     statusLabel: trackingStepLabel(tracking.status),
     kitchenName: tracking.restaurant?.displayName,
     orderNumberLabel: `Order #${tracking.orderNumber}`,
-    etaLabel: options.etaLabel && !isTerminal ? options.etaLabel : undefined,
-    prepBadgeLabel: isPrepPhase ? '🍳 Kitchen Prep · ~20 min' : undefined,
+    etaLabel: showEta ? (options.etaLabel ?? undefined) : undefined,
+    scheduledForLabel: isScheduled ? (options.scheduledForLabel ?? undefined) : undefined,
+    prepBadgeLabel: isPrepPhase ? 'Kitchen preparing your order' : undefined,
     liveLabel: options.liveActive ? 'Updating live…' : 'Live updates every 5s',
     liveActive: options.liveActive,
     showLive: !isTerminal,

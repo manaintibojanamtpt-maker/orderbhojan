@@ -42,8 +42,8 @@ export function CartLineView({ line, onQuantityChange }: CartLineViewProps) {
             {line.instructions?.trim() ? (
               <p className="text-sm italic text-[#c4b5a5]">Note: {line.instructions.trim()}</p>
             ) : null}
-            <p className="text-sm text-[#c4b5a5]">
-              {line.priceLabel} · {line.totalLabel}
+            <p className="mt-1 text-xs text-[#c4b5a5]">
+              {line.priceLabel} &nbsp;·&nbsp; <span className="font-semibold text-[#fff8f0]">Total {line.totalLabel}</span>
             </p>
           </div>
           <div className="self-center">
