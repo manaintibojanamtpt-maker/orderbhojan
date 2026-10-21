@@ -1102,7 +1102,6 @@ const usePostOrderPath =
       } catch {
         /* ignore */
       }
-      await new Promise((r) => setTimeout(r, 180));
 
       if (!sheetOpenRef.current || ac.signal.aborted || (agentMode && !voiceAgentActiveRef.current)) {
         hardStopVoiceSession();
@@ -1218,7 +1217,7 @@ const usePostOrderPath =
         }
         await speakReply(reply, ac.signal, options?.forceSpeak === true || voiceAgentActiveRef.current, replyLang);
         // Let TTS / cloud audio fully release the mic before the next listen.
-        await new Promise((r) => setTimeout(r, agentMode ? 400 : 280));
+        await new Promise((r) => setTimeout(r, agentMode ? 200 : 150));
         if (pauseLiveVoiceAfterTurnRef.current) {
           pauseLiveVoiceAfterTurnRef.current = false;
           hardStopVoiceSession();

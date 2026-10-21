@@ -276,6 +276,7 @@ export async function speakVoiceConfirmation(params: {
   readonly createSynthesis?: SpeechSynthesisFactory;
   readonly createUtterance?: UtteranceFactory;
   readonly signal?: AbortSignal;
+  readonly onTiming?: (timings: { readonly ttsStartMs: number; readonly ttsTotalMs: number }) => void;
 }): Promise<void> {
   const text = params.text.trim();
   if (!text) {
@@ -285,6 +286,8 @@ export async function speakVoiceConfirmation(params: {
       retryable: false,
     });
   }
+
+  const ttsStartMs = Date.now();
 
   const flags = loadFeatureFlags();
   // Language auto-detection for natural Indian prosody & phonetics
@@ -310,6 +313,7 @@ export async function speakVoiceConfirmation(params: {
   if (cloudTtsEnabled) {
     try {
       await speakCloudTts(text, targetLang, params.signal);
+      params.onTiming?.({ ttsStartMs, ttsTotalMs: Date.now() - ttsStartMs });
       return;
     } catch (err) {
       console.warn('[Voice TTS] Cloud fallback to native:', err);
@@ -395,12 +399,14 @@ export async function speakVoiceConfirmation(params: {
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      params.signal?.removeEventListener('abort', onAbort);
-      fn();
-    };
+  const finish = (fn: () => void) => {
+    if (settled) return;
+    settled = true;
+    params.signal?.removeEventListener('abort', onAbort);
+    const ttsTotalMs = Date.now() - ttsStartMs;
+    params.onTiming?.({ ttsStartMs, ttsTotalMs });
+    fn();
+  };
 
     const onAbort = () => {
       try {

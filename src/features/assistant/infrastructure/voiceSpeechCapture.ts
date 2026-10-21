@@ -177,13 +177,16 @@ export async function captureVoiceTranscript(params: {
     });
   }
 
-  // Allow a natural pause after TTS before declaring timeout.
+  const captureStartMs = Date.now();
+  const micInitMs = Date.now() - captureStartMs;
   const timeoutMs = params.timeoutMs ?? 8_000;
   const platform = params.platform ?? 'unknown';
   const myGeneration = captureGeneration;
 
+  let firstPartialMs: number | null = null;
+  let recognitionStartMs: number | null = null;
+
   const run = async (): Promise<VoiceTranscriptResult> => {
-    // A close/hard-stop while we were queued must not open the mic.
     if (myGeneration !== captureGeneration || params.signal?.aborted) {
       throw new AssistantApiError({
         code: 'AI_VOICE_ABORTED',
@@ -192,7 +195,7 @@ export async function captureVoiceTranscript(params: {
       });
     }
 
-    await settleMicForSpeechCapture(params.signal?.aborted ? 0 : 450);
+    await settleMicForSpeechCapture(params.signal?.aborted ? 0 : 200);
 
     if (myGeneration !== captureGeneration || params.signal?.aborted) {
       throw new AssistantApiError({
@@ -255,13 +258,19 @@ export async function captureVoiceTranscript(params: {
         } catch {
           // ignore
         }
-        // Prefer any transcript collected over a hard timeout error.
         if (finalTranscript.trim()) {
           finish(() =>
             resolve({
               transcript: finalTranscript.trim(),
               source: 'web_speech',
               platform,
+              timings: {
+                micInitMs,
+                recognitionStartMs: recognitionStartMs ?? null,
+                firstPartialMs,
+                finalTranscriptMs: Date.now() - captureStartMs,
+                totalCaptureMs: Date.now() - captureStartMs,
+              },
             }),
           );
           return;
@@ -296,6 +305,13 @@ export async function captureVoiceTranscript(params: {
               transcript: finalTranscript.trim(),
               source: 'web_speech',
               platform,
+              timings: {
+                micInitMs,
+                recognitionStartMs: recognitionStartMs ?? null,
+                firstPartialMs,
+                finalTranscriptMs: Date.now() - captureStartMs,
+                totalCaptureMs: Date.now() - captureStartMs,
+              },
             }),
           );
         }
@@ -342,9 +358,15 @@ export async function captureVoiceTranscript(params: {
         finalTranscript = finalBuilder.trim() || interimBuilder.trim();
         if (finalTranscript.trim()) {
           params.onInterim?.(finalTranscript.trim());
+          if (firstPartialMs === null) {
+            firstPartialMs = Date.now() - captureStartMs;
+          }
         }
 
-        // Adaptive natural human pause: if speech was heard and pauses for 1100ms, finalize immediately!
+        if (recognitionStartMs === null) {
+          recognitionStartMs = Date.now() - captureStartMs;
+        }
+
         if (finalTranscript.trim().length > 0) {
           if (silenceTimer) clearTimeout(silenceTimer);
           silenceTimer = setTimeout(() => {
@@ -359,12 +381,18 @@ export async function captureVoiceTranscript(params: {
                 transcript: finalTranscript.trim(),
                 source: 'web_speech',
                 platform,
+                timings: {
+                  micInitMs,
+                  recognitionStartMs: recognitionStartMs ?? null,
+                  firstPartialMs,
+                  finalTranscriptMs: Date.now() - captureStartMs,
+                  totalCaptureMs: Date.now() - captureStartMs,
+                },
               }),
             );
-          }, 1100);
+          }, 700);
         }
 
-        // Resolve once browser marks a final segment — stop recognition promptly.
         const last = results?.[(results.length ?? 1) - 1] as { isFinal?: boolean } | undefined;
         if (last?.isFinal && finalTranscript.trim()) {
           try {
@@ -377,6 +405,13 @@ export async function captureVoiceTranscript(params: {
               transcript: finalTranscript.trim(),
               source: 'web_speech',
               platform,
+              timings: {
+                micInitMs,
+                recognitionStartMs: recognitionStartMs ?? null,
+                firstPartialMs,
+                finalTranscriptMs: Date.now() - captureStartMs,
+                totalCaptureMs: Date.now() - captureStartMs,
+              },
             }),
           );
         }
@@ -384,11 +419,9 @@ export async function captureVoiceTranscript(params: {
 
       recognition.onerror = (event) => {
         const err = event.error ?? 'unknown';
-        // Intentional AbortSignal → already rejected as AI_VOICE_ABORTED.
         if (err === 'aborted' && intentionalAbort) {
           return;
         }
-        // Hard-stop generation bump — treat as abort, not user-facing error.
         if (myGeneration !== captureGeneration || err === 'aborted') {
           if (finalTranscript.trim()) {
             finish(() =>
@@ -396,6 +429,13 @@ export async function captureVoiceTranscript(params: {
                 transcript: finalTranscript.trim(),
                 source: 'web_speech',
                 platform,
+                timings: {
+                  micInitMs,
+                  recognitionStartMs: recognitionStartMs ?? null,
+                  firstPartialMs,
+                  finalTranscriptMs: Date.now() - captureStartMs,
+                  totalCaptureMs: Date.now() - captureStartMs,
+                },
               }),
             );
             return;
@@ -413,13 +453,19 @@ export async function captureVoiceTranscript(params: {
             return;
           }
         }
-        // no-speech after partial interim — still try to use what we heard.
         if (err === 'no-speech' && finalTranscript.trim()) {
           finish(() =>
             resolve({
               transcript: finalTranscript.trim(),
               source: 'web_speech',
               platform,
+              timings: {
+                micInitMs,
+                recognitionStartMs: recognitionStartMs ?? null,
+                firstPartialMs,
+                finalTranscriptMs: Date.now() - captureStartMs,
+                totalCaptureMs: Date.now() - captureStartMs,
+              },
             }),
           );
           return;
@@ -443,11 +489,17 @@ export async function captureVoiceTranscript(params: {
               transcript: finalTranscript.trim(),
               source: 'web_speech',
               platform,
+              timings: {
+                micInitMs,
+                recognitionStartMs: recognitionStartMs ?? null,
+                firstPartialMs,
+                finalTranscriptMs: Date.now() - captureStartMs,
+                totalCaptureMs: Date.now() - captureStartMs,
+              },
             }),
           );
           return;
         }
-        // If we already rejected/resolved via onerror/timer, ignore.
         if (settled) return;
         if (myGeneration !== captureGeneration || params.signal?.aborted) {
           finish(() =>
@@ -484,7 +536,6 @@ export async function captureVoiceTranscript(params: {
         }
         recognition.start();
       } catch (error) {
-        // InvalidStateError = recognition already started — soft-retry as timeout.
         const msg = error instanceof Error ? error.message : 'Failed to start speech recognition';
         finish(() =>
           reject(

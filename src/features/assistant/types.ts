@@ -59,6 +59,12 @@ export interface ConsumerAssistResult {
   readonly providerModel?: string;
   readonly sideEffects: [];
   readonly mutatedState: false;
+  /** Privacy-conscious diagnostic timings (no PII). All values in ms. */
+  readonly timings: {
+    readonly llmRequestMs: number;
+    readonly llmResponseMs: number;
+    readonly totalAssistMs: number;
+  };
 }
 
 export type AssistantErrorCode =
@@ -142,4 +148,12 @@ export interface VoiceTranscriptResult {
   readonly transcript: string;
   readonly source: 'web_speech';
   readonly platform: 'web' | 'android' | 'unknown';
+  /** Privacy-conscious diagnostic timings (no audio/PII). All values in ms. */
+  readonly timings: {
+    readonly micInitMs: number;
+    readonly recognitionStartMs: number | null;
+    readonly firstPartialMs: number | null;
+    readonly finalTranscriptMs: number;
+    readonly totalCaptureMs: number;
+  };
 }
