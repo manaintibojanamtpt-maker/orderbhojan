@@ -46,7 +46,7 @@ export function CourierTrackingTimelineView({
   }
 
   return (
-    <ol className="relative space-y-0" aria-label="Order status timeline">
+    <ol className="relative space-y-0 pb-16" aria-label="Order status timeline">
       {steps.map((step, index) => {
         const Icon = iconMap[step.icon] ?? AlertCircle;
         const isLast = index === steps.length - 1;

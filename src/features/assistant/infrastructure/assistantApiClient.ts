@@ -154,7 +154,11 @@ function mapAssistError(error: unknown): AssistantApiError {
   });
 }
 
-function toConsumerResult(payload: GatewayAssistSuccess, channel: ConsumerAssistChannel): ConsumerAssistResult {
+function toConsumerResult(
+  payload: GatewayAssistSuccess,
+  channel: ConsumerAssistChannel,
+  timings: { readonly llmRequestMs: number; readonly llmResponseMs: number; readonly totalAssistMs: number },
+): ConsumerAssistResult {
   const proposedCartActions = normalizeCartPlanActions(payload.structured?.proposedActions);
   const scheduleFeedback = pickScheduleVoiceFeedback(
     payload.structured?.proposedActions,
@@ -177,6 +181,7 @@ function toConsumerResult(payload: GatewayAssistSuccess, channel: ConsumerAssist
     ...(payload.provider?.model ? { providerModel: payload.provider.model } : {}),
     sideEffects: [],
     mutatedState: false,
+    timings,
   };
 }
 
@@ -304,6 +309,7 @@ export class AssistantApiClient {
             }
           : {}),
       });
+      const assistStartMs = Date.now();
       const payload = await this.http.request<GatewayAssistSuccess>({
         path: '/api/ai/v1/assist',
         method: 'POST',
@@ -312,6 +318,7 @@ export class AssistantApiClient {
         body,
         ...(headers ? { headers } : {}),
       });
+      const llmResponseMs = Date.now() - assistStartMs;
 
       if (!payload || payload.success !== true) {
         throw new AssistantApiError({
@@ -321,7 +328,11 @@ export class AssistantApiClient {
         });
       }
 
-      return toConsumerResult(payload, channel);
+      return toConsumerResult(payload, channel, {
+        llmRequestMs: llmResponseMs,
+        llmResponseMs,
+        totalAssistMs: llmResponseMs,
+      });
     } catch (error) {
       if (error instanceof MarketplaceApiError) {
         throw mapAssistError(error);
