@@ -51,7 +51,20 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
+    // Inject a synchronous version-check script at the VERY TOP of <head>,
+    // BEFORE any module scripts or PWA registration can load/cache stale content.
+    // Forces a hard reload when the PWA cache prefix changes, preventing the
+    // old Service Worker from serving cached JS across APK installs.
+    {
+      name: 'orderbhojan-version-check',
+      transformIndexHtml(html) {
+        const version = 'orderbhojan-pwa-v16';
+        const checkScript = `<script>!function(){var v='` + version + `',k='obr_v',l=localStorage,c=l.getItem(k);if(c&&c!==v){try{if('caches' in window)for(var ks=caches.keys(),i=0;ks&&i<5;){var r=ks[i++];r&&caches.delete(r)}if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()})});l.setItem(k,v);window.location.reload()}catch(e){l.setItem(k,v)}}else if(!c){l.setItem(k,v)}}();</script>`;
+        return html.replace('<head>', '<head>' + checkScript);
+      },
+    },
     VitePWA({
+      injectRegister: false,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon-180x180.png'],
       manifest: {
