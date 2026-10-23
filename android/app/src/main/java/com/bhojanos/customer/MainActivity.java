@@ -14,14 +14,14 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(OrderBhojanNativeChromePlugin.class);
         super.onCreate(savedInstanceState);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        disableAllWebViewCaching();
+        disableWebViewCache();
     }
 
-    private void disableAllWebViewCaching() {
+    private void disableWebViewCache() {
         if (getBridge() == null) return;
         WebSettings settings = getBridge().getWebView().getSettings();
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(false);
-        settings.setDomStorageEnabled(false);
     }
 }
