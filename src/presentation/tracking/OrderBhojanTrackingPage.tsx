@@ -56,7 +56,7 @@ export function OrderBhojanTrackingPage() {
   const scheduledForLabel = useMemo(() => {
     const tracking = trackingQuery.data;
     if (!tracking) return null;
-    const scheduledFor = (tracking as unknown as { readonly scheduledFor?: string }).scheduledFor;
+    const scheduledFor = tracking.scheduledFor;
     if (!scheduledFor) return null;
     try {
       const d = new Date(scheduledFor);
