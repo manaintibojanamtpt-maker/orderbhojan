@@ -15,42 +15,33 @@
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
     <title>OrderBhojan</title>
     <script>
-      var isCapacitor = !!window.Capacitor || window.location.protocol === 'capacitor:';
+      // Correctly detect Capacitor across 'capacitor:' and 'https://localhost' native runtimes
+      var isCapacitor = !!window.Capacitor || 
+                        window.location.protocol === 'capacitor:' || 
+                        (window.location.hostname === 'localhost' && window.location.protocol === 'https:');
+      
       if (isCapacitor) {
         window.__SKIP_SPLASH__ = true;
       }
-      var EXPECTED_PWA_CACHE_PREFIX = 'orderbhojan-pwa-v15';
+
+      // Force aggressive cleanup of all old PWA caches and service workers on native runtime
       if ('caches' in window) {
         caches.keys().then(function (keys) {
           keys.forEach(function (key) {
-            if (
-              /orderbhojan-pwa-v/i.test(key) &&
-              key.indexOf(EXPECTED_PWA_CACHE_PREFIX) === -1
-            ) {
-              caches.delete(key);
-            }
+            caches.delete(key);
           });
         });
       }
+
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function (registrations) {
           registrations.forEach(function (registration) {
-            var worker = registration.active || registration.waiting || registration.installing;
-            var scriptUrl = worker && worker.scriptURL ? worker.scriptURL : '';
-            var isOrderBhojanSw = /\/sw\.js(\?|$)/.test(scriptUrl);
-            var isFirebaseMessagingSw = /\/firebase-messaging-sw\.js(\?|$)/.test(scriptUrl);
-            if (isCapacitor || (scriptUrl && !isOrderBhojanSw && !isFirebaseMessagingSw)) {
-              registration.unregister();
-              return;
-            }
-            if (!isCapacitor) {
-              registration.update();
-            }
+            registration.unregister();
           });
-          if (isCapacitor) {
-            navigator.serviceWorker.register = function() { return Promise.reject(); };
-          }
         });
+        if (isCapacitor) {
+          navigator.serviceWorker.register = function() { return Promise.reject(); };
+        }
       }
     </script>
   </head>
