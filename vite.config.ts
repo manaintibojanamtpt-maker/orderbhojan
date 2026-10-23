@@ -59,7 +59,9 @@ export default defineConfig({
       name: 'orderbhojan-version-check',
       transformIndexHtml(html) {
         const version = 'orderbhojan-pwa-v16';
-        const checkScript = `<script>!function(){var v='` + version + `',k='obr_v',l=localStorage,c=l.getItem(k);if(c&&c!==v){try{if('caches' in window)for(var ks=caches.keys(),i=0;ks&&i<5;){var r=ks[i++];r&&caches.delete(r)}if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()})});l.setItem(k,v);window.location.reload()}catch(e){l.setItem(k,v)}}else if(!c){l.setItem(k,v)}}();</script>`;
+        // Guard against localStorage being null in Capacitor before bridge init.
+        // Use try/catch + typeof checks to avoid crashing the app on startup.
+        const checkScript = `<script>!function(){try{var v='` + version + `',k='obr_v',l=typeof localStorage!=='undefined'&&localStorage;if(l){var c=l.getItem(k);if(c&&c!==v){l.setItem(k,v);window.location.reload()}else if(!c){l.setItem(k,v)}}}catch(e){}}();</script>`;
         return html.replace('<head>', '<head>' + checkScript);
       },
     },
