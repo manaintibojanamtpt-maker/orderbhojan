@@ -38,12 +38,43 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
         },
         speak: async (utterance) => {
           try {
-            await TextToSpeech.speak({
-              text: utterance.text,
-              lang: utterance.lang,
-              rate: utterance.rate,
-            });
-            utterance.onend?.(undefined);
+            // Find female voice index if available
+            let selectedVoiceIndex: number | undefined;
+            try {
+              const supported = await TextToSpeech.getSupportedVoices();
+              const voices = supported.voices || [];
+              const femaleIdx = voices.findIndex((v) =>
+                (v.lang.toLowerCase().startsWith(utterance.lang.slice(0, 2).toLowerCase()) || v.lang.toLowerCase().startsWith('en')) &&
+                (/female|woman|girl|aparna|ishita|zira|samantha/i.test(v.name) || v.name.includes('-x-cf'))
+              );
+              if (femaleIdx >= 0) selectedVoiceIndex = femaleIdx;
+            } catch {
+              /* ignore voice lookup failure */
+            }
+
+            // Primary attempt with requested language and pleasant pitch
+            try {
+              await TextToSpeech.speak({
+                text: utterance.text,
+                lang: utterance.lang,
+                rate: utterance.rate,
+                pitch: 1.05,
+                voice: selectedVoiceIndex,
+              });
+              utterance.onend?.(undefined);
+              return;
+            } catch (langErr) {
+              console.warn('[Native TTS] Target language failed, falling back to en-IN for audible delivery:', langErr);
+              // Fallback to en-IN so speech is NEVER silently dropped
+              await TextToSpeech.speak({
+                text: utterance.text,
+                lang: 'en-IN',
+                rate: utterance.rate,
+                pitch: 1.05,
+              });
+              utterance.onend?.(undefined);
+              return;
+            }
           } catch (err) {
             console.error('Native TTS error:', err);
             utterance.onerror?.(err);
@@ -80,10 +111,10 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
           if (voices.length > 0) {
             const langPrefix = utterance.lang.split('-')[0].toLowerCase();
             const matchedVoice =
+              voices.find((v) => v.lang.toLowerCase() === utterance.lang.toLowerCase() && /female|woman|girl|aparna|ishita|zira|samantha/i.test(v.name)) ||
               voices.find((v) => v.lang.toLowerCase() === utterance.lang.toLowerCase()) ||
+              voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix) && /female|woman|girl|aparna|ishita|zira|samantha/i.test(v.name)) ||
               voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix));
-            // Never force the English/default voice for regional locales — Chrome
-            // can still synthesize with utterance.lang when no local voice is installed.
             if (matchedVoice) {
               native.voice = matchedVoice;
             }
@@ -160,6 +191,7 @@ export function unlockAudioContext(): void {
 }
 
 async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal): Promise<void> {
+  const t0 = performance.now();
   const apiUrl = getAppConfig().marketplaceApiBaseUrl.replace(/\/$/, '');
   const tokenProvider = getMarketplaceAuthTokenProvider();
   const token = tokenProvider ? await tokenProvider() : null;
@@ -174,7 +206,11 @@ async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal):
   const response = await fetch(`${apiUrl}/api/voice/tts`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ text, lang: lang ?? 'en-IN' }),
+    body: JSON.stringify({
+      text,
+      lang: (lang ?? 'en-IN'),
+      voiceId: (lang ?? 'en-IN').toLowerCase().startsWith('te') ? 'kavitha' : 'ishita',
+    }),
     signal,
   });
 
@@ -203,6 +239,7 @@ async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal):
       }
 
       const audioBuffer = await sharedAudioContext.decodeAudioData(arrayBuffer.slice(0));
+      console.info('[VoiceTTS] Stream ready. Latency=' + Math.round(performance.now() - t0) + 'ms Bytes=' + arrayBuffer.byteLength);
       return await new Promise<void>((resolve, reject) => {
         if (!sharedAudioContext) return resolve();
         const source = sharedAudioContext.createBufferSource();
