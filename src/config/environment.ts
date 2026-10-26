@@ -22,6 +22,8 @@ export interface AppConfig {
     readonly messagingSenderId: string;
     readonly appId: string;
     readonly measurementId?: string;
+    readonly firestoreEmulatorHost?: string;
+    readonly authEmulatorHost?: string;
   };
   readonly features: {
     readonly mswEnabled: boolean;
@@ -70,12 +72,18 @@ function isLiveMarketplaceBuild(): boolean {
   return Boolean(import.meta.env?.PROD || isCapacitorRuntime());
 }
 
-function resolveFirebaseProjectId(liveMarketplace: boolean): string {
+export const CANONICAL_FIREBASE_PROJECT_ID = 'bhojanos-prod';
+
+export function resolveFirebaseProjectId(liveMarketplace: boolean): string {
   const explicit = readEnv('VITE_FIREBASE_PROJECT_ID');
-  if ((liveMarketplace || isCapacitorRuntime()) && (!explicit || explicit === 'orderbhojan')) {
-    return 'bhojanos-prod';
+  if (explicit) {
+    if (isCapacitorRuntime() && explicit === 'orderbhojan') {
+      return CANONICAL_FIREBASE_PROJECT_ID;
+    }
+    return explicit;
   }
-  return explicit || (liveMarketplace ? 'bhojanos-prod' : 'orderbhojan');
+  // Intentional documented default: bhojanos-prod for production / live marketplace, orderbhojan for mock dev
+  return liveMarketplace || import.meta.env?.PROD ? CANONICAL_FIREBASE_PROJECT_ID : 'orderbhojan';
 }
 
 /** Live Render backend — used when production builds accidentally inherit a loopback proxy. */
@@ -117,11 +125,12 @@ function resolveMarketplaceApiBaseUrl(liveMarketplace: boolean): string {
               : 'http://localhost:5174'
             : LIVE_MARKETPLACE_API_DEFAULT;
 
-  // Capacitor/Native and production builds must NEVER use non-routable dev hosts (localhost, 127.0.0.1).
-  if (isCapacitor || import.meta.env?.PROD || isLiveMarketplaceBuild() || isNonRoutableDevApiHost(marketplaceApiBaseUrl)) {
-    if (isNonRoutableDevApiHost(marketplaceApiBaseUrl)) {
-      marketplaceApiBaseUrl = LIVE_MARKETPLACE_API_DEFAULT;
-    }
+  // Capacitor/native runtime or production builds must never use non-routable dev hosts (localhost, 127.0.0.1).
+  if (
+    (isCapacitor || resolveEnvironment() === 'production' || isLiveMarketplaceBuild()) &&
+    isNonRoutableDevApiHost(marketplaceApiBaseUrl)
+  ) {
+    marketplaceApiBaseUrl = LIVE_MARKETPLACE_API_DEFAULT;
   }
 
   return marketplaceApiBaseUrl.replace(/\/$/, '');
@@ -130,19 +139,53 @@ function resolveMarketplaceApiBaseUrl(liveMarketplace: boolean): string {
 export function loadAppConfig(): AppConfig {
   const liveMarketplace = isLiveMarketplaceBuild();
   const marketplaceApiBaseUrl = resolveMarketplaceApiBaseUrl(liveMarketplace);
+  const projectId = resolveFirebaseProjectId(liveMarketplace);
+  const isDev = !import.meta.env?.PROD || resolveEnvironment() === 'development';
 
   return {
     environment: resolveEnvironment(),
     marketplaceApiBaseUrl,
     marketplaceApiVersion: readEnv('VITE_MARKETPLACE_API_VERSION', '1.0'),
     firebase: {
-      apiKey: readEnv('VITE_FIREBASE_API_KEY') || BHOJANOS_PROD_FIREBASE_PUBLIC.apiKey,
-      authDomain: readEnv('VITE_FIREBASE_AUTH_DOMAIN') || BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain,
-      projectId: resolveFirebaseProjectId(liveMarketplace),
-      storageBucket: readEnv('VITE_FIREBASE_STORAGE_BUCKET') || BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket,
-      messagingSenderId: readEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || BHOJANOS_PROD_FIREBASE_PUBLIC.messagingSenderId,
-      appId: readEnv('VITE_FIREBASE_APP_ID') || BHOJANOS_PROD_FIREBASE_PUBLIC.appId,
+      apiKey:
+        readEnv('VITE_FIREBASE_API_KEY') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.apiKey
+          : isDev && projectId.startsWith('demo-')
+            ? 'demo-api-key'
+            : ''),
+      authDomain:
+        readEnv('VITE_FIREBASE_AUTH_DOMAIN') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain
+          : ''),
+      projectId,
+      storageBucket:
+        readEnv('VITE_FIREBASE_STORAGE_BUCKET') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket
+          : ''),
+      messagingSenderId:
+        readEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.messagingSenderId
+          : ''),
+      appId:
+        readEnv('VITE_FIREBASE_APP_ID') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.appId
+          : isDev && projectId.startsWith('demo-')
+            ? 'demo-app-id'
+            : ''),
       measurementId: readEnv('VITE_FIREBASE_MEASUREMENT_ID') || undefined,
+      firestoreEmulatorHost:
+        import.meta.env?.DEV || resolveEnvironment() === 'development'
+          ? (readEnv('VITE_FIRESTORE_EMULATOR_HOST') || (projectId.startsWith('demo-') ? '127.0.0.1:8185' : undefined))
+          : undefined,
+      authEmulatorHost:
+        import.meta.env?.DEV || resolveEnvironment() === 'development'
+          ? (readEnv('VITE_AUTH_EMULATOR_HOST') || undefined)
+          : undefined,
     },
     features: {
       mswEnabled:

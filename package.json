@@ -15,7 +15,7 @@
     "deploy:marketing": "npm run build:marketing && firebase deploy --only hosting:bhojanos-prod --project bhojanos-prod",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test:ai": "node --import tsx --test tests/assistant-readonly.test.ts tests/assistant-cart-plan.test.ts tests/assistant-android-voice.test.ts tests/assistant-voice-ordering.test.ts tests/assistant-post-order.test.ts tests/assistant-canary-headers.test.ts tests/assistant-consumer-ui.test.ts tests/assistant-personalization.test.ts tests/assistant-post-order-ui.test.ts tests/assistant-post-order-triage.test.ts tests/assistant-grounded-ordering.test.ts tests/assistant-menu-vocab.test.ts tests/assistant-confirm-intent.test.ts tests/assistant-voice-task-hardening.test.ts tests/assistant-native-stt.test.ts tests/maturity-p0-first-paint-trust.test.ts tests/voice-core-wiring.test.ts tests/voice-core-phase13-adapter.test.ts tests/voice-core-phase13b-parity.test.ts tests/voice-core-dual-run-telemetry.test.ts tests/voice-core-confirm-add-rollout.test.ts tests/voice-first-experience.test.ts",
+    "test:ai": "node --import tsx --test tests/assistant-readonly.test.ts tests/assistant-cart-plan.test.ts tests/assistant-android-voice.test.ts tests/assistant-voice-ordering.test.ts tests/assistant-post-order.test.ts tests/assistant-canary-headers.test.ts tests/assistant-consumer-ui.test.ts tests/assistant-personalization.test.ts tests/assistant-post-order-ui.test.ts tests/assistant-post-order-triage.test.ts tests/assistant-grounded-ordering.test.ts tests/assistant-menu-vocab.test.ts tests/assistant-confirm-intent.test.ts tests/assistant-voice-task-hardening.test.ts tests/assistant-native-stt.test.ts tests/maturity-p0-first-paint-trust.test.ts tests/voice-core-wiring.test.ts tests/voice-core-phase13-adapter.test.ts tests/voice-core-phase13b-parity.test.ts tests/voice-core-dual-run-telemetry.test.ts tests/voice-core-confirm-add-rollout.test.ts tests/voice-first-experience.test.ts tests/streamingAudioPlayer.test.ts tests/realtimeVoiceClient.test.ts tests/atomicCartConfirmation.test.ts",
     "test:unit": "node scripts/run-tests.mjs",
     "test:e2e:owner-sync": "tsx scripts/owner-sync-e2e.ts",
     "seed:e2e-sync-lab": "tsx scripts/e2e/e2eSyncLabHarness.ts prepare-draft",
@@ -99,7 +99,6 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.4.2",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/vite": "^4.1.14",
@@ -113,7 +112,7 @@
     "globals": "^16.5.0",
     "msw": "^2.12.2",
     "playwright": "^1.64.0",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "tsx": "^4.21.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.48.0",
@@ -125,5 +124,20 @@
     "workerDirectory": [
       "public"
     ]
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6",
+    "@xmldom/xmldom": "^0.9.12",
+    "baseline-browser-mapping": "^2.11.28",
+    "brace-expansion": "^2.1.7",
+    "browserslist": "^4.29.3",
+    "fast-uri": "^3.1.8",
+    "js-yaml": "^4.3.2",
+    "nanoid": "^3.3.20",
+    "postcss": "^8.5.29",
+    "protobufjs": "^7.6.6",
+    "source-map-js": "^1.2.2",
+    "tar": "^7.5.22",
+    "uuid": "^11.1.1"
   }
 }

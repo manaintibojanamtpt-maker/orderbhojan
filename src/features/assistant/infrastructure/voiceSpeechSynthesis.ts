@@ -20,11 +20,19 @@ export type SpeechSynthesisFactory = () => SpeechSynthesisLike | null;
 export type UtteranceFactory = (text: string) => SpeechSynthesisUtteranceLike;
 
 import { Capacitor } from '@capacitor/core';
-import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { loadFeatureFlags } from '../../../featureFlags/flags';
 import { getAppConfig } from '@/config';
 import { getMarketplaceAuthTokenProvider } from '@/marketplace-api';
 import { trackEvent } from '@/telemetry';
+
+async function getNativeTTS() {
+  try {
+    const mod = await import('@capacitor-community/text-to-speech');
+    return mod.TextToSpeech;
+  } catch {
+    return null;
+  }
+}
 
 function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
   return () => {
@@ -34,14 +42,20 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
           return false;
         },
         cancel: () => {
-          TextToSpeech.stop().catch(console.error);
+          void getNativeTTS().then((tts) => tts?.stop().catch(console.error));
         },
         speak: async (utterance) => {
           try {
+            const tts = await getNativeTTS();
+            if (!tts) {
+              console.warn('Native TextToSpeech plugin not found');
+              return;
+            }
+
             // Find female voice index if available
             let selectedVoiceIndex: number | undefined;
             try {
-              const supported = await TextToSpeech.getSupportedVoices();
+              const supported = await tts.getSupportedVoices();
               const voices = supported.voices || [];
               const femaleIdx = voices.findIndex((v) =>
                 (v.lang.toLowerCase().startsWith(utterance.lang.slice(0, 2).toLowerCase()) || v.lang.toLowerCase().startsWith('en')) &&
@@ -54,7 +68,7 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
 
             // Primary attempt with requested language and pleasant pitch
             try {
-              await TextToSpeech.speak({
+              await tts.speak({
                 text: utterance.text,
                 lang: utterance.lang,
                 rate: utterance.rate,
@@ -66,7 +80,7 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
             } catch (langErr) {
               console.warn('[Native TTS] Target language failed, falling back to en-IN for audible delivery:', langErr);
               // Fallback to en-IN so speech is NEVER silently dropped
-              await TextToSpeech.speak({
+              await tts.speak({
                 text: utterance.text,
                 lang: 'en-IN',
                 rate: utterance.rate,

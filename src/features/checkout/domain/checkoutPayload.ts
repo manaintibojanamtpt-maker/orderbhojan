@@ -29,6 +29,9 @@ export function buildCheckoutPayload(
     lines: lines.map((line) => ({
       itemId: line.foodId,
       quantity: line.quantity,
+      ...(line.variantId ? { variantId: line.variantId } : {}),
+      ...(line.price ? { unitPrice: line.price } : {}),
+      ...(line.name ? { name: line.name } : {}),
     })),
     deliveryAddress: {
       lat: coords.lat,
@@ -53,7 +56,7 @@ export function buildCheckoutPrepareSignature(input: {
   readonly couponCode?: string | null;
 }): string {
   const lineSig = input.lines
-    .map((line) => `${line.foodId}:${line.quantity}`)
+    .map((line) => `${line.foodId}:${line.variantId ?? ''}:${line.quantity}`)
     .sort()
     .join('|');
   const lat = input.lat?.toFixed(4) ?? '0';

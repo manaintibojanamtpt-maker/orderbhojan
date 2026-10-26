@@ -4,26 +4,29 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
+  connectAuthEmulator,
   type Auth,
   type User,
 } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore';
 import { getAppConfig } from '@/config';
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let firestore: Firestore | null = null;
 let authPersistenceReady: Promise<void> | null = null;
+let firestoreEmulatorConnected = false;
+let authEmulatorConnected = false;
 
 function buildFirebaseConfig() {
   const { firebase } = getAppConfig();
   return {
-    apiKey: firebase.apiKey,
+    apiKey: firebase.apiKey || 'demo-api-key',
     authDomain: firebase.authDomain,
     projectId: firebase.projectId,
     storageBucket: firebase.storageBucket,
     messagingSenderId: firebase.messagingSenderId,
-    appId: firebase.appId,
+    appId: firebase.appId || 'demo-app-id',
     measurementId: firebase.measurementId,
   };
 }
@@ -33,7 +36,7 @@ export function initializeFirebase(): { app: FirebaseApp | null; auth: Auth | nu
   const { firebase } = config;
 
   if (!firebase.apiKey || !firebase.projectId) {
-    if (config.environment === 'development') {
+    if (config.environment === 'development' && !firebase.firestoreEmulatorHost) {
       return { app: null, auth: null, firestore: null };
     }
   }
@@ -43,6 +46,20 @@ export function initializeFirebase(): { app: FirebaseApp | null; auth: Auth | nu
     auth = getAuth(app);
     authPersistenceReady = setPersistence(auth, browserLocalPersistence).then(() => undefined);
     firestore = getFirestore(app);
+  }
+
+  if (firestore && !import.meta.env?.PROD && firebase.firestoreEmulatorHost && !firestoreEmulatorConnected) {
+    const [host, portStr] = firebase.firestoreEmulatorHost.split(':');
+    const port = Number(portStr) || 8185;
+    connectFirestoreEmulator(firestore, host || '127.0.0.1', port);
+    firestoreEmulatorConnected = true;
+    console.info(`[Firebase] Connected to Firestore emulator at ${host || '127.0.0.1'}:${port}`);
+  }
+
+  if (auth && !import.meta.env?.PROD && firebase.authEmulatorHost && !authEmulatorConnected) {
+    connectAuthEmulator(auth, `http://${firebase.authEmulatorHost}`, { disableWarnings: true });
+    authEmulatorConnected = true;
+    console.info(`[Firebase] Connected to Auth emulator at ${firebase.authEmulatorHost}`);
   }
 
   return { app, auth: auth!, firestore: firestore! };

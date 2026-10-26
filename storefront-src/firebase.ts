@@ -1,11 +1,17 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { getFirebaseClientConfig } from './config/firebaseClientConfig';
+import { getAuth, setPersistence, browserLocalPersistence, connectAuthEmulator } from 'firebase/auth';
+import { getFirebaseClientConfig, getAuthEmulatorHost } from './config/firebaseClientConfig';
 
 const firebaseConfig = getFirebaseClientConfig();
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+const authEmulatorHost = getAuthEmulatorHost();
+if (authEmulatorHost && !import.meta.env?.PROD) {
+  connectAuthEmulator(auth, `http://${authEmulatorHost}`, { disableWarnings: true });
+  console.info(`[Auth Client] Connected to Auth emulator at ${authEmulatorHost}`);
+}
 
 let authPersistenceReady: Promise<void> | null =
   typeof window !== 'undefined'

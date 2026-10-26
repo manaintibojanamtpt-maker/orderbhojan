@@ -19,6 +19,7 @@ import { posDb } from '../db/posDatabase';
 import { getOrderSyncService } from '../services/orderSyncService';
 import { useAuthorizedPosTenant } from '../hooks/useAuthorizedPosTenant';
 import { getFirebaseAuth } from '@/firebase/init';
+import { getAppConfig } from '@/config';
 import { audioAlert } from '../services/audioAlertService';
 import { wakeLockService } from '../services/wakeLockService';
 import type { PosOrder } from '../domain/pos.types';
@@ -81,14 +82,17 @@ export const PosApp: React.FC = () => {
   // One service instance per tab; it owns the durable queue lifecycle.
   const syncService = useMemo(
     () =>
-      getOrderSyncService(async () => {
-        const auth = getFirebaseAuth();
-        const user = auth?.currentUser;
-        if (!user) return null;
-        // Fresh token per attempt so an offline queue does not replay with an
-        // expired credential.
-        return user.getIdToken();
-      }),
+      getOrderSyncService(
+        async () => {
+          const auth = getFirebaseAuth();
+          const user = auth?.currentUser;
+          if (!user) return null;
+          // Fresh token per attempt so an offline queue does not replay with an
+          // expired credential.
+          return user.getIdToken();
+        },
+        getAppConfig().marketplaceApiBaseUrl
+      ),
     []
   );
 
@@ -283,13 +287,50 @@ export const PosApp: React.FC = () => {
                 The POS only operates a restaurant you are a member of. This terminal will not open a
                 register for a restaurant your account has not been given access to.
               </p>
-              <button
-                onClick={() => void tenant.refresh()}
-                className="min-h-[48px] px-5 rounded-xl bg-amber-500 text-zinc-950 font-black text-xs uppercase flex items-center justify-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Try again
-              </button>
+
+              {tenant.tenants.length > 0 && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-zinc-800">
+                  <div className="text-xs font-bold text-zinc-300 uppercase tracking-wide">
+                    Choose one of your authorized restaurants:
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                    {tenant.tenants.map((t) => (
+                      <button
+                        key={t.tenantId}
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('tenantId', t.tenantId);
+                            window.location.href = url.pathname + url.search;
+                          }
+                        }}
+                        className="px-4 py-2.5 rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-left text-xs font-semibold text-zinc-200 flex items-center justify-between transition-colors"
+                      >
+                        <span className="font-bold text-zinc-100">{t.name || t.tenantId}</span>
+                        <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded">
+                          {t.role}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a
+                  href={`/auth?returnTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/pos')}`}
+                  className="min-h-[48px] px-5 rounded-xl bg-amber-500 text-zinc-950 font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-amber-400 transition-colors"
+                >
+                  Sign in to BhojanOS
+                </a>
+                <button
+                  onClick={() => void tenant.refresh()}
+                  className="min-h-[48px] px-5 rounded-xl border border-zinc-700 bg-zinc-800 text-zinc-200 font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-zinc-700 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Try again
+                </button>
+              </div>
             </>
           )}
 

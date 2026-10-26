@@ -469,6 +469,14 @@ export const classifyCommandResponse = (status: number, body: unknown): {
   }
 
   if (status === 403) {
+    if (serverCode === 'POS_DISABLED') {
+      return {
+        outcome: 'retryable',
+        reason: 'SERVER',
+        detail: serverMessage ?? 'Point of Sale is currently disabled for this restaurant.',
+        httpStatus: status,
+      };
+    }
     return {
       outcome: 'blocked',
       reason: 'FORBIDDEN',

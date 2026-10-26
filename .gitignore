@@ -12,4 +12,5 @@ packages/node_modules
 *-proof/
 *-proof-report.json
 validation-screenshots/
+docs/customer-milestone-evidence/
 _prod-*.js

@@ -19,41 +19,54 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { mapRestaurantPublicToKitchenCard } from '../src/presentation/discovery/mapRestaurantToKitchenCard.ts';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
 describe('DiscoveryRestaurantCard ETA regression', () => {
-  it('component source exists and is importable', () => {
+  it('component source exists and re-exports OrderBhojanKitchenCard', () => {
     const srcPath = resolve(root, 'src/features/discovery/ui/DiscoveryRestaurantCard.tsx');
     const src = readFileSync(srcPath, 'utf8');
     assert.ok(src.length > 0, 'component source file should not be empty');
+    assert.ok(src.includes('OrderBhojanKitchenCard'), 'should re-export OrderBhojanKitchenCard');
   });
 
   it('has NO hardcoded static ETA fallback like "25–35 min"', () => {
-    const srcPath = resolve(root, 'src/features/discovery/ui/DiscoveryRestaurantCard.tsx');
-    const src = readFileSync(srcPath, 'utf8');
-    assert.ok(!src.includes('25–35 min'), 'must not contain hardcoded ETA fallback');
-    assert.ok(!src.includes('25-35 min'), 'must not contain hardcoded ETA fallback');
+    const cardPath = resolve(root, 'src/presentation/discovery/OrderBhojanKitchenCard.tsx');
+    const cardSrc = readFileSync(cardPath, 'utf8');
+    assert.ok(!cardSrc.includes('25–35 min'), 'must not contain hardcoded ETA fallback');
+    assert.ok(!cardSrc.includes('25-35 min'), 'must not contain hardcoded ETA fallback');
   });
 
-  it('renders the backend-provided ETA when deliveryTimeMinutes is a valid number', () => {
-    const srcPath = resolve(root, 'src/features/discovery/ui/DiscoveryRestaurantCard.tsx');
-    const src = readFileSync(srcPath, 'utf8');
-    assert.ok(src.includes('Calculating…'), 'must show Calculating… when ETA unavailable');
-    assert.ok(src.includes('deliveryTimeMinutes'), 'must reference deliveryTimeMinutes');
-    assert.ok(src.includes('hasEta'), 'must gate ETA display on hasEta check');
+  it('renders the backend-provided ETA when etaMinutes is present', () => {
+    const cardPath = resolve(root, 'src/presentation/discovery/OrderBhojanKitchenCard.tsx');
+    const cardSrc = readFileSync(cardPath, 'utf8');
+    assert.ok(cardSrc.includes('kitchen.etaMins !== undefined'), 'must check kitchen.etaMins !== undefined');
+    assert.ok(cardSrc.includes('{kitchen.etaMins} min'), 'must render {kitchen.etaMins} min');
+
+    const mapped = mapRestaurantPublicToKitchenCard({
+      restaurantId: 'test-1',
+      restaurantSlug: 'test-slug',
+      displayName: 'Test Kitchen',
+      isOpen: true,
+      badges: [],
+      cuisines: ['South Indian'],
+      etaMinutes: { min: 20, max: 30 },
+    } as any);
+    assert.equal(mapped.etaMins, 25);
   });
 
-  it('guards ETA with typeof check for number and positive value', () => {
-    const srcPath = resolve(root, 'src/features/discovery/ui/DiscoveryRestaurantCard.tsx');
-    const src = readFileSync(srcPath, 'utf8');
-    assert.ok(
-      src.includes("typeof restaurant.deliveryTimeMinutes === 'number'"),
-      'must use typeof check for deliveryTimeMinutes',
-    );
-    assert.ok(
-      src.includes('restaurant.deliveryTimeMinutes > 0'),
-      'must check deliveryTimeMinutes > 0',
-    );
+  it('omits ETA when backend etaMinutes is absent or null', () => {
+    const mapped = mapRestaurantPublicToKitchenCard({
+      restaurantId: 'test-2',
+      restaurantSlug: 'test-slug-2',
+      displayName: 'Test Kitchen 2',
+      isOpen: true,
+      badges: [],
+      cuisines: ['South Indian'],
+      etaMinutes: null,
+    } as any);
+    assert.equal(mapped.etaMins, undefined);
   });
 });
