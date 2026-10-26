@@ -99,6 +99,20 @@ function readEnvFlag(key: FeatureFlagKey): boolean | undefined {
   return undefined;
 }
 
+function isCapacitorRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hasCapacitorGlobal = Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+    );
+    const isCapacitorScheme = window.location.protocol === 'capacitor:';
+    const isLocalhostHttps = window.location.hostname === 'localhost' && window.location.protocol === 'https:';
+    return hasCapacitorGlobal || isCapacitorScheme || isLocalhostHttps;
+  } catch {
+    return false;
+  }
+}
+
 export function loadFeatureFlags(): FeatureFlagMap {
   const flags = { ...DEFAULT_FLAGS };
   for (const key of FEATURE_FLAG_KEYS) {
@@ -107,8 +121,15 @@ export function loadFeatureFlags(): FeatureFlagMap {
       flags[key] = envValue;
     }
   }
-  // Production builds default to live Firestore/API unless explicitly disabled.
-  if (import.meta.env?.PROD && readEnvFlag('FF_OB_FIRESTORE') === undefined) {
+  // Production builds & Capacitor native default to live Firestore/API unless explicitly disabled.
+  const isCapacitor = isCapacitorRuntime();
+  const isProd = Boolean(
+    isCapacitor ||
+    import.meta.env?.PROD ||
+    import.meta.env?.MODE === 'production' ||
+    import.meta.env?.VITE_APP_ENV === 'production'
+  );
+  if (isProd && readEnvFlag('FF_OB_FIRESTORE') === undefined) {
     flags.FF_OB_FIRESTORE = true;
   }
   if (flags.FF_OB_FIRESTORE) {
