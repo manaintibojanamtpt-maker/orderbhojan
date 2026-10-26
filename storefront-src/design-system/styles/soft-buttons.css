@@ -1,78 +1,31 @@
-/* Shared soft-edge pill buttons — matches "A kitchen operating system" eyebrow */
+/* Shared soft-edge pill buttons — Premium Unified Brand Colors */
 @property --soft-glow-angle {
   syntax: '<angle>';
   initial-value: 0deg;
   inherits: false;
 }
 
-@keyframes soft-glow-spin {
-  to {
-    --soft-glow-angle: 360deg;
-  }
-}
-
-@keyframes soft-glow-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 14px rgba(232, 93, 4, 0.22),
-      0 0 28px rgba(232, 93, 4, 0.08);
-  }
-  50% {
-    box-shadow:
-      0 0 22px rgba(232, 93, 4, 0.4),
-      0 0 44px rgba(232, 93, 4, 0.16);
-  }
-}
-
-@keyframes soft-danger-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 14px rgba(220, 38, 38, 0.22),
-      0 0 28px rgba(220, 38, 38, 0.08);
-  }
-  50% {
-    box-shadow:
-      0 0 22px rgba(220, 38, 38, 0.38),
-      0 0 44px rgba(220, 38, 38, 0.14);
-  }
-}
-
-/* Wrapper — primary / marketing CTA default */
+/* Primary / Customer CTA - Premium Satin Brand Accent */
 .soft-btn,
 .marketing-soft-cta {
   position: relative;
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  padding: 1.5px;
+  padding: 1px;
   border-radius: 9999px;
   border: none;
   cursor: pointer;
   text-decoration: none;
-  background: conic-gradient(
-    from var(--soft-glow-angle),
-    transparent 0deg,
-    rgba(232, 93, 4, 0.2) 40deg,
-    #e85d04 120deg,
-    #f4a261 180deg,
-    #e85d04 240deg,
-    rgba(232, 93, 4, 0.2) 320deg,
-    transparent 360deg
-  );
-  box-shadow:
-    0 0 0 1px rgba(232, 93, 4, 0.12),
-    0 6px 28px -6px rgba(232, 93, 4, 0.45);
-  animation:
-    soft-glow-spin 3.5s linear infinite,
-    soft-glow-pulse 2.8s ease-in-out infinite;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  animation: none;
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
 
 .soft-btn:hover:not(:disabled),
 .marketing-soft-cta:hover:not(:disabled) {
-  transform: scale(1.02);
+  transform: scale(1.01);
 }
 
 .soft-btn:active:not(:disabled),
@@ -82,7 +35,7 @@
 
 .soft-btn:disabled,
 .marketing-soft-cta:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
   animation: none;
 }
@@ -99,96 +52,75 @@
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #fff;
+  color: #FFF8F0;
   white-space: nowrap;
-  background: linear-gradient(135deg, #f4a261 0%, #e85d04 42%, #c24e03 100%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12) inset,
-    0 1px 0 rgba(255, 255, 255, 0.15) inset;
-  transition: filter 0.2s ease;
+  background: linear-gradient(180deg, #FA7A1E 0%, #E8720C 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 8px -2px rgba(232, 114, 12, 0.35);
+  transition: filter 0.15s ease, background 0.15s ease;
 }
 
 .soft-btn:hover:not(:disabled) .soft-btn__inner,
 .marketing-soft-cta:hover:not(:disabled) .marketing-soft-cta-inner {
-  filter: brightness(1.07);
+  filter: brightness(1.06);
 }
 
-/* Ghost / outline */
+/* Ghost / outline - Clean dark surface */
 .soft-btn--ghost,
 .marketing-soft-cta--ghost {
   padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(232, 93, 4, 0.38) 0%,
-    rgba(255, 255, 255, 0.14) 45%,
-    rgba(244, 162, 97, 0.28) 100%
-  );
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
-    0 2px 14px -4px rgba(232, 93, 4, 0.2);
+  background: transparent;
+  box-shadow: none;
   animation: none;
 }
 
 .soft-btn--ghost:hover:not(:disabled),
 .marketing-soft-cta--ghost:hover:not(:disabled) {
-  box-shadow:
-    0 0 0 1px rgba(232, 93, 4, 0.15),
-    0 4px 20px -4px rgba(232, 93, 4, 0.28);
+  box-shadow: none;
 }
 
 .soft-btn--ghost .soft-btn__inner,
 .marketing-soft-cta--ghost .marketing-soft-cta-inner {
-  background: rgba(8, 8, 8, 0.9);
-  color: rgba(229, 229, 229, 0.95);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 248, 240, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 .soft-btn--ghost:hover:not(:disabled) .soft-btn__inner,
 .marketing-soft-cta--ghost:hover:not(:disabled) .marketing-soft-cta-inner {
   filter: none;
-  color: #fff;
-  background: rgba(12, 12, 12, 0.95);
+  color: #FFF8F0;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 /* Danger (admin / super-admin) */
 .soft-btn--danger {
-  background: conic-gradient(
-    from var(--soft-glow-angle),
-    transparent 0deg,
-    rgba(220, 38, 38, 0.2) 40deg,
-    #dc2626 120deg,
-    #f87171 180deg,
-    #dc2626 240deg,
-    rgba(220, 38, 38, 0.2) 320deg,
-    transparent 360deg
-  );
-  box-shadow:
-    0 0 0 1px rgba(220, 38, 38, 0.12),
-    0 6px 28px -6px rgba(220, 38, 38, 0.4);
-  animation:
-    soft-glow-spin 3.5s linear infinite,
-    soft-danger-pulse 2.8s ease-in-out infinite;
+  padding: 1px;
+  background: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  animation: none;
 }
 
 .soft-btn--danger .soft-btn__inner {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 45%, #b91c1c 100%);
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 8px -2px rgba(220, 38, 38, 0.35);
 }
 
 /* Secondary (light fill) */
 .soft-btn--secondary {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.25) 100%
-  );
-  box-shadow: 0 2px 14px -4px rgba(0, 0, 0, 0.25);
+  padding: 1px;
+  background: transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   animation: none;
 }
 
 .soft-btn--secondary .soft-btn__inner {
-  background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
-  color: #111;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F5EFEB 100%);
+  color: #1A1412;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* Compact + full width */

@@ -1,16 +1,16 @@
-/** Design system token constants — verified Phase 5 */
+/** Design system token constants — Unified Premium Palette v2 */
 export const colors = {
-  primary: '#FF7A00',
-  primaryLight: '#FF9F43',
-  accent: '#FFB366',
-  brandBg: '#070504',
-  cardBg: '#120D0A',
-  surface: '#0E0A08',
-  textMain: '#FFFAF3',
-  textSecondary: '#B9ADA1',
-  accentRed: '#FF6B35',
-  mibOrange: '25, 100%, 50%',
-  mibGold: '45, 100%, 51%',
+  primary: '#E8720C',
+  primaryLight: '#F4A05C',
+  accent: '#F4A05C',
+  brandBg: '#080706',
+  cardBg: '#13100D',
+  surface: '#1C1712',
+  textMain: '#FFF8F0',
+  textSecondary: '#A89B8C',
+  accentRed: '#E8720C',
+  mibOrange: '24, 82%, 48%',
+  mibGold: '30, 88%, 62%',
 } as const;
 
 export const fonts = {
@@ -32,27 +32,28 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: '0.75rem',
-  md: '1rem',
-  lg: '1.25rem',
-  xl: '1.5rem',
-  '2xl': '1.75rem',
+  sm: '0.5rem',
+  md: '0.75rem',
+  lg: '1rem',
+  xl: '1.25rem',
+  '2xl': '1.5rem',
   '3xl': '2rem',
   pill: '9999px',
-  card: '1.75rem',
+  card: '1.25rem',
 } as const;
 
 export const elevation = {
-  card: '0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.02) inset',
-  glow: '0 0 30px -10px rgba(255, 107, 53, 0.25)',
-  cta: '0 12px 24px -12px rgba(255, 107, 53, 0.5)',
-  nav: '0 20px 50px rgba(0, 0, 0, 0.5)',
+  card: '0 16px 48px -12px rgba(0, 0, 0, 0.65), 0 1px 0 rgba(255, 248, 240, 0.04) inset',
+  cardHover: '0 20px 56px -12px rgba(0, 0, 0, 0.72), 0 1px 0 rgba(255, 248, 240, 0.05) inset, 0 0 0 1px rgba(232, 130, 50, 0.25)',
+  glow: '0 0 40px -8px rgba(232, 114, 12, 0.30)',
+  cta: '0 14px 28px -10px rgba(232, 114, 12, 0.45)',
+  nav: '0 18px 48px rgba(0, 0, 0, 0.55)',
 } as const;
 
 export const motion = {
   durationFast: '150ms',
-  durationNormal: '300ms',
-  durationSlow: '500ms',
+  durationNormal: '250ms',
+  durationSlow: '400ms',
   easeSpring: 'cubic-bezier(0.22, 1, 0.36, 1)',
   easeStandard: 'cubic-bezier(0.4, 0, 0.2, 1)',
 } as const;
@@ -66,12 +67,12 @@ export const breakpoints = {
 } as const;
 
 export const glass = {
-  background: 'rgba(18, 13, 10, 0.7)',
+  background: 'rgba(19, 16, 13, 0.82)',
   blur: '20px',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  border: '1px solid rgba(255, 248, 240, 0.08)',
 } as const;
 
-/** Token CSS entry paths (import for verification; not wired to founder index.css yet) */
+/** Token CSS entry paths */
 export const tokenStyles = {
   colors: './colors.css',
   typography: './typography.css',
