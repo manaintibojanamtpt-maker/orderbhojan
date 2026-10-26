@@ -70,7 +70,7 @@ function AuthTabBar({
             aria-selected={active}
             className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
               active
-                ? 'bg-gradient-to-r from-[#FF7A00] to-[#FF9F1C] text-white shadow-[0_8px_24px_-12px_rgba(255,122,0,0.65)]'
+                ? 'bg-gradient-to-r from-[#E8720C] to-[#FF9F1C] text-white shadow-[0_8px_24px_-12px_rgba(255,122,0,0.65)]'
                 : 'text-white/55 hover:text-white/85'
             }`}
             onClick={() => onTabChange(tab.id)}

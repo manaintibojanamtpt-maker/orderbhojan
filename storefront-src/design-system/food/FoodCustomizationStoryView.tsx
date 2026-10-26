@@ -16,9 +16,9 @@ export function FoodCustomizationStoryView({ story }: FoodCustomizationStoryView
   if (!hasStory) return null;
 
   return (
-    <section className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-label="About this dish">
+    <section className="mb-6 rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-4" aria-label="About this dish">
       {story.chefNote ? (
-        <blockquote className="mb-4 border-l-2 border-[#FF7A00]/50 pl-3 text-sm leading-relaxed text-white/80">
+        <blockquote className="mb-4 border-l-2 border-[#E8720C]/50 pl-3 text-sm leading-relaxed text-white/80">
           {story.chefNote}
         </blockquote>
       ) : null}

@@ -37,7 +37,7 @@ export interface TrackingActivePageViewProps {
 
 function TrackCard({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#120d0c] p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.32)]">
+    <div className="rounded-[1.25rem] border border-white/[0.08] bg-[#13100D] p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.32)]">
       {children}
     </div>
   );
@@ -66,10 +66,10 @@ export function TrackingActivePageView({
   feedbackSlot,
 }: TrackingActivePageViewProps) {
   return (
-    <TransactionalPageShell embedded={true} title="Track order" subtitle="" className="!gap-3">
+    <TransactionalPageShell embedded={true} title="Track order" subtitle="" className="!gap-3 !pb-[calc(var(--ob-focus-bottom)+3rem)]">
       <header className="px-0.5">
-        <h1 className="text-xl font-extrabold tracking-tight text-[#fff8f0]">Track order</h1>
-        <p className="mt-0.5 text-xs text-[#c4b5a5]">Live status for this order</p>
+        <h1 className="text-xl font-extrabold tracking-tight text-[#FFF8F0]">Track order</h1>
+        <p className="mt-0.5 text-xs text-[#A89B8C]">Live status for this order</p>
       </header>
 
       <TrackCard>
@@ -84,7 +84,7 @@ export function TrackingActivePageView({
 
       <TrackCard>
         <div aria-label={journeyTitle}>
-          <p className="mb-3 text-sm font-bold text-[#fff8f0]">{journeyTitle}</p>
+          <p className="mb-3 text-sm font-bold text-[#FFF8F0]">{journeyTitle}</p>
           <CourierTrackingTimelineView steps={timelineSteps} cancelled={timelineCancelled} />
         </div>
       </TrackCard>
@@ -101,27 +101,26 @@ export function TrackingActivePageView({
       ) : null}
 
       <div className="ob-fixed-cta-bar !z-30">
-        <div className="mx-auto flex max-w-lg flex-col gap-2">
-          {showInvoiceButton ? (
-            <SoftButton type="button" tone="secondary" fullWidth onClick={onOpenInvoice}>
-              View digital invoice
-            </SoftButton>
-          ) : null}
+        <div className="mx-auto flex max-w-lg items-center gap-2">
           {showReorder && onReorder ? (
-            <SoftButton type="button" fullWidth disabled={reorderBusy} onClick={onReorder}>
+            <SoftButton type="button" size="compact" fullWidth disabled={reorderBusy} onClick={onReorder}>
               {reorderLabel}
             </SoftButton>
-          ) : null}
-          <div className="flex gap-2">
-            {showAllOrders && onAllOrders ? (
-              <SoftButton type="button" tone="secondary" fullWidth onClick={onAllOrders}>
-                All orders
-              </SoftButton>
-            ) : null}
-            <SoftButton type="button" tone="ghost" fullWidth onClick={onBrowse}>
-              Browse
+          ) : (
+            <SoftButton type="button" size="compact" fullWidth onClick={onBrowse}>
+              Browse meals
             </SoftButton>
-          </div>
+          )}
+          {showInvoiceButton ? (
+            <SoftButton type="button" size="compact" tone="secondary" onClick={onOpenInvoice}>
+              Invoice
+            </SoftButton>
+          ) : null}
+          {showAllOrders && onAllOrders ? (
+            <SoftButton type="button" size="compact" tone="ghost" onClick={onAllOrders}>
+              Orders
+            </SoftButton>
+          ) : null}
         </div>
       </div>
     </TransactionalPageShell>

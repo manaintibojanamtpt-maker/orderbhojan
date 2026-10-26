@@ -2,7 +2,7 @@ import { RestaurantHeroSkeleton } from '@bhojan/storefront-design-system/skeleto
 
 export function OrderBhojanRestaurantSkeleton() {
   return (
-    <div className="min-h-screen bg-[#030303] text-white">
+    <div className="min-h-screen bg-[var(--ob-bg,#080706)] text-white">
       <RestaurantHeroSkeleton />
     </div>
   );

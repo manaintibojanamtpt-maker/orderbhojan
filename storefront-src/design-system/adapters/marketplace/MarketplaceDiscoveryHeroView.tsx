@@ -69,10 +69,15 @@ function CompactDiscoveryHero({
   const displayEyebrow = isOfferSlide ? 'Limited-time deal' : eyebrow;
 
   return (
-    <section className="ds-discovery-hero ds-discovery-hero--compact bg-[#050403]" aria-label="Home">
-      <div className="mx-auto max-w-5xl px-4 pt-3 sm:px-6">
+    <section className="ds-discovery-hero ds-discovery-hero--compact bg-[var(--ob-bg)]" aria-label="Home">
+      <div
+        className="mx-auto max-w-5xl px-4 sm:px-6"
+        style={{
+          paddingTop: 'calc(0.75rem + max(env(safe-area-inset-top, 0px), var(--ob-safe-top, 0px)))',
+        }}
+      >
         <div className="flex items-center justify-between gap-3">
-          <h1 className="ds-discovery-hero__brand text-[1.35rem] font-extrabold tracking-tight text-white">
+          <h1 className="ds-discovery-hero__brand text-[1.35rem] font-extrabold tracking-tight text-[var(--ob-text-primary)]">
             {brandName}
             <span className="text-[#f4a261]">{brandAccent}</span>
           </h1>
@@ -81,7 +86,7 @@ function CompactDiscoveryHero({
               <button
                 type="button"
                 onClick={onSearchIconClick}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/30 hover:text-white touch-manipulation"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--ob-border)] text-[var(--ob-text-secondary)] transition hover:border-[var(--ob-brand)] hover:text-[var(--ob-text-primary)] touch-manipulation"
                 aria-label="Search"
               >
                 <Search className="h-4 w-4" aria-hidden />
@@ -91,7 +96,7 @@ function CompactDiscoveryHero({
               <button
                 type="button"
                 onClick={onProfileIconClick}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/30 hover:text-white touch-manipulation"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--ob-border)] text-[var(--ob-text-secondary)] transition hover:border-[var(--ob-brand)] hover:text-[var(--ob-text-primary)] touch-manipulation"
                 aria-label="Profile"
               >
                 <User className="h-4 w-4" aria-hidden />
@@ -104,21 +109,21 @@ function CompactDiscoveryHero({
 
         <div className="mt-3">{searchSlot}</div>
 
-        <div className="ds-discovery-hero__promo relative mt-3.5 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#120d0c]">
+        <div className="ds-discovery-hero__promo relative mt-3.5 overflow-hidden rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)]">
           <div className="grid min-h-[8.75rem] grid-cols-[1.1fr_0.9fr]">
             <div
               key={activeSlide?.id ?? 'hero-copy'}
               className="ds-discovery-hero__copy relative z-[1] flex flex-col justify-center px-3.5 py-3.5 sm:px-5 sm:py-4"
               aria-live="polite"
             >
-              <p className="ds-discovery-hero__eyebrow text-[9px] font-bold uppercase tracking-[0.22em] text-white/55">
+              <p className="ds-discovery-hero__eyebrow text-[9px] font-bold uppercase tracking-[0.22em] text-[var(--ob-text-secondary)]">
                 {displayEyebrow}
               </p>
-              <h2 className="ds-discovery-hero__headline mt-1.5 line-clamp-2 text-balance text-[1.1rem] font-extrabold leading-[1.15] tracking-[-0.02em] text-white sm:text-[1.35rem]">
+              <h2 className="ds-discovery-hero__headline mt-1.5 line-clamp-2 text-balance text-[1.1rem] font-extrabold leading-[1.15] tracking-[-0.02em] text-[var(--ob-text-primary)] sm:text-[1.35rem]">
                 {displayHeadline}
               </h2>
               {displaySubline ? (
-                <p className="ds-discovery-hero__subline mt-1 line-clamp-2 text-[12px] leading-snug text-white/65">
+                <p className="ds-discovery-hero__subline mt-1 line-clamp-2 text-[12px] leading-snug text-[var(--ob-text-secondary)]">
                   {displaySubline}
                 </p>
               ) : null}
@@ -133,7 +138,7 @@ function CompactDiscoveryHero({
                 </button>
               ) : null}
               {isOfferSlide && activeSlide?.offerBadge ? (
-                <span className="mt-2 inline-flex w-fit rounded-md bg-[#e85d04] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                <span className="mt-2 inline-flex w-fit rounded-md bg-[#E8720C] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                   {activeSlide.offerBadge}
                 </span>
               ) : null}
@@ -166,10 +171,9 @@ function CompactDiscoveryHero({
                 );
               })}
               <div
-                className="ds-discovery-hero__scrim pointer-events-none absolute inset-y-0 left-0 w-1/2"
+                className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#13100D] to-transparent z-[1]"
                 aria-hidden
               />
-              <div className="ds-discovery-hero__glow pointer-events-none absolute inset-0" aria-hidden />
               {slides.length > 1 ? (
                 <div
                   className="absolute bottom-2.5 right-2.5 z-[2] flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1 backdrop-blur-sm"
@@ -230,7 +234,7 @@ function CinematicDiscoveryHero({
 
   return (
     <section
-      className="ds-discovery-hero relative min-h-[min(78vh,720px)] overflow-hidden border-b border-white/[0.04] bg-[#050403]"
+      className="ds-discovery-hero relative min-h-[min(78vh,720px)] overflow-hidden border-b border-white/[0.04] bg-[#080706]"
       aria-label="Home kitchens"
       style={
         {
@@ -288,15 +292,15 @@ function CinematicDiscoveryHero({
           className="pointer-events-none absolute inset-x-4 top-[5.5rem] z-[2] flex justify-end sm:inset-x-6 lg:top-[6rem]"
           aria-hidden
         >
-          <div className="ds-discovery-hero__offer-card max-w-[min(19rem,calc(100vw-2rem))] rounded-2xl px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="ds-discovery-hero__offer-card max-w-[min(19rem,calc(100vw-2rem))] rounded-[1.25rem] px-4 py-3.5 sm:px-5 sm:py-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#f4a261]">
               Deal live now
             </p>
-            <p className="mt-1 text-lg font-extrabold leading-tight tracking-[-0.02em] text-[#fff8f0] sm:text-xl">
+            <p className="mt-1 text-lg font-extrabold leading-tight tracking-[-0.02em] text-[#FFF8F0] sm:text-xl">
               {activeSlide.offerBadge}
             </p>
             {activeSlide.restaurantName ? (
-              <p className="mt-1 text-xs font-medium text-[#fff8f0]/90">{activeSlide.restaurantName}</p>
+              <p className="mt-1 text-xs font-medium text-[#FFF8F0]/90">{activeSlide.restaurantName}</p>
             ) : null}
           </div>
         </div>
@@ -326,7 +330,7 @@ function CinematicDiscoveryHero({
             <button
               type="button"
               onClick={onCtaClick}
-              className="ds-discovery-hero__cta mt-5 inline-flex min-h-11 items-center gap-2 rounded-full px-6 text-sm font-bold tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e85d04] active:scale-[0.98]"
+              className="ds-discovery-hero__cta mt-5 inline-flex min-h-11 items-center gap-2 rounded-full px-6 text-sm font-bold tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E8720C] active:scale-[0.98]"
             >
               {displayCta}
               <span aria-hidden className="text-base leading-none">
@@ -360,10 +364,10 @@ function CinematicDiscoveryHero({
                   className={`h-1.5 min-w-1.5 rounded-full transition-all duration-300 touch-manipulation ${
                     isActive
                       ? offerSlide
-                        ? 'w-8 bg-[#e85d04] shadow-[0_0_12px_rgba(232,93,4,0.55)]'
+                        ? 'w-8 bg-[#E8720C] shadow-[0_0_12px_rgba(232,93,4,0.55)]'
                         : 'w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.35)]'
                       : offerSlide
-                        ? 'w-1.5 bg-[#e85d04]/40'
+                        ? 'w-1.5 bg-[#E8720C]/40'
                         : 'w-1.5 bg-white/30'
                   }`}
                 />

@@ -90,12 +90,12 @@ export function OrderBhojanOnboardingView({
   const displayEyebrow = heroConfig.eyebrow;
 
   return (
-    <div className="ob-onboarding relative flex min-h-[100dvh] flex-col bg-[#070504] text-[#fffaf3]">
+    <div className="ob-onboarding relative flex min-h-[100dvh] flex-col bg-[#080706] text-[#fffaf3]">
       <div className="ob-onboarding-hero relative min-h-[min(52vh,440px)] flex-1 overflow-hidden">
-        <div className="absolute inset-0 bg-[#070504]" aria-hidden />
+        <div className="absolute inset-0 bg-[#080706]" aria-hidden />
         {!heroReady ? (
           <>
-            <div className="absolute inset-0 bg-gradient-to-b from-[#120c0a] via-[#070504] to-[#050403]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#120c0a] via-[#080706] to-[#080706]" />
             <div className="relative z-10 flex h-full flex-col justify-between px-5 pb-8 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-11 w-11 rounded-xl ob-shimmer" />
@@ -170,7 +170,7 @@ export function OrderBhojanOnboardingView({
                         aria-selected={index === activeIndex}
                         aria-label={`Slide ${index + 1}`}
                         className={`h-1.5 rounded-full transition-all ${
-                          index === activeIndex ? 'w-6 bg-[#FF7A00]' : 'w-1.5 bg-white/30'
+                          index === activeIndex ? 'w-6 bg-[#E8720C]' : 'w-1.5 bg-white/30'
                         }`}
                         onClick={() => setActiveIndex(index)}
                       />

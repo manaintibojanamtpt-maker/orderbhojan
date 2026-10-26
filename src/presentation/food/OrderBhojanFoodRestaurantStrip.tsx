@@ -24,7 +24,7 @@ export function OrderBhojanFoodRestaurantStrip({
 
   return (
     <header
-      className="sticky top-0 z-50 border-b border-white/10 bg-[#030303] backdrop-blur-md ob-menu-container"
+      className="border-b border-white/10 bg-[var(--ob-bg,#080706)] ob-menu-container"
       style={{ paddingTop: 'max(0.75rem, var(--ob-safe-top))', paddingBottom: '0.75rem' }}
     >
       <div className="flex items-center gap-3">

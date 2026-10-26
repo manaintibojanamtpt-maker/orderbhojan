@@ -29,7 +29,7 @@ export const MarketplaceSearchSortSelector: React.FC<MarketplaceSearchSortSelect
           onClick={() => onChange(option.value)}
           className={`rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
             value === option.value
-              ? 'border-[#FF7A00]/50 bg-[#FF7A00]/15 text-[#FF7A00]'
+              ? 'border-[#E8720C]/50 bg-[#E8720C]/15 text-[#E8720C]'
               : 'border-white/10 bg-white/5 text-white/70 hover:border-white/20'
           }`}
         >

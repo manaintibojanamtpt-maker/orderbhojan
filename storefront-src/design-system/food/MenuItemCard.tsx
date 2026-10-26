@@ -100,7 +100,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.1 }}
       transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.3), ease: [0.22, 1, 0.36, 1] }}
-      className="relative flex justify-between gap-4 py-4 px-4 bg-gray-50 dark:bg-[#151515] border-b border-gray-200 dark:border-white/5 last:border-b-0 transition-colors active:bg-gray-100 dark:active:bg-white/[0.02]"
+      className="relative flex justify-between gap-4 py-4 px-4 bg-[#13100D] border-b border-white/5 last:border-b-0 transition-colors active:bg-white/[0.02]"
     >
       {/* Left Info Column */}
       <div className="flex-1 min-w-0 pr-2 flex flex-col justify-start">
@@ -287,7 +287,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({
                 setShowAddonModal(false);
                 setSelectedAddons([]);
               }}
-              className="w-full py-4 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-[0_10px_30px_rgba(255,107,53,0.3)]"
+              className="w-full py-4 bg-[#E8720C] hover:bg-[#d06100] active:scale-95 text-white font-black text-sm uppercase tracking-widest rounded-[1.25rem] transition-all shadow-[0_10px_30px_rgba(232,114,12,0.35)]"
             >
               Add Item • {formatPrice(item.price + selectedAddons.reduce((sum, a) => sum + a.price, 0))}
             </button>

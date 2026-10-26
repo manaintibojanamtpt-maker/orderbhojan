@@ -11,10 +11,15 @@ export function TrackingHeroView({ hero }: TrackingHeroViewProps) {
       <p className="text-2xl font-extrabold tracking-tight text-white">{hero.statusLabel}</p>
       {hero.kitchenName ? <p className="mt-1 text-lg font-bold text-white/80">{hero.kitchenName}</p> : null}
       <p className="mt-1 text-sm text-white/60">{hero.orderNumberLabel}</p>
-      {(hero.etaLabel || hero.prepBadgeLabel) ? (
+      {(hero.etaLabel || hero.scheduledForLabel || hero.prepBadgeLabel) ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {hero.scheduledForLabel ? (
+            <p className="inline-flex rounded-full bg-emerald-500/15 border border-emerald-500/30 px-4 py-2 text-sm font-bold text-emerald-300">
+              Scheduled · {hero.scheduledForLabel}
+            </p>
+          ) : null}
           {hero.etaLabel ? (
-            <p className="inline-flex rounded-full bg-[#FF7A00]/15 px-4 py-2 text-sm font-bold text-[#FF7A00]">
+            <p className="inline-flex rounded-full bg-[#E8720C]/15 px-4 py-2 text-sm font-bold text-[#E8720C]">
               ETA {hero.etaLabel}
             </p>
           ) : null}
@@ -33,7 +38,7 @@ export function TrackingHeroView({ hero }: TrackingHeroViewProps) {
           aria-live="polite"
         >
           <span
-            className={`h-2 w-2 rounded-full bg-[#FF7A00] ${hero.liveActive ? 'motion-safe:animate-pulse' : ''}`}
+            className={`h-2 w-2 rounded-full bg-[#E8720C] ${hero.liveActive ? 'motion-safe:animate-pulse' : ''}`}
             aria-hidden
           />
           {hero.liveLabel}

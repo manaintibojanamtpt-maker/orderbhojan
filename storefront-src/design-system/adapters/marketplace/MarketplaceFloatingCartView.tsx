@@ -76,10 +76,10 @@ export const MarketplaceFloatingCartView: React.FC<MarketplaceFloatingCartViewPr
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="absolute bottom-full mb-3 w-full overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[#120d0c]/95 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto"
+              className="absolute bottom-full mb-3 w-full overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[#13100D]/95 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto"
             >
               <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.04] p-4">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#c4b5a5]">Quick edit</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#A89B8C]">Quick edit</span>
                 <button
                   type="button"
                   onClick={() => setSnapState('expanded')}
@@ -94,10 +94,10 @@ export const MarketplaceFloatingCartView: React.FC<MarketplaceFloatingCartViewPr
                 {lines.map((item) => (
                   <div key={item.id} className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-xs font-bold text-[#fff8f0]">{item.name}</p>
-                      <p className="text-[10px] font-bold text-[#e85d04]">{item.priceLabel}</p>
+                      <p className="truncate text-xs font-bold text-[#FFF8F0]">{item.name}</p>
+                      <p className="text-[10px] font-bold text-[#E8720C]">{item.priceLabel}</p>
                     </div>
-                    <div className="flex items-center gap-1 rounded-full border border-[#e85d04]/20 bg-[#050403]/80 p-0.5">
+                    <div className="flex items-center gap-1 rounded-full border border-[#E8720C]/20 bg-[#080706]/80 p-0.5">
                       <button
                         type="button"
                         onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
@@ -106,11 +106,11 @@ export const MarketplaceFloatingCartView: React.FC<MarketplaceFloatingCartViewPr
                       >
                         <Minus size={12} strokeWidth={3} aria-hidden />
                       </button>
-                      <span className="w-4 text-center text-xs font-black text-[#fff8f0]">{item.quantity}</span>
+                      <span className="w-4 text-center text-xs font-black text-[#FFF8F0]">{item.quantity}</span>
                       <button
                         type="button"
                         onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        className="flex h-10 w-10 items-center justify-center text-[#e85d04] touch-manipulation"
+                        className="flex h-10 w-10 items-center justify-center text-[#E8720C] touch-manipulation"
                         aria-label="Increase quantity"
                       >
                         <Plus size={12} strokeWidth={3} aria-hidden />
@@ -132,13 +132,13 @@ export const MarketplaceFloatingCartView: React.FC<MarketplaceFloatingCartViewPr
               borderRadius: snapState === 'collapsed' ? 32 : 24,
             }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="h-12 bg-[#120d0c]/95 backdrop-blur-xl border border-white/[0.08] text-[#fff8f0] shadow-[0_12px_40px_-10px_rgba(0,0,0,0.55)] flex items-center overflow-hidden cursor-pointer group"
+            className="h-12 bg-[#13100D]/95 backdrop-blur-xl border border-white/[0.08] text-[#FFF8F0] shadow-[0_12px_40px_-10px_rgba(0,0,0,0.55)] flex items-center overflow-hidden cursor-pointer group"
             onClick={toggleExpand}
           >
             <div className="flex items-center w-full px-4">
               <div className="relative shrink-0 flex items-center justify-center w-8 h-8">
-                <ShoppingBag size={20} strokeWidth={2.5} className="text-[#e85d04] group-hover:scale-110 transition-transform" />
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#e85d04] text-[#fff8f0] text-[9px] font-black shadow-sm">
+                <ShoppingBag size={20} strokeWidth={2.5} className="text-[#E8720C] group-hover:scale-110 transition-transform" />
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E8720C] text-[#FFF8F0] text-[9px] font-black shadow-sm">
                   {itemCount}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export const MarketplaceFloatingCartView: React.FC<MarketplaceFloatingCartViewPr
                   >
                     <div className="min-w-0 mr-4">
                       <p className="text-[9px] font-black uppercase tracking-widest text-[#f4a261]/70 leading-none mb-0.5">Subtotal</p>
-                      <p className="text-sm font-black tracking-tight text-[#fff8f0]">{totalLabel}</p>
+                      <p className="text-sm font-black tracking-tight text-[#FFF8F0]">{totalLabel}</p>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ export const MarketplaceFloatingCartView: React.FC<MarketplaceFloatingCartViewPr
                       <button
                         type="button"
                         onClick={handleCheckout}
-                        className="bg-gradient-to-br from-[#e85d04] to-[#f4a261] hover:from-[#f0701a] hover:to-[#f6b078] text-[#fff8f0] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-[0_8px_16px_-6px_rgba(232,93,4,0.55)] active:scale-95 transition-all"
+                        className="bg-gradient-to-br from-[#E8720C] to-[#f4a261] hover:from-[#f0701a] hover:to-[#f6b078] text-[#FFF8F0] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-[0_8px_16px_-6px_rgba(232,93,4,0.55)] active:scale-95 transition-all"
                       >
                         Checkout
                         <ArrowRight size={12} strokeWidth={3} />

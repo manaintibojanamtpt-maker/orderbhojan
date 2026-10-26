@@ -84,7 +84,12 @@ export function mapTrackingHero(
   const phase = normalizeTrackingStatus(tracking.status);
   const isTerminal = phase === 'DELIVERED' || phase === 'CANCELLED';
   const isPrepPhase = phase === 'ACCEPTED' || phase === 'PREPARING';
-  const isScheduled = tracking.deliveryType === 'scheduled' || Boolean(tracking.scheduledFor);
+  // Options-level override: if scheduledForLabel is computed, the caller knows this is a
+  // scheduled order even when the backend omitted deliveryType/scheduledFor fields.
+  const isScheduled =
+    tracking.deliveryType === 'scheduled' ||
+    Boolean(tracking.scheduledFor) ||
+    Boolean(options.scheduledForLabel);
 
   // For scheduled orders, never show a generic immediate-delivery ETA.
   // Show the scheduled delivery time instead. Only show ETA for ASAP orders.

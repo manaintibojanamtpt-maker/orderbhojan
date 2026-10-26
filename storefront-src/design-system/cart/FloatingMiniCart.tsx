@@ -68,11 +68,11 @@ const FloatingMiniCart: React.FC = () => {
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="absolute bottom-full mb-3 w-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/20 dark:border-white/10 pointer-events-auto overflow-hidden"
+              className="absolute bottom-full mb-3 w-full bg-[#13100D]/95 backdrop-blur-xl rounded-[1.25rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/[0.08] pointer-events-auto overflow-hidden"
             >
-              <div className="p-4 border-b border-gray-50 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-white/5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Quick Edit</span>
-                <button onClick={() => setSnapState('expanded')} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white">
+              <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#A89B8C]">Quick Edit</span>
+                <button onClick={() => setSnapState('expanded')} className="p-1 text-[#A89B8C] hover:text-[#FFF8F0]">
                   <ChevronDown size={18} />
                 </button>
               </div>
@@ -81,20 +81,20 @@ const FloatingMiniCart: React.FC = () => {
                 {cart.map((item) => (
                   <div key={item.id} className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{item.name}</p>
-                      <p className="text-[10px] font-bold text-[#c24e03]">{formatPrice(item.price)}</p>
+                      <p className="text-xs font-bold text-[#FFF8F0] truncate">{item.name}</p>
+                      <p className="text-[10px] font-bold text-[#E8720C]">{formatPrice(item.price)}</p>
                     </div>
-                    <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-full p-1">
-                      <button 
+                    <div className="flex items-center gap-2 bg-white/5 rounded-full p-1">
+                      <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-red-500"
+                        className="w-6 h-6 flex items-center justify-center text-[#A89B8C] hover:text-[#F87171]"
                       >
                         <Minus size={12} strokeWidth={3} />
                       </button>
-                      <span className="text-xs font-black w-4 text-center dark:text-white">{item.quantity}</span>
-                      <button 
+                      <span className="text-xs font-black w-4 text-center text-[#FFF8F0]">{item.quantity}</span>
+                      <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="w-6 h-6 flex items-center justify-center text-[#c24e03]"
+                        className="w-6 h-6 flex items-center justify-center text-[#E8720C]"
                       >
                         <Plus size={12} strokeWidth={3} />
                       </button>
@@ -119,13 +119,13 @@ const FloatingMiniCart: React.FC = () => {
               borderRadius: snapState === 'collapsed' ? 32 : 24,
             }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="h-14 bg-[#120D0A]/90 backdrop-blur-xl border border-white/10 text-white shadow-[0_12px_40px_-10px_rgba(0,0,0,0.5)] flex items-center overflow-hidden cursor-pointer group"
+            className="h-14 bg-[#13100D]/90 backdrop-blur-xl border border-white/10 text-white shadow-[0_12px_40px_-10px_rgba(0,0,0,0.5)] flex items-center overflow-hidden cursor-pointer group"
             onClick={toggleExpand}
           >
             <div className="flex items-center w-full px-4">
               {/* Icon & Count Badge */}
               <div className="relative shrink-0 flex items-center justify-center w-8 h-8">
-                <ShoppingBag size={20} strokeWidth={2.5} className="text-[#e85d04] group-hover:scale-110 transition-transform" />
+                <ShoppingBag size={20} strokeWidth={2.5} className="text-[#E8720C] group-hover:scale-110 transition-transform" />
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c24e03] text-white text-[9px] font-black shadow-sm">
                   {itemCount}
                 </span>
@@ -141,7 +141,7 @@ const FloatingMiniCart: React.FC = () => {
                     className="flex-1 flex items-center justify-between ml-3 overflow-hidden"
                   >
                     <div className="min-w-0 mr-4">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-[#fff8f0]/60 leading-none mb-0.5">Subtotal</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#FFF8F0]/60 leading-none mb-0.5">Subtotal</p>
                       <p className="text-sm font-black tracking-tight">{formatPrice(total)}</p>
                     </div>
 
@@ -154,7 +154,7 @@ const FloatingMiniCart: React.FC = () => {
                       </button>
                       <button 
                         onClick={handleCheckout}
-                        className="bg-gradient-to-br from-[#ff6b35] to-[#ff9f1c] hover:from-[#ff8a65] hover:to-[#ffb366] text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-[0_8px_16px_-6px_rgba(255,107,53,0.5)] active:scale-95 transition-all"
+                        className="bg-gradient-to-br from-[#E8720C] to-[#F4A05C] hover:from-[#ff8a65] hover:to-[#ffb366] text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-[0_8px_16px_-6px_rgba(255,107,53,0.5)] active:scale-95 transition-all"
                       >
                         Checkout
                         <ArrowRight size={12} strokeWidth={3} />

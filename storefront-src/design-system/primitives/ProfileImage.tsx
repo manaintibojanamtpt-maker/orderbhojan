@@ -27,7 +27,7 @@ export const ProfileImage: React.FC<ProfileImageProps> = ({ name, imageUrl, alt,
       {/* Soft orange-purple gradient glow */}
       <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#FF6B00] to-[#A855F7] animate-pulse opacity-20 blur-md group-hover:opacity-60 transition-opacity duration-500" />
       
-      <div className="absolute inset-[3px] rounded-full bg-[#0A0A0A] overflow-hidden z-10 flex items-center justify-center">
+      <div className="absolute inset-[3px] rounded-full bg-[#13100D] overflow-hidden z-10 flex items-center justify-center">
         {showFallback ? (
           <div 
             className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#111] to-[#1a1a1a]"

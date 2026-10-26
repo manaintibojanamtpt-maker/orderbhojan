@@ -19,7 +19,7 @@ export function NotificationsGuestView({
       <MarketplaceUxStateView
         title="Sign in for notifications"
         description="Get order updates and offers on this device."
-        icon={<Bell className="h-7 w-7 text-[#FF7A00]" aria-hidden />}
+        icon={<Bell className="h-7 w-7 text-[#E8720C]" aria-hidden />}
         primaryLabel="Sign in"
         onPrimary={onSignIn}
       />
@@ -65,9 +65,9 @@ export function NotificationsPageView({
         {DEFAULT_BENEFITS.map(({ icon: Icon, text }) => (
           <li
             key={text}
-            className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+            className="flex items-start gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3"
           >
-            <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[#FF7A00]" aria-hidden />
+            <Icon className="mt-0.5 h-5 w-5 shrink-0 text-[#E8720C]" aria-hidden />
             <p className="text-sm text-white/75">{text}</p>
           </li>
         ))}
@@ -75,7 +75,7 @@ export function NotificationsPageView({
 
       {deviceReady ? (
         <div
-          className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3"
+          className="rounded-[1.25rem] border border-emerald-400/25 bg-emerald-500/10 px-4 py-3"
           role="status"
           aria-live="polite"
         >

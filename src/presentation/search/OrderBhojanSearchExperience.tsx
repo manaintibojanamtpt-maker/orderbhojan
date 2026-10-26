@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SoftButton } from '@bhojan/storefront-design-system/primitives/SoftButton';
+import { useSearchParams } from 'react-router-dom';
 import { Section } from '@bhojan/storefront-design-system/primitives/Section';
 import { useSearchBrowse } from '@/features/search/hooks/useSearchBrowse';
 import { useMenuItemSearch } from '@/features/search/hooks/useMenuItemSearch';
@@ -17,7 +16,6 @@ import { OrderBhojanSearchResultsSection } from './OrderBhojanSearchResultsSecti
 import { OrderBhojanSearchResultsSkeleton } from './OrderBhojanSearchResultsSkeleton';
 
 export function OrderBhojanSearchExperience() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const query = useSearchSessionStore((s) => s.query);
   const setQuery = useSearchSessionStore((s) => s.setQuery);
@@ -64,13 +62,8 @@ export function OrderBhojanSearchExperience() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030303] text-white">
-      <Section density="hero" background="gradient" className="!pb-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <SoftButton type="button" tone="ghost" size="compact" onClick={() => navigate(-1)} aria-label="Go back">
-            ← Back
-          </SoftButton>
-        </div>
+    <div className="min-h-screen bg-[var(--ob-bg,#0E0C0A)] text-[var(--ob-text-primary)]">
+      <Section density="hero" background="gradient" className="!bg-transparent !pt-2 !pb-3">
         <h1 className="sr-only">Search OrderBhojan</h1>
         <OrderBhojanSearchBar onSubmit={handleSubmit} onSelectTerm={selectTerm} inputRef={fieldRef} />
       </Section>

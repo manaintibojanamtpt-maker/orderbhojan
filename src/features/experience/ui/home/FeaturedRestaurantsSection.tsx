@@ -50,7 +50,7 @@ export function FeaturedRestaurantsSection({
     <section className="space-y-1" aria-label="Popular Near You">
       <header className="mb-1 flex items-center justify-between gap-3">
         <h2 className="text-base font-bold text-white">Popular Near You</h2>
-        <Link to="/search" className="shrink-0 text-xs font-semibold text-[#e85d04] touch-manipulation">
+        <Link to="/search" className="shrink-0 text-xs font-semibold text-[#E8720C] touch-manipulation">
           View all
         </Link>
       </header>

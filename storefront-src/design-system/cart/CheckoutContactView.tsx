@@ -10,12 +10,16 @@ export interface CheckoutContactViewProps {
 
 export function CheckoutContactView({ contact, onChange, onEmailChange }: CheckoutContactViewProps) {
   return (
-    <GlassCard hoverEffect={false} className="!rounded-2xl !p-4 space-y-4" aria-label="Contact details">
+    <GlassCard hoverEffect={false} className="!rounded-[1.25rem] !p-4 space-y-4" aria-label="Contact details">
       <TextFieldView
         label="Mobile number"
+        type="tel"
         inputMode="numeric"
+        pattern="[0-9]*"
         autoComplete="tel"
+        autoFocus={!contact.value}
         value={contact.value}
+        placeholder="10-digit mobile number"
         hint={contact.hint}
         error={contact.error}
         onChange={(event) => onChange(event.target.value.replace(/\D/g, '').slice(0, 10))}

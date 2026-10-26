@@ -5,7 +5,7 @@ import type { TrackingInvoiceViewModel } from './types';
 
 const badgeToneClass = {
   paid: 'bg-emerald-500/15 text-emerald-300',
-  pending: 'bg-[#FF7A00]/15 text-[#FF7A00]',
+  pending: 'bg-[#E8720C]/15 text-[#E8720C]',
   failed: 'bg-red-500/15 text-red-300',
 } as const;
 

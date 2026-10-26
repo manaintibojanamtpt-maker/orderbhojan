@@ -499,7 +499,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-[#030303] flex flex-col">
       <div className="h-16 border-b border-white/5 bg-[#030303]/95" />
       <div className="flex-1 flex items-center justify-center">
-        <div className="h-10 w-10 rounded-full border-2 border-[#FF7A00]/30 border-t-[#FF7A00] animate-spin" />
+        <div className="h-10 w-10 rounded-full border-2 border-[#E8720C]/30 border-t-[#E8720C] animate-spin" />
       </div>
     </div>
   );

@@ -41,7 +41,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
   if (status === 'loading') {
     return (
       <section
-        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+        className="rounded-[1.25rem] border border-white/10 bg-white/[0.04] p-4"
         aria-labelledby="checkout-delivery-time"
       >
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -65,7 +65,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
   if (status === 'unavailable') {
     return (
       <section
-        className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+        className="rounded-[1.25rem] border border-white/10 bg-white/[0.04] p-4"
         aria-labelledby="checkout-delivery-time"
       >
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -88,7 +88,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
   if (status === 'error') {
     return (
       <section
-        className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4"
+        className="rounded-[1.25rem] border border-rose-500/30 bg-rose-500/10 p-4"
         aria-labelledby="checkout-delivery-time"
       >
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -109,7 +109,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
 
   return (
     <section
-      className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"
+      className="rounded-[1.25rem] border border-white/10 bg-white/[0.04] p-4"
       aria-labelledby="checkout-delivery-time"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -165,7 +165,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
             onClick={selectDeliverNow}
             className={`rounded-lg px-3 py-2.5 text-xs font-bold touch-manipulation transition-colors ${
               mode === 'now'
-                ? 'bg-[#e85d04]/25 text-[#fff8f0] border border-[#f4a261]/60'
+                ? 'bg-[#E8720C]/25 text-[#FFF8F0] border border-[#f4a261]/60'
                 : 'text-white/60 hover:text-white/85 border border-transparent'
             } ${!asapSlot ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
@@ -179,7 +179,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
             onClick={selectScheduleMode}
             className={`rounded-lg px-3 py-2.5 text-xs font-bold touch-manipulation transition-colors ${
               mode === 'schedule'
-                ? 'bg-[#e85d04]/25 text-[#fff8f0] border border-[#f4a261]/60'
+                ? 'bg-[#E8720C]/25 text-[#FFF8F0] border border-[#f4a261]/60'
                 : 'text-white/60 hover:text-white/85 border border-transparent'
             } ${scheduledSlots.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
@@ -211,7 +211,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
                       onClick={() => onSelectSlot(entry)}
                       className={`flex-shrink-0 rounded-xl border px-4 py-2.5 text-xs font-semibold transition-colors touch-manipulation ${
                         selected
-                          ? 'border-[#f4a261] bg-[#e85d04]/15 text-[#fff8f0]'
+                          ? 'border-[#f4a261] bg-[#E8720C]/15 text-[#FFF8F0]'
                           : 'border-white/10 text-white/65 hover:border-white/25'
                       }`}
                       aria-pressed={selected}
@@ -239,7 +239,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
                       onClick={() => onSelectSlot(entry)}
                       className={`flex-shrink-0 rounded-xl border px-4 py-2.5 text-xs font-semibold transition-colors touch-manipulation ${
                         selected
-                          ? 'border-[#f4a261] bg-[#e85d04]/15 text-[#fff8f0]'
+                          ? 'border-[#f4a261] bg-[#E8720C]/15 text-[#FFF8F0]'
                           : 'border-white/10 text-white/65 hover:border-white/25'
                       }`}
                       aria-pressed={selected}
@@ -267,7 +267,7 @@ export function CheckoutDeliverySlotView({ slot, onSelectSlot }: CheckoutDeliver
                       onClick={() => onSelectSlot(entry)}
                       className={`flex-shrink-0 rounded-xl border px-4 py-2.5 text-xs font-semibold transition-colors touch-manipulation ${
                         selected
-                          ? 'border-[#f4a261] bg-[#e85d04]/15 text-[#fff8f0]'
+                          ? 'border-[#f4a261] bg-[#E8720C]/15 text-[#FFF8F0]'
                           : 'border-white/10 text-white/65 hover:border-white/25'
                       }`}
                       aria-pressed={selected}

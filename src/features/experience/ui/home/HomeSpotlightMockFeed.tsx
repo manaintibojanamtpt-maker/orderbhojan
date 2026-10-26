@@ -61,8 +61,8 @@ export function HomeSpotlightMockFeed({ categoryId }: HomeSpotlightMockFeedProps
     return (
       <div className="space-y-3">
         <header className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-white">Popular Near You</h2>
-          <span className="text-xs font-semibold text-[#e85d04]">View all</span>
+          <h2 className="text-base font-bold text-[var(--ob-text-primary)]">Popular Near You</h2>
+          <span className="text-xs font-semibold text-[#E8720C]">View all</span>
         </header>
         <HomeKitchenSpotlightMock restaurant={filtered[0]} sparseCopy={HOME_SPOTLIGHT_SPARSE_COPY} />
         <MockCategoriesStrip />

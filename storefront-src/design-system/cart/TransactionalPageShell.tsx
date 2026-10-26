@@ -20,7 +20,7 @@ export function TransactionalPageShell({
 
   return (
     <div
-      className={`ob-transactional-shell flex flex-col gap-4 bg-[#050403] pt-4 text-[#fff8f0] md:mx-auto md:max-w-lg ${
+      className={`ob-transactional-shell flex flex-col gap-4 bg-[var(--ob-bg)] pt-4 text-[var(--ob-text-primary)] md:mx-auto md:max-w-lg ${
         embedded ? 'min-h-0' : 'min-h-[100dvh] pb-[var(--ob-chrome-bottom)]'
       } ${className}`.trim()}
       style={{
@@ -30,8 +30,8 @@ export function TransactionalPageShell({
     >
       {showTitleBlock ? (
         <header className="flex flex-col gap-1">
-          {title ? <h1 className="text-2xl font-extrabold tracking-tight text-[#fff8f0]">{title}</h1> : null}
-          {subtitle ? <p className="text-sm text-[#c4b5a5]">{subtitle}</p> : null}
+          {title ? <h1 className="text-2xl font-extrabold tracking-tight text-[var(--ob-text-primary)]">{title}</h1> : null}
+          {subtitle ? <p className="text-sm text-[var(--ob-text-secondary)]">{subtitle}</p> : null}
         </header>
       ) : null}
       {children}

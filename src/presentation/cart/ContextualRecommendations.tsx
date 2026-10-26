@@ -80,7 +80,7 @@ export function ContextualRecommendations({ restaurantSlug }: ContextualRecommen
     if (menuQuery.isPending && !menuQuery.data) {
       return (
         <section
-          className="overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#1a120e] via-[#120d0c] to-[#0a0807] p-3.5"
+          className="overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#1a120e] via-[#13100D] to-[#0a0807] p-3.5"
           aria-busy="true"
           aria-label="Loading suggestions"
         >
@@ -99,7 +99,7 @@ export function ContextualRecommendations({ restaurantSlug }: ContextualRecommen
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border border-[#e85d04]/20 bg-gradient-to-br from-[#2a160c] via-[#120d0c] to-[#0a0807] p-3.5 shadow-[0_12px_40px_-16px_rgba(232,93,4,0.45)]"
+      className="overflow-hidden rounded-2xl border border-[#E8720C]/20 bg-gradient-to-br from-[#2a160c] via-[#13100D] to-[#0a0807] p-3.5 shadow-[0_12px_40px_-16px_rgba(232,93,4,0.45)]"
       aria-label={context.headline}
       data-testid="cart-appetite-upsell"
     >
@@ -107,10 +107,10 @@ export function ContextualRecommendations({ restaurantSlug }: ContextualRecommen
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f4a261]/90">
           {context.eyebrow}
         </p>
-        <h3 className="mt-1 text-base font-extrabold leading-snug tracking-tight text-[#fff8f0]">
+        <h3 className="mt-1 text-base font-extrabold leading-snug tracking-tight text-[#FFF8F0]">
           {context.headline}
         </h3>
-        <p className="mt-1 text-[12px] leading-snug text-[#c4b5a5]">{context.subline}</p>
+        <p className="mt-1 text-[12px] leading-snug text-[#A89B8C]">{context.subline}</p>
       </header>
 
       <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory no-scrollbar">
@@ -121,7 +121,7 @@ export function ContextualRecommendations({ restaurantSlug }: ContextualRecommen
           return (
             <article
               key={food.foodId}
-              className="relative flex w-[9.25rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#1a1412]/95 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+              className="relative flex w-[9.25rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#1C1712]/95 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
             >
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#2a2422]">
                 <img
@@ -131,20 +131,20 @@ export function ContextualRecommendations({ restaurantSlug }: ContextualRecommen
                   loading="lazy"
                   decoding="async"
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#120d0c]/90 via-transparent to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#13100D]/90 via-transparent to-transparent" />
                 <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#ffe0c2] backdrop-blur-sm">
                   {pick.badge}
                 </span>
               </div>
               <div className="flex flex-1 flex-col p-2.5 pt-2">
-                <h4 className="line-clamp-2 min-h-[2.25rem] text-[12px] font-bold leading-snug text-[#fff8f0]">
+                <h4 className="line-clamp-2 min-h-[2.25rem] text-[12px] font-bold leading-snug text-[#FFF8F0]">
                   {food.name}
                 </h4>
                 <div className="mt-auto flex items-center justify-between gap-2 pt-2">
                   <p className="text-[12px] font-extrabold tabular-nums text-[#f4a261]">₹{price}</p>
                   <button
                     type="button"
-                    className="inline-flex h-8 items-center gap-0.5 rounded-full bg-[#e85d04] px-2.5 text-[11px] font-bold text-[#fff8f0] shadow-[0_4px_12px_-2px_rgba(232,93,4,0.55)] active:scale-95 touch-manipulation"
+                    className="inline-flex h-8 items-center gap-0.5 rounded-full bg-[#E8720C] px-2.5 text-[11px] font-bold text-[#FFF8F0] shadow-[0_4px_12px_-2px_rgba(232,93,4,0.55)] active:scale-95 touch-manipulation"
                     onClick={() => onAdd(food)}
                     aria-label={`Add ${food.name}`}
                   >

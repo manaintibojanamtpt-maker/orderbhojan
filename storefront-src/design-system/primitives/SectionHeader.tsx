@@ -5,6 +5,8 @@ interface SectionHeaderProps {
   title?: string;
   description?: string;
   align?: 'left' | 'center';
+  /** 'section' = compact mobile category/section label (default); 'hero' = landing-page scale */
+  size?: 'hero' | 'section';
   className?: string;
 }
 
@@ -13,29 +15,37 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   title,
   description,
   align = 'center',
+  size = 'section',
   className = '',
 }) => {
+  const isHero = size === 'hero';
   return (
     <header
-      className={`mb-8 sm:mb-12 ${align === 'center' ? 'text-center mx-auto' : 'text-left'} max-w-3xl ${className}`}
+      className={`${isHero ? 'mb-6 sm:mb-8' : 'mb-2 sm:mb-3'} ${align === 'center' ? 'text-center mx-auto' : 'text-left'} max-w-3xl ${className}`}
     >
       {label && (
-        <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#FF7A00] sm:mb-5">
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#E8720C] sm:mb-3">
           {label}
         </div>
       )}
 
-            {title && (
-        <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-[-0.015em] leading-[1.05] mb-3 sm:mb-4">
+      {title && (
+        <h2 className={`font-display text-[var(--ob-text-primary)] tracking-[-0.015em] ${
+          isHero
+            ? 'text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-2.5 leading-[1.1]'
+            : 'text-base sm:text-lg font-bold leading-snug mb-1'
+        }`}>
           {title}
         </h2>
       )}
 
       {description && (
         <p
-          className={`text-base sm:text-lg text-neutral-400 font-medium leading-relaxed max-w-2xl ${
-            align === 'center' ? 'mx-auto' : ''
-          }`}
+          className={`${
+            isHero
+              ? 'text-sm sm:text-base text-neutral-400 font-medium leading-relaxed max-w-2xl'
+              : 'text-xs sm:text-sm text-[var(--ob-text-secondary)] font-normal leading-snug max-w-xl'
+          } ${align === 'center' ? 'mx-auto' : ''}`}
         >
           {description}
         </p>

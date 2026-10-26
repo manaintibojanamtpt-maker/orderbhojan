@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Section } from '../ui/Section';
 import { SectionHeader } from '../ui/SectionHeader';
+import { RevealOnScroll } from './RevealOnScroll';
 import { PricingPlanCard } from '../pricing/PricingPlanCard';
 import { ALL_PLANS, PRICING_ZERO_COMMISSION_NOTE, pricingPageCopy } from '../../config/pricing';
 
@@ -33,9 +34,11 @@ export const LandingPricing = memo(function LandingPricing() {
         aria-label="Pricing plans"
       >
         {landingPlans.map((plan) => (
-          <div key={plan.id} className="opacity-100">
-            <PricingPlanCard plan={plan} variant="landing" />
-          </div>
+          <RevealOnScroll key={plan.id} delay={landingPlans.indexOf(plan) * 0.08}>
+            <div className="card-glow h-full">
+              <PricingPlanCard plan={plan} variant="landing" />
+            </div>
+          </RevealOnScroll>
         ))}
       </div>
 

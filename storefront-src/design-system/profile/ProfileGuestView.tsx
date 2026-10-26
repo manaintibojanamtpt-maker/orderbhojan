@@ -32,11 +32,11 @@ export function ProfileGuestView({
           </SoftButton>
         </div>
       </GlassCard>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Why sign in</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ob-text-secondary)]">Why sign in</p>
       <div className="space-y-2">
         {benefits.map((item) => (
           <GlassCard key={item} hoverEffect={false} className="!rounded-xl !p-3">
-            <p className="text-sm text-white/80">{item}</p>
+            <p className="text-sm text-[var(--ob-text-primary)]">{item}</p>
           </GlassCard>
         ))}
       </div>

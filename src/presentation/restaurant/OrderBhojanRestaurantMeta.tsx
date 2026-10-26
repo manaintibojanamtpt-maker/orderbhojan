@@ -12,11 +12,11 @@ export function OrderBhojanRestaurantMeta({ data }: { data: RestaurantExperience
   const dietaryLabel = kitchenDietaryLabel(experience.kitchenDietary);
 
   const pillClass =
-    'inline-flex items-center rounded-full border border-white/10 bg-[#120d0c]/80 px-2.5 py-1 text-xs font-medium text-[#fff8f0]/90';
+    'inline-flex items-center rounded-full border border-white/10 bg-[#13100D]/80 px-2.5 py-1 text-xs font-medium text-[#FFF8F0]/90';
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-[#c4b5a5]">{cuisineHeadline(experience.cuisines)}</p>
+      <p className="text-sm text-[#A89B8C]">{cuisineHeadline(experience.cuisines)}</p>
       <div className="flex flex-wrap gap-2">
         {dietaryLabel ? (
           <span

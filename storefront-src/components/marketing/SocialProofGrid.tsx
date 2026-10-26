@@ -7,7 +7,11 @@ import { builtForSegments } from '../../config/landing';
 export const SocialProofGrid = memo(function SocialProofGrid() {
   return (
     <Section id="built-for" background="subtle" className="scroll-mt-24">
-      <SectionHeader label="Built for" title="Every Type of Food Business" description="Cloud kitchens, dine-in restaurants, cafes, and QSR — one OS, your brand." />
+      <SectionHeader
+        label="Built for"
+        title="Every Type of Food Business"
+        description="Cloud kitchens, dine-in restaurants, cafes, and QSR — one OS, your brand."
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {builtForSegments.map(({ title, description }, i) => (

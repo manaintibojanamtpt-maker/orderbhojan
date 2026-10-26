@@ -43,7 +43,7 @@ function ControlPill({
       onClick={onClick}
       className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
         active
-          ? 'border-[#e85d04]/50 bg-[#e85d04]/15 text-white'
+          ? 'border-[#E8720C]/50 bg-[#E8720C]/15 text-white'
           : 'border-white/10 bg-white/[0.04] text-white/80 hover:border-white/20 hover:bg-white/[0.06]'
       }`}
     >
@@ -67,14 +67,14 @@ function SheetOption({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-medium transition ${
+      className={`flex w-full items-center justify-between rounded-[1.25rem] border px-4 py-3 text-left text-sm font-medium transition ${
         selected
-          ? 'border-[#e85d04]/50 bg-[#e85d04]/10 text-white'
+          ? 'border-[#E8720C]/50 bg-[#E8720C]/10 text-white'
           : 'border-white/10 bg-white/[0.03] text-white/80 hover:border-white/20'
       }`}
     >
       {children}
-      {selected ? <span className="text-xs font-bold uppercase tracking-wide text-[#e85d04]">Active</span> : null}
+      {selected ? <span className="text-xs font-bold uppercase tracking-wide text-[#E8720C]">Active</span> : null}
     </button>
   );
 }
@@ -91,10 +91,10 @@ function ActiveFilterChip({
       type="button"
       aria-label={`Remove ${label} filter`}
       onClick={onRemove}
-      className="inline-flex items-center gap-1.5 rounded-full border border-[#e85d04]/30 bg-[#e85d04]/10 px-2.5 py-1 text-xs font-semibold text-white transition hover:border-[#e85d04]/50"
+      className="inline-flex items-center gap-1.5 rounded-full border border-[#E8720C]/30 bg-[#E8720C]/10 px-2.5 py-1 text-xs font-semibold text-white transition hover:border-[#E8720C]/50"
     >
       {label}
-      <X className="h-3 w-3 text-[#e85d04]" aria-hidden />
+      <X className="h-3 w-3 text-[#E8720C]" aria-hidden />
     </button>
   );
 }
@@ -188,7 +188,7 @@ export function DiscoveryFiltersBar() {
         >
           Filters
           {activeFilterCount > 0 ? (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e85d04] px-1 text-[10px] font-bold text-[#fff8f0]">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#E8720C] px-1 text-[10px] font-bold text-[#fff8f0]">
               {activeFilterCount}
             </span>
           ) : null}

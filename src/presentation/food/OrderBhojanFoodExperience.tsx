@@ -109,14 +109,14 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
   // Prefer chrome + item shimmer over a blank full-page skeleton (native feel).
   if (query.isPending && !menu) {
     return (
-      <div className="ob-menu-page min-h-screen bg-[#030303] text-white">
+      <div className="ob-menu-page min-h-screen bg-[var(--ob-bg,#0E0C0A)] text-white">
         <OrderBhojanFoodRestaurantStrip
           slug={restaurantSlug}
           name={shellName}
           onBack={() => navigate(`/restaurant/${restaurantSlug}`)}
           onHome={() => navigate('/')}
         />
-        <div className="ob-menu-sticky-chrome sticky top-0 z-30 border-b border-white/10 bg-[#030303]/95 backdrop-blur-md px-4 py-3">
+        <div className="ob-menu-sticky-chrome sticky top-0 z-30 border-b border-white/10 bg-[var(--ob-bg,#080706)]/95 backdrop-blur-md px-4 py-3">
           <div className="mb-3 flex gap-2 overflow-hidden">
             <div className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-white/10" />
             <div className="h-9 w-28 shrink-0 animate-pulse rounded-full bg-white/10" />
@@ -153,7 +153,7 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
 
   return (
     <div
-      className={`ob-menu-page min-h-screen bg-[#030303] text-white${enterFromRestaurant ? ' ob-menu-enter' : ''}`}
+      className={`ob-menu-page min-h-screen bg-[var(--ob-bg,#0E0C0A)] text-white${enterFromRestaurant ? ' ob-menu-enter' : ''}`}
     >
       <OrderBhojanFoodRestaurantStrip
         slug={restaurantSlug}
@@ -162,7 +162,7 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
         onHome={() => navigate('/')}
       />
 
-      <div className="ob-menu-sticky-chrome sticky top-0 z-30 border-b border-white/10 bg-[#030303]/95 backdrop-blur-md">
+      <div className="ob-menu-sticky-chrome sticky top-0 z-30 border-b border-white/10 bg-[var(--ob-bg,#0E0C0A)]/95 backdrop-blur-md" style={{ paddingTop: "var(--ob-safe-top, 0px)" }}>
         <OrderBhojanFoodDietaryFilterBar
           value={dietaryFilter}
           onChange={setDietaryFilter}
@@ -178,16 +178,16 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
       </div>
 
       {filteredItems.length === 0 ? (
-        <section className="ob-menu-section w-full min-w-0 bg-[#030303] py-10">
+        <section className="ob-menu-section w-full min-w-0 bg-[var(--ob-bg,#080706)] py-3">
           <div className="ob-menu-container flex flex-col items-center text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#e85d04]/25 bg-[#e85d04]/10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#E8720C]/25 bg-[#E8720C]/10">
               <UtensilsCrossed className="h-5 w-5 text-[#f4a261]" aria-hidden />
             </div>
             <p className="mt-3 text-base font-bold text-white">No dishes match this filter</p>
             <p className="mt-1.5 text-sm text-white/60">Try All or switch between Veg and Non-Veg.</p>
             <button
               type="button"
-              className="mt-4 rounded-full border border-[#e85d04]/40 px-5 py-2.5 text-sm font-bold text-[#e85d04] transition hover:bg-[#e85d04]/10 touch-manipulation"
+              className="mt-4 rounded-full border border-[#E8720C]/40 px-5 py-2.5 text-sm font-bold text-[#E8720C] transition hover:bg-[#E8720C]/10 touch-manipulation"
               onClick={() => setDietaryFilter('all')}
             >
               Show all dishes
@@ -197,9 +197,9 @@ function OrderBhojanFoodContent({ restaurantSlug }: { readonly restaurantSlug: s
       ) : null}
 
       {filteredItems.length > 0 && signatureItems.length > 0 ? (
-        <section className="ob-menu-section w-full min-w-0 bg-[#0A0A0A] py-6" aria-label="Signature dishes">
+        <section className="ob-menu-section w-full min-w-0 bg-[var(--ob-bg,#080706)] py-3" aria-label="Signature dishes">
           <div className="ob-menu-container">
-            <SectionHeader title="Signature dishes" align="left" className="!mb-4 !text-left" />
+            <SectionHeader title="Signature dishes" align="left" size="section" className="!mb-2 !text-left" />
             <div className="ob-menu-rail-bleed">
               <div className="ob-menu-rail-scroll flex gap-4 pb-2 no-scrollbar">
                 {signatureItems.map((food, index) => (

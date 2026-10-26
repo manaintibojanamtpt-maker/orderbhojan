@@ -72,7 +72,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeOrderSlot = null }) => {
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
       >
         {activeOrderSlot}
-        <div className="max-w-lg mx-auto bg-black/80 dark:bg-[#121212]/90 backdrop-blur-3xl rounded-[2.5rem] px-2 py-2 flex items-center justify-around shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden pointer-events-auto">
+        <div className="max-w-lg mx-auto bg-[#13100D]/90 backdrop-blur-3xl rounded-[2.5rem] px-2 py-2 flex items-center justify-around shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 relative overflow-hidden pointer-events-auto">
           {navItems.map((item) => {
             const isActive =
               location.pathname === item.path ||
@@ -94,7 +94,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeOrderSlot = null }) => {
                 {isActive && (
                   <m.div
                     layoutId="activeBar"
-                    className="absolute -bottom-1 w-1 h-1 bg-orange-500 rounded-full"
+                    className="absolute -bottom-1 w-1 h-1 bg-[#E8720C] rounded-full"
                     transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
                   />
                 )}

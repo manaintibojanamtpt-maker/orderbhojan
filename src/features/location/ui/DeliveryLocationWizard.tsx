@@ -152,7 +152,7 @@ function DeliveryLocationWizardContent({ onClose }: { readonly onClose: () => vo
 
         {step === 'out_of_bounds' ? (
           <div role="alert">
-            <GlassCard hoverEffect={false} className="!rounded-2xl !p-4">
+            <GlassCard hoverEffect={false} className="!rounded-[1.25rem] !p-4">
             <p className="text-base font-bold text-white">Location not serviceable</p>
             <p className="mt-2 text-sm text-white/70">
               {distancePreview?.message ??
@@ -167,7 +167,7 @@ function DeliveryLocationWizardContent({ onClose }: { readonly onClose: () => vo
 
         {step === 'form' && coordinates ? (
           <div className="flex flex-col gap-4">
-            <GlassCard hoverEffect={false} className="!rounded-2xl !p-4">
+            <GlassCard hoverEffect={false} className="!rounded-[1.25rem] !p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Delivering to</p>
               <p className="mt-1 text-sm font-bold text-white">{areaLabel}</p>
               <div className="mt-2 space-y-1">

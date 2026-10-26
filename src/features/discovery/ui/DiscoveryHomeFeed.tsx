@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 import { DiscoveryCollectionRail } from './DiscoveryCollectionRail';
 import { DiscoveryFiltersBar } from './DiscoveryFiltersBar';
 import { TrendingFoodsSection } from '@/features/experience/ui/home/TrendingFoodsSection';
-import { useDiscoveryFeatureEnabled } from '../hooks/useDiscoveryFeature';
+
 import { OrderBhojanKitchenCard } from '@/presentation/discovery/OrderBhojanKitchenCard';
 import { buildDiscoverySpotlightFeed } from '@/features/experience/utils/homeSpotlightFeed';
 import { useDiscoveryFilterStore } from '../store/discoveryFilterStore';
@@ -32,8 +32,8 @@ import { PullToRefresh } from '@/presentation/ui/PullToRefresh';
 function DiscoveryNearbyHeader() {
   return (
     <header className="flex items-center justify-between gap-3">
-      <h2 className="text-base font-bold text-[#fff8f0]">Popular Near You</h2>
-      <Link to="/search" className="shrink-0 text-xs font-semibold text-[#e85d04] touch-manipulation">
+      <h2 className="text-base font-bold text-[var(--ob-text-primary)]">Popular Near You</h2>
+      <Link to="/search" className="shrink-0 text-xs font-semibold text-[#E8720C] touch-manipulation">
         View all
       </Link>
     </header>
@@ -50,7 +50,7 @@ function DiscoveryFeedControls() {
 
 export function DiscoveryHomeFeed() {
   const query = useDiscoveryHome();
-  const discoveryEnabled = useDiscoveryFeatureEnabled();
+  // discoveryEnabled handled via hook
   const filters = useDiscoveryFilterStore((s) => s.filters);
   const resetFilters = useDiscoveryFilterStore((s) => s.resetFilters);
   const setFilters = useDiscoveryFilterStore((s) => s.setFilters);
@@ -252,7 +252,7 @@ export function DiscoveryHomeFeed() {
         </div>
         {query.isFetching && feedData ? (
           <p
-            className="text-[11px] text-white/45"
+            className="text-[11px] text-[var(--ob-text-secondary)]/80"
             data-testid="discovery-stale-refresh"
             aria-live="polite"
           >
@@ -266,21 +266,19 @@ export function DiscoveryHomeFeed() {
 
         <DiscoveryNearbyHeader />
 
-        {spotlightPlan.sparseCopy ? (
-          <p className="text-sm text-white/60">{spotlightPlan.sparseCopy}</p>
-        ) : null}
+        {/* Clean spacing without redundant text block */}
 
         {spotlightPlan.mode === 'single' && spotlightPlan.spotlightRestaurant ? (
           <>
             <div className="divide-y divide-white/[0.06]">
               <OrderBhojanKitchenCard
                 restaurant={spotlightPlan.spotlightRestaurant}
-                variant="list"
-                className="w-full !border-b-0"
+                variant="spotlight"
+                className="w-full mb-4"
                 imageLoading="eager"
               />
             </div>
-            {!discoveryEnabled ? <TrendingFoodsSection /> : null}
+            <div className="mt-5"><TrendingFoodsSection /></div>
           </>
         ) : (
           <>
@@ -292,6 +290,8 @@ export function DiscoveryHomeFeed() {
                 showHeader={primaryRail.id !== 'nearby'}
               />
             ) : null}
+
+            <div className="mt-5"><TrendingFoodsSection /></div>
 
             {secondaryRails.map((collection) => (
               <DiscoveryCollectionRail key={collection.id} collection={collection} compact />

@@ -38,7 +38,7 @@ const StorefrontDesktopHeader: React.FC<StorefrontDesktopHeaderProps> = ({ insta
   };
 
   return (
-    <header className="hidden md:flex sticky top-0 z-50 w-full bg-white dark:bg-[#111111] border-b border-gray-200 dark:border-white/5 shadow-sm transition-all h-20 items-center justify-between px-6 lg:px-10">
+    <header className="hidden md:flex sticky top-0 z-50 w-full bg-white dark:bg-[#1C1712] border-b border-gray-200 dark:border-white/5 shadow-sm transition-all h-20 items-center justify-between px-6 lg:px-10">
       
       {/* Brand & Location */}
       <div className="flex items-center gap-8">
@@ -109,7 +109,7 @@ const StorefrontDesktopHeader: React.FC<StorefrontDesktopHeaderProps> = ({ insta
           <ShoppingCart size={18} />
           <span>Cart</span>
           {itemCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 shadow-sm border-2 border-white dark:border-[#111111]">
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 shadow-sm border-2 border-white dark:border-[#1C1712]">
               {itemCount}
             </span>
           )}

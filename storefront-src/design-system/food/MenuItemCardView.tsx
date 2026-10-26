@@ -14,8 +14,8 @@ export interface MenuItemCardViewProps {
 
 const badgeToneClass: Record<string, string> = {
   trending: 'bg-[#f4a261]/18 text-[#f4a261]',
-  offer: 'bg-[#e85d04]/18 text-[#e85d04]',
-  default: 'bg-white/8 text-[#c4b5a5]',
+  offer: 'bg-[#E8720C]/18 text-[#E8720C]',
+  default: 'bg-[var(--ob-surface-strong)] text-[var(--ob-text-secondary)]',
 };
 
 export function MenuItemCardView({
@@ -36,7 +36,7 @@ export function MenuItemCardView({
     <article
       id={`menu-item-${item.id}`}
       className={cn(
-        'ob-menu-card-item relative box-border grid w-full max-w-full min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-start gap-3 border-b border-white/[0.06] bg-[#120d0c] px-3 py-4 transition-colors last:border-b-0 active:bg-[#e85d04]/[0.04] sm:grid-cols-[minmax(0,1fr)_7.5rem] sm:gap-4 sm:px-4',
+        'ob-menu-card-item relative box-border grid w-full max-w-full min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] items-start gap-3 border-b border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 py-4 transition-colors last:border-b-0 active:bg-[#E8720C]/[0.04] sm:grid-cols-[minmax(0,1fr)_7.5rem] sm:gap-4 sm:px-4',
         item.unavailable && 'opacity-60',
         className,
       )}
@@ -57,7 +57,7 @@ export function MenuItemCardView({
       <div className="ob-menu-card-item__body flex min-w-0 flex-col justify-start pr-1 sm:pr-2">
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
           <span
-            className={cn('inline-flex h-4 w-4 items-center justify-center rounded-[4px] border bg-black/70', dietaryBorder)}
+            className={cn('inline-flex h-4 w-4 items-center justify-center rounded-[4px] border border-[var(--ob-border)] bg-[var(--ob-surface-strong)]', dietaryBorder)}
             aria-label={item.dietary === 'veg' ? 'Vegetarian' : item.dietary === 'egg' ? 'Contains egg' : 'Non-vegetarian'}
           >
             <span className={cn('h-1.5 w-1.5 rounded-full', dietaryDot)} />
@@ -72,28 +72,28 @@ export function MenuItemCardView({
           ))}
         </div>
 
-        <h3 className="mb-0.5 line-clamp-2 break-words text-base font-bold leading-snug tracking-tight text-[#fff8f0] sm:text-lg">
+        <h3 className="mb-0.5 line-clamp-2 break-words text-base font-bold leading-snug tracking-tight text-[var(--ob-text-primary)] sm:text-lg">
           {item.name}
         </h3>
 
         <div className="mb-2 mt-1 flex flex-wrap items-center gap-2">
-          <span className="text-base font-extrabold text-[#fff8f0]">{item.priceLabel}</span>
+          <span className="text-base font-extrabold text-[var(--ob-text-primary)]">{item.priceLabel}</span>
           {item.ratingLabel ? (
-            <span className="flex items-center gap-0.5 rounded border border-white/10 bg-white/10 px-1.5 py-0.5">
-              <span className="text-[10px] font-bold text-white/80">{item.ratingLabel}</span>
+            <span className="flex items-center gap-0.5 rounded border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-1.5 py-0.5">
+              <span className="text-[10px] font-bold text-[var(--ob-text-secondary)]">{item.ratingLabel}</span>
               <Star size={10} className="fill-green-500 text-green-500" aria-hidden />
             </span>
           ) : null}
         </div>
 
         {item.description ? (
-          <p className="line-clamp-2 text-xs font-medium leading-relaxed tracking-wide text-[#c4b5a5] sm:text-sm">
+          <p className="line-clamp-2 text-xs font-medium leading-relaxed tracking-wide text-[var(--ob-text-secondary)] sm:text-sm">
             {item.description}
           </p>
         ) : null}
 
         {item.metaLabels.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[#c4b5a5]/80">
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--ob-text-secondary)]/80">
             {item.metaLabels.map((label) => (
               <span key={label}>{label}</span>
             ))}

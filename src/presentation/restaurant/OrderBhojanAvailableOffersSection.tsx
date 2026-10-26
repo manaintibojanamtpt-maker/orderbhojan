@@ -2,8 +2,8 @@ import type { PublicPromoCoupon, RestaurantOffer } from '@/types/marketplace-res
 
 function OfferCard({ offer }: { offer: RestaurantOffer }) {
   return (
-    <div className="inline-flex max-w-full flex-col rounded-2xl border border-[#FF7A00]/30 bg-[#FF7A00]/10 px-3 py-2 text-left">
-      <span className="text-sm font-bold text-[#FF7A00]">{offer.badge ?? offer.title}</span>
+    <div className="inline-flex max-w-full flex-col rounded-2xl border border-[#E8720C]/30 bg-[#E8720C]/10 px-3 py-2 text-left">
+      <span className="text-sm font-bold text-[#E8720C]">{offer.badge ?? offer.title}</span>
       {offer.description && offer.description !== offer.title ? (
         <span className="mt-0.5 text-xs text-white/65">{offer.description}</span>
       ) : null}

@@ -21,7 +21,7 @@ export const LandingFAQ = memo(function LandingFAQ() {
           return (
             <article
               key={item.question}
-              className="marketing-faq-item"
+              className="marketing-faq-item border border-white/[0.06] rounded-xl overflow-hidden transition-all duration-200"
               data-open={isOpen ? 'true' : 'false'}
             >
               <button
@@ -30,15 +30,15 @@ export const LandingFAQ = memo(function LandingFAQ() {
                 aria-expanded={isOpen}
                 aria-controls={`faq-panel-${i}`}
                 onClick={() => setOpen(isOpen ? null : i)}
-                className="marketing-faq-trigger"
+                className="marketing-faq-trigger w-full flex items-center justify-between gap-4 px-5 py-4 text-left bg-[#0A0A0A] hover:bg-white/[0.02] transition-colors"
               >
                 <span className="font-semibold text-white text-sm sm:text-[15px] leading-snug pr-1">
                   {item.question}
                 </span>
                 <ChevronDown
                   size={18}
-                  className={`text-neutral-500 shrink-0 transition-transform duration-200 ${
-                    isOpen ? 'rotate-180 text-[#FF7A00]' : ''
+                  className={`shrink-0 transition-transform duration-200 ${
+                    isOpen ? 'rotate-180 text-[#FF7A00]' : 'text-neutral-500'
                   }`}
                   aria-hidden
                 />
@@ -48,10 +48,12 @@ export const LandingFAQ = memo(function LandingFAQ() {
                 role="region"
                 aria-labelledby={`faq-trigger-${i}`}
                 aria-hidden={!isOpen}
-                className="marketing-faq-panel"
+                className={`marketing-faq-panel transition-all duration-200 ${
+                  isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
+                } overflow-hidden`}
               >
-                <div className="marketing-faq-panel-inner">
-                  <p className="marketing-faq-answer">{item.answer}</p>
+                <div className="marketing-faq-panel-inner px-5 pb-4 pt-2 bg-[#0A0A0A]">
+                  <p className="marketing-faq-answer text-sm text-white/60 leading-relaxed">{item.answer}</p>
                 </div>
               </div>
             </article>

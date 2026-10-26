@@ -58,10 +58,10 @@ export default defineConfig({
     {
       name: 'orderbhojan-version-check',
       transformIndexHtml(html) {
-        const version = 'orderbhojan-pwa-v16';
+        const version = 'orderbhojan-pwa-v17';
         // Guard against localStorage being null in Capacitor before bridge init.
         // Use try/catch + typeof checks to avoid crashing the app on startup.
-        const checkScript = `<script>!function(){try{var v='` + version + `',k='obr_v',l=typeof localStorage!=='undefined'&&localStorage;if(l){var c=l.getItem(k);if(c&&c!==v){l.setItem(k,v);window.location.reload()}else if(!c){l.setItem(k,v)}}}catch(e){}}();</script>`;
+        const checkScript = `<script>!function(){try{var isCap=!!window.Capacitor||window.location.protocol==='capacitor:'||(window.location.hostname==='localhost'&&window.location.protocol==='https:');if(isCap)return;var v='` + version + `',k='obr_v',l=typeof localStorage!=='undefined'&&localStorage;if(l){var c=l.getItem(k);if(c&&c!==v){l.setItem(k,v);window.location.reload()}else if(!c){l.setItem(k,v)}}}catch(e){}}();</script>`;
         return html.replace('<head>', '<head>' + checkScript);
       },
     },
@@ -100,7 +100,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        cacheId: 'orderbhojan-pwa-v16',
+        cacheId: 'orderbhojan-pwa-v17',
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2,png}'],
         globIgnores: ['**/hero/**', '**/categories/**', 'offline.html'],
         // Serve the SPA shell on navigation failures — not the dead-end offline page.

@@ -30,7 +30,10 @@ export function OrderBhojanHomeCategories({ compact = false }: OrderBhojanHomeCa
   const circleSize = compact ? 'size-[3.85rem]' : 'size-[4.25rem]';
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-2">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--ob-text-secondary)]">
+        What's On Your Mind?
+      </h2>
       <div
         className={clsx(
           'flex gap-3.5 overflow-x-auto pb-0.5 no-scrollbar snap-x snap-mandatory',
@@ -62,7 +65,7 @@ export function OrderBhojanHomeCategories({ compact = false }: OrderBhojanHomeCa
               role="listitem"
               onClick={handleSelect}
               className={clsx(
-                'group flex shrink-0 snap-start flex-col items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e85d04]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050403]',
+                'group flex shrink-0 snap-start flex-col items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8720C]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080706]',
                 'w-[4.35rem]',
               )}
               aria-pressed={selected}
@@ -73,14 +76,14 @@ export function OrderBhojanHomeCategories({ compact = false }: OrderBhojanHomeCa
                   'relative rounded-full p-[2px] transition-all duration-300 ease-out',
                   circleSize,
                   selected
-                    ? 'bg-gradient-to-br from-[#e85d04] via-[#f4a261] to-[#e85d04]/70 shadow-[0_0_18px_rgba(232,93,4,0.35)]'
-                    : 'bg-[#1a1412] shadow-[0_0_16px_rgba(244,162,97,0.12)] group-active:scale-95',
+                    ? 'bg-gradient-to-br from-[#E8720C] via-[#f4a261] to-[#E8720C] shadow-sm'
+                    : 'bg-white/10 group-active:scale-95',
                 )}
               >
                 <picture
                   className={clsx(
-                    'block size-full overflow-hidden rounded-full bg-[#120d0c]',
-                    selected && 'ring-2 ring-[#050403]/80',
+                    'block size-full overflow-hidden rounded-full bg-[var(--ob-surface-strong)]',
+                    selected && 'ring-2 ring-[#080706]/80',
                   )}
                 >
                   <img
@@ -98,7 +101,7 @@ export function OrderBhojanHomeCategories({ compact = false }: OrderBhojanHomeCa
               <span
                 className={clsx(
                   'max-w-full truncate px-0.5 text-center text-[11px] font-semibold leading-tight transition-colors duration-300',
-                  selected ? 'text-[#e85d04]' : 'text-white/80',
+                  selected ? 'text-[#E8720C]' : 'text-[var(--ob-text-primary)]',
                 )}
               >
                 {cat.label}
