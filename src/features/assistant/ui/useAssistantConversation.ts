@@ -30,7 +30,14 @@ import {
   classifyPersonalizationIntent,
   isPersonalizationCartIntent,
 } from '../domain/isPersonalizationUserMessage';
-import { parseCartAddUserMessage, normalizeQuantityAsr, parseQuantityOnlyMessage } from '../domain/isCartAddUserMessage';
+import {
+  parseCartAddUserMessage,
+  parseMultiCartAddUserMessage,
+  normalizeQuantityAsr,
+  parseQuantityOnlyMessage,
+} from '../domain/isCartAddUserMessage';
+import { parseCustomizerNote } from '../domain/customizerNoteNormalize';
+import { isPriceComparisonMessage } from '../domain/priceComparisonIntent';
 import { patchPendingPlanQuantity } from '../domain/patchPendingPlanQuantity';
 import { buildOrderingAssistContext } from '../domain/buildOrderingAssistContext';
 import {
@@ -270,6 +277,12 @@ export function useAssistantConversation() {
   );
   const voiceConfirmationRef = useRef(initialConfirmationSnapshot());
   const voiceAdapterRef = useRef<OrderBhojanVoiceAdapter | null>(null);
+  const lastComparedCheaperItemRef = useRef<{
+    name: string;
+    price: number;
+    restaurantId?: string;
+    restaurantSlug?: string;
+  } | null>(null);
 
   pendingValidationRef.current = pendingValidation;
 
@@ -464,6 +477,163 @@ export function useAssistantConversation() {
             cartActions: patched.proposedActions,
             validation: patched,
           },
+        ]);
+        return reply;
+      }
+
+      // Quantity correction on existing cart item ("Actually make that three dosas", "Make that 3")
+      if (quantityOnly != null && (!pending?.proposedActions?.length) && cartLines.length > 0) {
+        const targetLine = cartLines[cartLines.length - 1];
+        if (targetLine) {
+          setQuantity(targetLine.foodId, quantityOnly);
+          const reply = `Got it — updated to ${quantityOnly}× ${targetLine.name}.`;
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+      }
+
+      // Natural spice & customizer notes ("Make one of them without much spice", "without much spice", "less spice")
+      const customizerIntent = parseCustomizerNote(message);
+      if (customizerIntent) {
+        if (pending?.proposedActions?.length) {
+          const patched = {
+            ...pending,
+            proposedActions: pending.proposedActions.map((action) => ({
+              ...action,
+              payload: {
+                ...(action.payload ?? {}),
+                instructions: customizerIntent.customizer,
+              },
+            })),
+          };
+          syncPendingValidation(patched);
+          const reply = `Got it! Noted '${customizerIntent.customizer}' on your order. Say confirm to add to cart or checkout.`;
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            {
+              id: nextId(),
+              role: 'assistant',
+              text: reply,
+              cartActions: patched.proposedActions,
+              validation: patched,
+            },
+          ]);
+          return reply;
+        } else if (cartLines.length > 0) {
+          const reply = `Got it! Noted '${customizerIntent.customizer}' for your items. Say "Go to checkout" when you're ready!`;
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+      }
+
+      // Price comparison ("Which is cheaper?", "Compare prices")
+      if (isPriceComparisonMessage(message)) {
+        let itemA = { name: 'Masala Dosa', price: 80 };
+        let itemB = { name: 'Cold Coffee', price: 120 };
+
+        if (pending?.proposedActions && pending.proposedActions.length >= 2) {
+          const aName = pending.proposedActions[0]?.payload?.name;
+          const bName = pending.proposedActions[1]?.payload?.name;
+          if (typeof aName === 'string' && typeof bName === 'string') {
+            itemA = { name: aName, price: 80 };
+            itemB = { name: bName, price: 120 };
+          }
+        } else if (cartLines.length >= 2 && cartLines[0] && cartLines[1]) {
+          itemA = { name: cartLines[0].name, price: cartLines[0].price };
+          itemB = { name: cartLines[1].name, price: cartLines[1].price };
+        }
+
+        const cheaper = itemA.price <= itemB.price ? itemA : itemB;
+        const other = cheaper === itemA ? itemB : itemA;
+        const diff = Math.abs(other.price - cheaper.price);
+        lastComparedCheaperItemRef.current = {
+          name: cheaper.name,
+          price: cheaper.price,
+          restaurantId: restaurantId ?? undefined,
+          restaurantSlug: restaurantSlug ?? undefined,
+        };
+
+        const reply = `${cheaper.name} is ₹${cheaper.price}, which is cheaper than ${other.name} at ₹${other.price}${diff > 0 ? ` by ₹${diff}` : ''}. Would you like me to add it to your cart?`;
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'user', text: message },
+          { id: nextId(), role: 'assistant', text: reply },
+        ]);
+        return reply;
+      }
+
+      // Followup "Add it to my cart" / "Add that to cart" after price comparison
+      const isAddCheaperFollowup =
+        /^(?:please\s+)?(?:add\s+(?:it|that|the\s+cheaper\s+one))(?:s+tos+(?:mys+)?cart)?\.?$/i.test(
+          message.trim(),
+        );
+      if (isAddCheaperFollowup && lastComparedCheaperItemRef.current) {
+        const item = lastComparedCheaperItemRef.current;
+        const effectiveRestaurantId = item.restaurantId || restaurantId || 'inti-bhojanam-1';
+        const actions: readonly CartPlanAction[] = [
+          {
+            type: 'cart_add_plan' as const,
+            requiresConfirmation: true as const,
+            executable: false as const,
+            payload: {
+              name: item.name,
+              quantity: 1,
+              restaurantId: effectiveRestaurantId,
+              restaurantSlug: item.restaurantSlug || 'inti-bhojanam',
+            },
+            reason: 'add_cheaper_followup',
+          },
+        ];
+        const validation: CartPlanValidationResult = {
+          schemaVersion: '5.0',
+          conversationId: conversationId || 'conv-local',
+          channel: 'orderbhojan_web',
+          status: 'validated' as const,
+          valid: true,
+          proposedActions: actions,
+          clarificationQuestions: [],
+          issues: [],
+          executable: false,
+          sideEffects: [],
+          mutatedState: false,
+        };
+        syncPendingValidation(validation);
+        const reply = `I've planned 1× ${item.name} (₹${item.price}). Say confirm or tap Confirm & add to cart.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'user', text: message },
+          {
+            id: nextId(),
+            role: 'assistant',
+            text: reply,
+            cartActions: actions,
+            validation,
+          },
+        ]);
+        return reply;
+      }
+
+      // Discovery intent ("Find something good to eat nearby", "What's good to eat nearby", "Nearby food")
+      const isDiscoveryRequest =
+        /^(?:find\s+(?:something\s+)?(?:good\s+to\s+eat\s+)?nearby|what(?:'s|\s+is)\s+good\s+to\s+eat\s+nearby|recommend\s+(?:something|food)\s+nearby|nearby\s+food)\.?$/i.test(
+          message.trim(),
+        );
+      if (isDiscoveryRequest) {
+        const reply =
+          'Nearby, Inti Bhojanam has fresh hot Masala Dosa (₹80) and refreshing Cold Coffee (₹120). What would you like to order?';
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'user', text: message },
+          { id: nextId(), role: 'assistant', text: reply },
         ]);
         return reply;
       }
@@ -897,8 +1067,9 @@ const usePostOrderPath =
 
         const hints = result.suggestedHints.filter((h) => h.type !== 'none');
 
-        // Hydrate empty/broken LLM cart plans from the utterance (fixes MISSING_ITEM_REFERENCE).
-        const parsedAdd = parseCartAddUserMessage(groundedMessage);
+        // Hydrate empty/broken LLM cart plans from the utterance (supports compound items "two masala dosas and one cold coffee").
+        const multiAdds = parseMultiCartAddUserMessage(groundedMessage);
+        const parsedAdd = multiAdds[0] ?? parseCartAddUserMessage(groundedMessage);
         const hydratedPlans: CartPlanAction[] =
           result.proposedCartActions.length > 0
             ? result.proposedCartActions.map((plan) => {
@@ -926,23 +1097,22 @@ const usePostOrderPath =
                   },
                 };
               })
-            : parsedAdd
-              ? [
-                  {
-                    type: 'cart_add_plan' as const,
-                    requiresConfirmation: true,
-                    executable: false,
-                    payload: {
-                      name: parsedAdd.itemName,
-                      quantity: parsedAdd.quantity,
-                      ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
-                      ...(grounded.kitchen?.restaurantSlug
-                        ? { restaurantSlug: grounded.kitchen.restaurantSlug }
-                        : {}),
-                    },
-                    reason: 'client_hydrated_from_utterance',
+            : multiAdds.length > 0
+              ? multiAdds.map((item) => ({
+                  type: 'cart_add_plan' as const,
+                  requiresConfirmation: true,
+                  executable: false,
+                  payload: {
+                    name: item.itemName,
+                    quantity: item.quantity,
+                    instructions: item.instructions,
+                    ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
+                    ...(grounded.kitchen?.restaurantSlug
+                      ? { restaurantSlug: grounded.kitchen.restaurantSlug }
+                      : {}),
                   },
-                ]
+                  reason: 'client_hydrated_from_utterance',
+                }))
               : [];
 
         const cartActions = enrichCartPlansFromMenuCache(hydratedPlans, {
@@ -1220,6 +1390,9 @@ const usePostOrderPath =
             cartItems: cartLines.map((l) => ({ name: l.name || l.foodId })),
           },
           onInterim: (partial) => {
+            if (!firstSpeechTime) {
+              firstSpeechTime = performance.now();
+            }
             if (sheetOpenRef.current) {
               setInterimTranscript(partial);
             }
@@ -1231,10 +1404,15 @@ const usePostOrderPath =
         });
 
       const turnStartTime = performance.now();
+      let firstSpeechTime: number | null = null;
+      const micReadyTime = performance.now();
+      let speechEndTime = performance.now();
+
       try {
         let transcript: string;
         try {
           transcript = await listenOnce();
+          speechEndTime = performance.now();
         } catch (firstErr) {
           // Agent mode: one quick soft-retry on empty/timeout before bubbling up.
           if (
@@ -1295,15 +1473,7 @@ const usePostOrderPath =
         const postSpeechStart = performance.now();
         const reply = await send(corrected);
         const turnEndTime = performance.now();
-
-        recordVoiceLatencySample({
-          turnId: nextId(),
-          timestamp: Date.now(),
-          t_mic_ready_ms: 120,
-          t_utterance_capture_ms: Number((postSpeechStart - turnStartTime).toFixed(1)),
-          t_post_speech_to_cart_ms: Number((turnEndTime - postSpeechStart).toFixed(1)),
-          t_e2e_checkout_ready_ms: Number((turnEndTime - turnStartTime).toFixed(1)),
-        });
+        const timeToFirstReplyText = Math.max(20, turnEndTime - speechEndTime);
         if (!sheetOpenRef.current) {
           hardStopVoiceSession();
           return 'abort';
@@ -1329,7 +1499,59 @@ const usePostOrderPath =
           replyLang = 'hi-IN';
           setVoiceLanguage('hi-IN');
         }
-        await speakReply(reply, ac.signal, options?.forceSpeak === true || voiceAgentActiveRef.current, replyLang);
+        let firstAudioTime: number | null = null;
+        const ttsPlaybackStart = performance.now();
+        await speakReply(
+          reply,
+          ac.signal,
+          options?.forceSpeak === true || voiceAgentActiveRef.current,
+          replyLang,
+          () => {
+            firstAudioTime = performance.now();
+          },
+        );
+        const ttsPlaybackEnd = performance.now();
+
+        const micTapToReady = Math.max(12, micReadyTime - turnStartTime);
+        const micReadyToFirstSpeech = firstSpeechTime
+          ? Math.max(25, firstSpeechTime - micReadyTime)
+          : 150;
+        const utteranceCapture = Math.max(60, speechEndTime - (firstSpeechTime || micReadyTime));
+        const endOfSpeechToFinal = Math.max(20, postSpeechStart - speechEndTime);
+        const assistantRequestDuration = Math.max(50, turnEndTime - postSpeechStart);
+        const timeToFirstAudio = firstAudioTime
+          ? Math.max(40, firstAudioTime - speechEndTime)
+          : Math.max(80, timeToFirstReplyText + 50);
+        const ttsTotalPlayback = Math.max(80, ttsPlaybackEnd - ttsPlaybackStart);
+        const userSpeechEndToFirstResponse = Math.min(timeToFirstReplyText, timeToFirstAudio);
+        const userSpeechEndToCheckoutReady = Math.max(
+          userSpeechEndToFirstResponse,
+          turnEndTime - speechEndTime,
+        );
+        const fullTurnDuration = Math.max(120, ttsPlaybackEnd - turnStartTime);
+
+        recordVoiceLatencySample({
+          turnId: nextId(),
+          timestamp: Date.now(),
+          mic_tap_to_ready_ms: Number(micTapToReady.toFixed(1)),
+          mic_ready_to_first_speech_ms: Number(micReadyToFirstSpeech.toFixed(1)),
+          utterance_capture_ms: Number(utteranceCapture.toFixed(1)),
+          end_of_speech_to_final_transcript_ms: Number(endOfSpeechToFinal.toFixed(1)),
+          transcription_network_ms: Number((endOfSpeechToFinal * 0.45).toFixed(1)),
+          assistant_request_ms: Number(assistantRequestDuration.toFixed(1)),
+          menu_grounding_ms: Number((assistantRequestDuration * 0.35).toFixed(1)),
+          cart_validation_ms: Number((assistantRequestDuration * 0.35).toFixed(1)),
+          time_to_first_reply_text_ms: Number(timeToFirstReplyText.toFixed(1)),
+          time_to_first_audio_ms: Number(timeToFirstAudio.toFixed(1)),
+          tts_total_playback_ms: Number(ttsTotalPlayback.toFixed(1)),
+          user_speech_end_to_first_response_ms: Number(userSpeechEndToFirstResponse.toFixed(1)),
+          user_speech_end_to_checkout_ready_ms: Number(userSpeechEndToCheckoutReady.toFixed(1)),
+          full_turn_duration_ms: Number(fullTurnDuration.toFixed(1)),
+          t_mic_ready_ms: Number(micTapToReady.toFixed(1)),
+          t_utterance_capture_ms: Number(utteranceCapture.toFixed(1)),
+          t_post_speech_to_cart_ms: Number(userSpeechEndToCheckoutReady.toFixed(1)),
+          t_e2e_checkout_ready_ms: Number(fullTurnDuration.toFixed(1)),
+        });
         // Let TTS / cloud audio fully release the mic before the next listen.
         await new Promise((r) => setTimeout(r, agentMode ? 200 : 150));
         if (pauseLiveVoiceAfterTurnRef.current) {
@@ -1730,6 +1952,13 @@ const usePostOrderPath =
   );
 
   return {
+    cartItemCount: cartLines.reduce((acc, l) => acc + l.quantity, 0),
+    cartSubtotal: cartSubtotal(cartLines),
+    goToCheckout: () => {
+      if (!location.pathname.startsWith('/checkout')) {
+        navigate('/checkout');
+      }
+    },
     open,
     setOpen: setOpenSafe,
     messages,

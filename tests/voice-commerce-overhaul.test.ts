@@ -239,4 +239,95 @@ describe('OrderBhojan Voice Commerce Overhaul: End-to-End Suite', () => {
       cleanup();
     });
   });
+
+  describe('6. Natural Food Commerce Intents & Parsing', () => {
+    it('parses compound multi-item add requests into distinct items', async () => {
+      const { parseMultiCartAddUserMessage } = await import('../src/features/assistant/domain/isCartAddUserMessage');
+      const items = parseMultiCartAddUserMessage('I want two masala dosas and one cold coffee');
+      assert.equal(items.length, 2);
+      assert.equal(items[0]?.quantity, 2);
+      assert.equal(items[0]?.itemName, 'masala dosa');
+      assert.equal(items[1]?.quantity, 1);
+      assert.equal(items[1]?.itemName, 'cold coffee');
+    });
+
+    it('parses natural spice and customizer notes', async () => {
+      const { parseCustomizerNote } = await import('../src/features/assistant/domain/customizerNoteNormalize');
+      const res1 = parseCustomizerNote('Make one of them without much spice');
+      assert.ok(res1 != null);
+      assert.equal(res1.customizer, 'without much spice');
+      assert.equal(res1.quantity, 1);
+
+      const res2 = parseCustomizerNote('without much spice');
+      assert.ok(res2 != null);
+      assert.equal(res2.customizer, 'without much spice');
+
+      const res3 = parseCustomizerNote('make it extra spicy');
+      assert.ok(res3 != null);
+      assert.equal(res3.customizer, 'extra spicy');
+    });
+
+    it('parses conversational quantity corrections', async () => {
+      const { parseQuantityOnlyMessage } = await import('../src/features/assistant/domain/quantityAsrNormalize');
+      assert.equal(parseQuantityOnlyMessage('Actually make that three dosas'), 3);
+      assert.equal(parseQuantityOnlyMessage('Actually make that 3'), 3);
+      assert.equal(parseQuantityOnlyMessage('make that 4 plates'), 4);
+      assert.equal(parseQuantityOnlyMessage('change it to two'), 2);
+    });
+
+    it('detects price comparison questions', async () => {
+      const { isPriceComparisonMessage } = await import('../src/features/assistant/domain/priceComparisonIntent');
+      assert.equal(isPriceComparisonMessage('Which is cheaper?'), true);
+      assert.equal(isPriceComparisonMessage('Which one is cheaper?'), true);
+      assert.equal(isPriceComparisonMessage('Compare prices'), true);
+      assert.equal(isPriceComparisonMessage('What is cheaper?'), true);
+      assert.equal(isPriceComparisonMessage('I want two dosas'), false);
+    });
+  });
+
+  describe('7. Interactive UI & Live Cart Indicators', () => {
+    it('renders Live Cart pill with item count and subtotal when cart has items', () => {
+      const html = renderToString(
+        React.createElement(ConsumerAssistantSheet, {
+          messages: [{ id: '1', role: 'assistant', text: 'Hello! What would you like to order?' }],
+          loading: false,
+          validating: false,
+          applying: false,
+          pendingValidation: null,
+          error: null,
+          cartItemCount: 3,
+          cartSubtotal: 360,
+          onClose: () => {},
+          onSend: () => {},
+          onFollowHint: () => {},
+          onConfirmPlan: () => {},
+          onDismissPlan: () => {},
+          onClearError: () => {},
+        }),
+      );
+      assert.ok(html.includes('data-testid="voice-dock-cart-pill"'));
+      assert.ok(html.includes('360'));
+      assert.ok(html.includes('Checkout →'));
+    });
+
+    it('enables tap-to-correct on transcript region', () => {
+      const html = renderToString(
+        React.createElement(ConsumerAssistantSheet, {
+          messages: [{ id: '1', role: 'assistant', text: 'Two masala dosas planned.' }],
+          loading: false,
+          validating: false,
+          applying: false,
+          pendingValidation: null,
+          error: null,
+          onClose: () => {},
+          onSend: () => {},
+          onFollowHint: () => {},
+          onConfirmPlan: () => {},
+          onDismissPlan: () => {},
+          onClearError: () => {},
+        }),
+      );
+      assert.ok(html.includes('title="Tap to correct text"'));
+    });
+  });
 });

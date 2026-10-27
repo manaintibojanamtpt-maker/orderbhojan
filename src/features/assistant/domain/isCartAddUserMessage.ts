@@ -11,6 +11,7 @@ export interface ParsedCartAddIntent {
   readonly quantity: number;
   readonly itemName: string;
   readonly kitchenHint?: string;
+  readonly instructions?: string;
 }
 
 /** ASR-tolerant “from” separator (from / feom / fom / form / nundi). */
@@ -86,6 +87,9 @@ function cleanItemName(raw: string): string {
     .replace(/\b(?:naa\s+cart\s*ki|naa\s*kaki|cart\s*ki|cart\s*lo|cart\s*mein|cart\s*me|kaki)\b/gi, '')
     .replace(/\b(?:add\s*cheyi|add\s*cheyyi|pettandi|vei|kavali|kavale|dalo|daalo|add\s*karo|kardo|rakho)\b/gi, '')
     .replace(/\b(?:please|quantity|qty)\b/gi, '')
+    // Normalize food plurals to singular menu forms
+    .replace(/\b(dosas|rotis|biryanis|idlis|vadas|parathas|thalis|coffees|teas)\b/gi, (m) => m.slice(0, -1))
+    .replace(/\bcurries\b/gi, 'curry')
     // ASR often prefixes dishes with articles: “An Andhra Veg Thali”.
     .replace(/^(?:a|an|the)\s+/i, '')
     .replace(/[.!?]+$/g, '')
@@ -228,6 +232,46 @@ export function parseCartAddUserMessage(message: string): ParsedCartAddIntent | 
   }
 
   return null;
+}
+
+/**
+ * Supports compound multi-item requests, e.g.
+ * "I want two masala dosas and one cold coffee"
+ * "add 2 chicken biryani, 1 thums up and 2 butter naan"
+ */
+export function parseMultiCartAddUserMessage(message: string): ParsedCartAddIntent[] {
+  const single = parseCartAddUserMessage(message);
+
+  // If message contains compound connectors "and", "aur", "mariyu", or commas separating items
+  const compoundPattern = /\b(?:and|aur|mariyu)\b|,/i;
+  if (!compoundPattern.test(message)) {
+    return single ? [single] : [];
+  }
+
+  // Strip leading prefixes like "i want", "please add", "order"
+  const stripped = message
+    .replace(/^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order|add|put)\s+/i, '')
+    .trim();
+
+  // Split on connectors
+  const parts = stripped.split(/\s+(?:and|aur|mariyu)\s+|,\s*/i);
+  const results: ParsedCartAddIntent[] = [];
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    // Try parsing as an add utterance
+    const parsed = parseCartAddUserMessage(`add ${trimmed}`) || parseCartAddUserMessage(trimmed);
+    if (parsed) {
+      results.push(parsed);
+    }
+  }
+
+  if (results.length > 1) {
+    return results;
+  }
+
+  return single ? [single] : [];
 }
 
 /** Short reply that is likely a dish name clarifying a pending cart plan. */

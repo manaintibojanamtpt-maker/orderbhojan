@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { Mic, Square, X, AlertCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Mic, Square, X, AlertCircle, Edit2, Check } from 'lucide-react';
 import type { CartPlanValidationResult } from '../domain/cartPlanContract';
 import type { AssistantThreadMessage } from './useAssistantConversation';
 import type { ConsumerAssistHint } from '../types';
@@ -83,6 +83,9 @@ interface ConsumerAssistantSheetProps {
   readonly onConfirmPlan: () => void;
   readonly onDismissPlan: () => void;
   readonly onClearError: () => void;
+  readonly cartItemCount?: number;
+  readonly cartSubtotal?: number;
+  readonly onGoToCheckout?: () => void;
 }
 
 /**
@@ -109,6 +112,7 @@ export function ConsumerAssistantSheet({
   voiceLanguage = 'en-IN',
   onVoiceLanguageChange,
   onClose,
+  onSend,
   onVoiceStart,
   onVoiceCancel,
   onStartVoiceAgent,
@@ -116,7 +120,12 @@ export function ConsumerAssistantSheet({
   onConfirmPlan,
   onDismissPlan,
   onClearError,
+  cartItemCount = 0,
+  cartSubtotal = 0,
+  onGoToCheckout,
 }: ConsumerAssistantSheetProps) {
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false);
+  const [editDraft, setEditDraft] = useState('');
   // Sync CSS dock height variable for underlying screen padding
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -220,14 +229,83 @@ export function ConsumerAssistantSheet({
 
       {/* Main Transcript / Spoken Reply Typography Region (Screenshots 1, 2, 4, 6, 7) */}
       <div className="flex-1 overflow-hidden pt-1">
-        <div className="flex items-start">
-          <p
-            className="text-base font-medium leading-snug text-[var(--ob-text-primary)] line-clamp-3 md:text-lg"
-            data-testid="voice-dock-transcript"
-          >
-            {showSparkle && <VoiceSparkleDots />}
-            {displayText}
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          {isEditingTranscript ? (
+            <div className="flex items-center gap-2 w-full">
+              <input
+                type="text"
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && editDraft.trim()) {
+                    onSend(editDraft.trim());
+                    setIsEditingTranscript(false);
+                  }
+                }}
+                className="flex-1 bg-white/10 border border-[#E8720C]/60 rounded-lg px-2.5 py-1 text-sm text-[var(--ob-text-primary)] focus:outline-none focus:ring-1 focus:ring-[#E8720C]"
+                autoFocus
+                placeholder="Type your correction..."
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (editDraft.trim()) {
+                    onSend(editDraft.trim());
+                    setIsEditingTranscript(false);
+                  }
+                }}
+                className="p-1 rounded bg-[#E8720C] text-black hover:bg-[#E8720C]/80"
+                title="Send corrected text"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingTranscript(false)}
+                className="p-1 rounded bg-white/10 text-[var(--ob-text-secondary)] hover:text-white"
+                title="Cancel edit"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div
+              className="flex items-start group cursor-pointer flex-1"
+              onClick={() => {
+                if (displayText && displayText !== 'Speak or type in Telugu, Hindi, or English') {
+                  setEditDraft(displayText);
+                  setIsEditingTranscript(true);
+                }
+              }}
+              title="Tap to correct text"
+            >
+              <p
+                className="text-base font-medium leading-snug text-[var(--ob-text-primary)] line-clamp-3 md:text-lg"
+                data-testid="voice-dock-transcript"
+              >
+                {showSparkle && <VoiceSparkleDots />}
+                {displayText}
+              </p>
+              {displayText && displayText !== 'Speak or type in Telugu, Hindi, or English' && (
+                <Edit2 className="h-3.5 w-3.5 ml-2 text-[var(--ob-text-secondary)] opacity-0 group-hover:opacity-70 transition shrink-0 mt-1" />
+              )}
+            </div>
+          )}
+
+          {/* Live Floating Cart Indicator (Zomato-inspired) */}
+          {cartItemCount > 0 && !isEditingTranscript && (
+            <button
+              type="button"
+              onClick={onGoToCheckout}
+              className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25 active:scale-95 shrink-0"
+              aria-label={`View cart with ${cartItemCount} items, total ₹${cartSubtotal}`}
+              data-testid="voice-dock-cart-pill"
+            >
+              <span>🛒</span>
+              <span>{cartItemCount} • ₹{cartSubtotal}</span>
+              <span className="text-[10px] text-emerald-300 font-bold ml-0.5">Checkout →</span>
+            </button>
+          )}
         </div>
 
         {error && (

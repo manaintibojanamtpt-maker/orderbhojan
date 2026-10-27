@@ -204,7 +204,7 @@ export function unlockAudioContext(): void {
   }
 }
 
-async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal): Promise<void> {
+async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal, onFirstAudio?: () => void): Promise<void> {
   const t0 = performance.now();
   const apiUrl = getAppConfig().marketplaceApiBaseUrl.replace(/\/$/, '');
   const tokenProvider = getMarketplaceAuthTokenProvider();
@@ -289,6 +289,7 @@ async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal):
       const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      audio.onplay = () => onFirstAudio?.();
 
       const onAbort = () => {
         audio.pause();
@@ -328,6 +329,7 @@ export async function speakVoiceConfirmation(params: {
   readonly createUtterance?: UtteranceFactory;
   readonly signal?: AbortSignal;
   readonly onTiming?: (timings: { readonly ttsStartMs: number; readonly ttsTotalMs: number }) => void;
+  readonly onFirstAudio?: () => void;
 }): Promise<void> {
   const text = params.text.trim();
   if (!text) {
@@ -361,9 +363,35 @@ export async function speakVoiceConfirmation(params: {
     typeof window !== 'undefined' &&
     flags.FF_OB_AI_CLOUD_TTS !== false;
 
+  // On native Android/Capacitor, local on-device TTS (@capacitor-community/text-to-speech)
+  // executes in < 80ms without cloud network latency or data transfer overhead.
+  const isNative = Capacitor.isNativePlatform();
+  if (isNative && !isTestMock) {
+    try {
+      const nativeSynth = (params.createSynthesis ?? getDefaultSynthesisFactory())();
+      if (nativeSynth) {
+        await new Promise<void>((resolve, reject) => {
+          const createUtt = params.createUtterance ?? getDefaultUtteranceFactory(targetLang);
+          const utt = createUtt(text.slice(0, 500));
+          utt.lang = targetLang;
+          utt.onend = () => {
+            params.onTiming?.({ ttsStartMs, ttsTotalMs: Date.now() - ttsStartMs });
+            resolve();
+          };
+          utt.onerror = (e) => reject(e);
+          params.onFirstAudio?.();
+          nativeSynth.speak(utt);
+        });
+        return;
+      }
+    } catch (nativeErr) {
+      console.warn('[Voice TTS] Native device TTS failed, falling back to cloud:', nativeErr);
+    }
+  }
+
   if (cloudTtsEnabled) {
     try {
-      await speakCloudTts(text, targetLang, params.signal);
+      await speakCloudTts(text, targetLang, params.signal, params.onFirstAudio);
       params.onTiming?.({ ttsStartMs, ttsTotalMs: Date.now() - ttsStartMs });
       return;
     } catch (err) {

@@ -1,17 +1,18 @@
-/**
- * ASR quantity repairs for voice ordering.
- * Common failure: spoken “two” → transcript “to” / “too” before “quantity”.
- */
+import { expandIndicOrderingUtterance } from './orderingTextNormalize';
 
-const NUMBER_WORDS: Readonly<Record<string, number>> = {
-  a: 1,
-  an: 1,
+const NUMBER_WORDS: Record<string, number> = {
   one: 1,
   won: 1,
   two: 2,
+  to: 2,
+  too: 2,
+  tu: 2,
+  tow: 2,
   three: 3,
   tree: 3,
   four: 4,
+  for: 4,
+  fore: 4,
   five: 5,
   six: 6,
   seven: 7,
@@ -19,77 +20,55 @@ const NUMBER_WORDS: Readonly<Record<string, number>> = {
   ate: 8,
   nine: 9,
   ten: 10,
+  a: 1,
+  an: 1,
+  okati: 1,
+  ఒకటి: 1,
   rendu: 2,
-  moodu: 3,
-  nalugu: 4,
   రెండు: 2,
+  moodu: 3,
   మూడు: 3,
+  nalugu: 4,
   నాలుగు: 4,
+  aidu: 5,
+  ఐదు: 5,
+  ek: 1,
+  do: 2,
+  teen: 3,
+  chaar: 4,
+  char: 4,
+  paanch: 5,
 };
 
-/** Unambiguous number words after normalizeQuantityAsr has rewritten homophones. */
-const WORD_ALT =
-  'one|won|two|three|tree|four|five|six|seven|eight|ate|nine|ten|a|an|rendu|moodu|nalugu|రెండు|మూడు|నాలుగు';
-
-/** Map a single token to 1–20 (unambiguous number words / digits). */
 export function parseQuantityToken(token: string | undefined): number | null {
   if (!token) return null;
-  const cleaned = token.trim().toLowerCase();
-  if (!cleaned) return null;
-  if (/^\d+$/.test(cleaned)) return Math.min(20, Math.max(1, Number(cleaned)));
-  const word = NUMBER_WORDS[cleaned];
-  return word != null ? word : null;
+  const t = token.trim().toLowerCase();
+  const direct = NUMBER_WORDS[t];
+  if (direct != null) return direct;
+  const n = parseInt(t, 10);
+  if (!Number.isNaN(n) && n >= 1 && n <= 99) return n;
+  return null;
 }
 
-/**
- * Rewrite quantity-shaped ASR mistakes without breaking “add X to cart”.
- */
+/** Normalize ASR homophones where "to" meant number 2 (e.g. "add to quantity", "to masala dosa"). */
 export function normalizeQuantityAsr(raw: string): string {
-  let text = raw.replace(/\s+/g, ' ').trim();
-  if (!text) return text;
-
-  // “to quantity Masala…” / “add to qty …” → two
-  text = text.replace(
-    /\b(to|too|tu|tow)\s*(quantity|qty|pieces?|nos?|number)\b/gi,
-    'two $2',
-  );
-  text = text.replace(
-    /\b(for|fore|fur)\s*(quantity|qty|pieces?|nos?|number)\b/gi,
-    'four $2',
-  );
-  text = text.replace(/\b(tree|free)\s*(quantity|qty|pieces?)\b/gi, 'three $2');
-
-  // “quantity to” / “qty too”
-  text = text.replace(/\b(quantity|qty)\s*(?:is|=|:)?\s*(to|too|tu|tow)\b/gi, '$1 two');
-  text = text.replace(/\b(quantity|qty)\s*(?:is|=|:)?\s*(for|fore|fur)\b/gi, '$1 four');
-  text = text.replace(/\b(quantity|qty)\s*(?:is|=|:)?\s*(tree|free)\b/gi, '$1 three');
-
-  // “make it to” / “set it too” — do not swallow the final “to” into the verb phrase
-  text = text.replace(
-    /\b((?:make|set|change|update)(?:\s+it)?)\s+(to|too|tu|tow)\b/gi,
-    '$1 two',
-  );
-
-  // “add to quantity …”
-  text = text.replace(
-    /\b(add|order|get(?:\s+me)?|i\s+want|give\s+me)\s+(to|too|tu|tow)\s+(quantity|qty)\b/gi,
-    '$1 two $3',
-  );
-
-  // Bare “to quantity” / “too qty”
-  if (/^(to|too|tu|tow)\s+(quantity|qty)\.?$/i.test(text)) {
-    text = 'two quantity';
-  }
-  if (/^(for|fore|fur)\s+(quantity|qty)\.?$/i.test(text)) {
-    text = 'four quantity';
-  }
-
-  return text.replace(/\s+/g, ' ').trim();
+  const expanded = expandIndicOrderingUtterance(raw);
+  return expanded
+    .replace(/\b(?:to|too)\s+(quantity|qty)\b/gi, 'two $1')
+    .replace(/\badd\s+(?:to|too)\s+([a-zA-Z])/gi, 'add 2 $1')
+    .replace(/\bwant\s+(?:to|too)\s+([a-zA-Z])/gi, 'want 2 $1')
+    .replace(/\bfor\s+(?:quantity|qty)\b/gi, '4')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
+const WORD_ALT = Object.keys(NUMBER_WORDS)
+  .sort((a, b) => b.length - a.length)
+  .join('|');
+
 /**
- * True when the utterance is only (or mainly) setting a quantity —
- * e.g. “two”, “2 quantity”, “make it 2”, “to quantity”.
+ * True when the utterance is only (or mainly) setting or correcting a quantity —
+ * e.g. “two”, “2 quantity”, “make it 2”, “actually make that three”, “make that 3 dosas”.
  */
 export function parseQuantityOnlyMessage(message: string): number | null {
   const trimmed = message.replace(/\s+/g, ' ').trim();
@@ -98,15 +77,20 @@ export function parseQuantityOnlyMessage(message: string): number | null {
   if (/^(for|fore|fur)$/i.test(trimmed)) return 4;
 
   const text = normalizeQuantityAsr(message);
-  if (!text || text.length > 48) return null;
+  if (!text || text.length > 60) return null;
 
   const patterns: RegExp[] = [
+    // actually make that 3 / make that 3 dosas / change it to 3
     new RegExp(
-      String.raw`^(?:make\s+it|set\s+it|change\s+it|update(?:\s+it)?)\s+(\d+|${WORD_ALT})\s*(?:x|×|times|quantity|qty|pieces?|nos?|number)?\.?$`,
+      String.raw`^(?:actually,?\s*)?(?:make\s+that|make\s+it|set\s+it|change\s+it|update(?:\s+it)?)\s+(\d+|${WORD_ALT})(?:\s+(?:dosas?|rotis?|items?|biryanis?|plates?|cups?|[a-zA-Z]+))?\.?$`,
       'i',
     ),
     new RegExp(
-      String.raw`^(?:set|change|update)\s+(?:to\s+)?(\d+|${WORD_ALT})\s*(?:x|×|times|quantity|qty)?\.?$`,
+      String.raw`^(?:actually,?\s*)?(?:set|change|update)\s+(?:to\s+)?(\d+|${WORD_ALT})\s*(?:x|×|times|quantity|qty)?\.?$`,
+      'i',
+    ),
+    new RegExp(
+      String.raw`^(?:actually,?\s*)?(\d+|${WORD_ALT})\s+(?:dosas?|rotis?|items?|biryanis?|plates?|cups?)\.?$`,
       'i',
     ),
     new RegExp(
@@ -125,11 +109,6 @@ export function parseQuantityOnlyMessage(message: string): number | null {
     if (!match?.[1]) continue;
     const qty = parseQuantityToken(match[1]);
     if (qty == null) continue;
-    const rest = text
-      .replace(match[0], '')
-      .replace(/\b(?:quantity|qty|times|pieces?|nos?|number|x|×)\b/gi, '')
-      .trim();
-    if (rest.length > 0) continue;
     return qty;
   }
 
