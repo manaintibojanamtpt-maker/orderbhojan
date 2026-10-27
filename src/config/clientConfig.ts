@@ -164,7 +164,7 @@ export async function hydrateFirebaseConfig(
 ): Promise<AppConfig> {
   let hydrated = applyFirebaseDefaults(config);
   const usesLiveBackend = hydrated.marketplaceApiBaseUrl.includes('manaintibojanam-backend');
-  const isLiveProductionBackend = Boolean(import.meta.env?.PROD) && usesLiveBackend;
+  const isLiveProductionBackend = hydrated.environment === 'production' && usesLiveBackend;
   const wrongProdFirebaseProject =
     isLiveProductionBackend && hydrated.firebase.projectId === 'orderbhojan';
 
@@ -202,7 +202,7 @@ export async function hydrateFirebaseConfig(
       );
     }
     hydrated =
-      wrongProdFirebaseProject || (usesLiveBackend && Boolean(import.meta.env?.PROD))
+      wrongProdFirebaseProject || isLiveProductionBackend
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
         : mergeRemoteFirebaseConfig(hydrated, remote);
   }
