@@ -23,13 +23,13 @@ export function readGuestLocation(): GuestLocationPersisted | null {
 }
 
 export function writeGuestLocation(value: GuestLocationPersisted): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...value, savedAt: new Date().toISOString() }));
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...value, savedAt: new Date().toISOString() }));
 }
 
 export function clearGuestLocation(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_KEY);
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  window.localStorage.removeItem(STORAGE_KEY);
 }
 
 export interface RecentLocationPersisted {
@@ -50,7 +50,7 @@ export function readRecentLocations(): RecentLocationPersisted['entries'] {
 }
 
 export function pushRecentLocation(displayLabel: string, coordinates: GuestLocationPersisted['coordinates']): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !window.localStorage) return;
   const entries = readRecentLocations().filter((e) => e.displayLabel !== displayLabel);
   entries.unshift({
     id: crypto.randomUUID(),
@@ -59,5 +59,5 @@ export function pushRecentLocation(displayLabel: string, coordinates: GuestLocat
     usedAt: new Date().toISOString(),
   });
   const payload: RecentLocationPersisted = { version: 1, entries: entries.slice(0, MAX_RECENT) };
-  localStorage.setItem(RECENT_KEY, JSON.stringify(payload));
+  window.localStorage.setItem(RECENT_KEY, JSON.stringify(payload));
 }

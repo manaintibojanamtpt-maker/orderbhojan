@@ -71,7 +71,22 @@ export default defineConfig(({ mode }) => {
   plugins: [
     tailwindcss(),
     react(),
+    // Inject a synchronous version-check script at the VERY TOP of <head>,
+    // BEFORE any module scripts or PWA registration can load/cache stale content.
+    // Forces a hard reload when the PWA cache prefix changes, preventing the
+    // old Service Worker from serving cached JS across APK installs.
+    {
+      name: 'orderbhojan-version-check',
+      transformIndexHtml(html) {
+        const version = 'orderbhojan-pwa-v17';
+        // Guard against localStorage being null in Capacitor before bridge init.
+        // Use try/catch + typeof checks to avoid crashing the app on startup.
+        const checkScript = `<script>!function(){try{var isCap=!!window.Capacitor||window.location.protocol==='capacitor:'||(window.location.hostname==='localhost'&&window.location.protocol==='https:');if(isCap)return;var v='` + version + `',k='obr_v',l=typeof localStorage!=='undefined'&&localStorage;if(l){var c=l.getItem(k);if(c&&c!==v){l.setItem(k,v);window.location.reload()}else if(!c){l.setItem(k,v)}}}catch(e){}}();</script>`;
+        return html.replace('<head>', '<head>' + checkScript);
+      },
+    },
     VitePWA({
+      injectRegister: 'auto',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon-180x180.png'],
       manifest: {
@@ -105,7 +120,7 @@ export default defineConfig(({ mode }) => {
         ],
       },
       workbox: {
-        cacheId: 'orderbhojan-pwa-v15',
+        cacheId: 'orderbhojan-pwa-v17',
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2,png}'],
         globIgnores: ['**/hero/**', '**/categories/**', 'offline.html'],
         // Serve the SPA shell on navigation failures — not the dead-end offline page.

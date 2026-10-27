@@ -152,7 +152,7 @@ export function OrderBhojanRestaurantSubscriptionPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#030303] px-4 py-16 text-white">
+      <div className="min-h-screen bg-[var(--ob-bg,#080706)] px-4 py-16 text-[#FFF8F0]">
         <GlassCard hoverEffect={false} className="mx-auto max-w-lg !rounded-3xl !p-8 text-center">
           <SectionHeader
             title="Subscription active"
@@ -168,7 +168,7 @@ export function OrderBhojanRestaurantSubscriptionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#030303] pb-24 text-white">
+    <div className="min-h-screen bg-[var(--ob-bg,#080706)] pb-24 text-[#FFF8F0]">
       <Section density="comfortable" background="default" className="!pt-8">
         <div className="mx-auto max-w-lg space-y-6 px-4">
           <SoftButton type="button" tone="ghost" size="compact" onClick={() => navigate(`/restaurant/${slug}`)}>
@@ -198,7 +198,7 @@ export function OrderBhojanRestaurantSubscriptionPage() {
                 onClick={() => setSelectedPlanId(plan.id)}
                 className={`w-full rounded-2xl border p-4 text-left transition touch-manipulation ${
                   selectedPlanId === plan.id
-                    ? 'border-[#FF7A00] bg-[#FF7A00]/10'
+                    ? 'border-[#E8720C] bg-[#E8720C]/10'
                     : 'border-white/10 bg-white/[0.03]'
                 }`}
               >
@@ -207,7 +207,7 @@ export function OrderBhojanRestaurantSubscriptionPage() {
                     <p className="font-semibold">{plan.title}</p>
                     <p className="text-xs text-white/55">{plan.description}</p>
                   </div>
-                  <p className="text-lg font-bold text-[#FF7A00]">₹{plan.price}</p>
+                  <p className="text-lg font-bold text-[#E8720C]">₹{plan.price}</p>
                 </div>
               </button>
             ))}

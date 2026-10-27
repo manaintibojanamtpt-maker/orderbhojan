@@ -3,8 +3,8 @@ import type { FoodCategoryPublic } from '@/types/marketplace-food';
 const chipClass = (active: boolean) =>
   `shrink-0 rounded-full border px-3.5 py-2 text-xs font-semibold transition ${
     active
-      ? 'border-[#e85d04]/55 bg-[#e85d04]/18 text-[#fff8f0] shadow-[0_0_0_1px_rgba(232,93,4,0.12)]'
-      : 'border-white/10 bg-[#120d0c]/60 text-[#c4b5a5] hover:border-[#e85d04]/30 hover:text-[#fff8f0]'
+      ? 'border-[#E8720C]/55 bg-[#E8720C]/18 text-[var(--ob-text-primary)] shadow-[0_0_0_1px_rgba(232,93,4,0.12)]'
+      : 'border-[var(--ob-border)] bg-[var(--ob-surface)]/60 text-[var(--ob-text-secondary)] hover:border-[#E8720C]/30 hover:text-[var(--ob-text-primary)]'
   }`;
 
 export interface OrderBhojanFoodCategoryRailProps {
@@ -12,6 +12,12 @@ export interface OrderBhojanFoodCategoryRailProps {
   readonly activeId: string;
   readonly onSelect: (sectionId: string) => void;
   readonly embedded?: boolean;
+}
+
+function normalizeCategoryLabel(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed.toLowerCase() === 'break fast') return 'Breakfast';
+  return trimmed;
 }
 
 export function OrderBhojanFoodCategoryRail({
@@ -22,7 +28,7 @@ export function OrderBhojanFoodCategoryRail({
 }: OrderBhojanFoodCategoryRailProps) {
   return (
     <nav
-      className={`${embedded ? '' : 'sticky top-0 z-30 border-b border-white/[0.08] bg-[#050403]/95 backdrop-blur-md'} min-w-0 max-w-full py-2 ob-menu-container`}
+      className={`${embedded ? '' : 'sticky top-0 z-30 border-b border-[var(--ob-border)] bg-[var(--ob-bg)]/95 backdrop-blur-md'} min-w-0 max-w-full py-2 ob-menu-container`}
       aria-label="Menu categories"
     >
       <div className="ob-menu-rail-bleed">
@@ -38,7 +44,7 @@ export function OrderBhojanFoodCategoryRail({
                 aria-current={active ? 'true' : undefined}
                 onClick={() => onSelect(sectionId)}
               >
-                {category.name}
+                {normalizeCategoryLabel(category.name)}
                 {category.itemCount != null ? ` · ${category.itemCount}` : ''}
               </button>
             );

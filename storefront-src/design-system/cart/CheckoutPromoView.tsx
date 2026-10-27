@@ -22,9 +22,9 @@ export function CheckoutPromoView({
   }
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-label="Promo codes">
+    <section className="rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-4" aria-label="Promo codes">
       <div className="mb-3 flex items-center gap-2">
-        <Tag className="h-4 w-4 text-[#e85d04]" aria-hidden />
+        <Tag className="h-4 w-4 text-[#E8720C]" aria-hidden />
         <h2 className="text-sm font-bold text-white">Available offers</h2>
       </div>
 
@@ -39,8 +39,8 @@ export function CheckoutPromoView({
                 onClick={() => onSelectChip(chip.code)}
                 className={`rounded-full border px-3 py-1.5 text-left text-xs font-bold tracking-wider transition-colors ${
                   selected
-                    ? 'border-[#e85d04] bg-[#e85d04]/15 text-[#e85d04]'
-                    : 'border-white/15 bg-black/30 text-white hover:border-[#e85d04]/40'
+                    ? 'border-[#E8720C] bg-[#E8720C]/15 text-[#E8720C]'
+                    : 'border-white/15 bg-[#13100D]/60 text-white hover:border-[#E8720C]/40'
                 }`}
                 aria-pressed={selected}
               >

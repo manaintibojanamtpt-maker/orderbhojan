@@ -44,10 +44,10 @@ export function VoiceFirstWelcomeToast({
       className="fixed bottom-20 left-4 right-4 z-40 mx-auto max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300 sm:bottom-6 sm:right-24 sm:left-auto"
       data-testid="voice-first-welcome-toast"
     >
-      <div className="relative overflow-hidden rounded-2xl border border-[#FF7A00]/40 bg-[#120D0A]/95 p-4 shadow-[0_16px_36px_-10px_rgba(0,0,0,0.85),0_0_20px_rgba(255,122,0,0.25)] backdrop-blur-md">
+      <div className="relative overflow-hidden rounded-[1.25rem] border border-[#E8720C]/40 bg-[var(--ob-surface)]/95 p-4 shadow-[0_16px_36px_-10px_rgba(0,0,0,0.85),0_0_20px_rgba(255,122,0,0.25)] backdrop-blur-md">
         {/* Glow */}
         <div
-          className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[#FF7A00]/20 blur-2xl"
+          className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-[#E8720C]/20 blur-2xl"
           aria-hidden
         />
 
@@ -65,7 +65,7 @@ export function VoiceFirstWelcomeToast({
 
         {/* Content */}
         <div className="flex items-start gap-3 pr-6">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FF7A00] to-[#CC5500] text-white shadow-[0_2px_10px_rgba(255,122,0,0.4)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#E8720C] to-[#CC5500] text-white shadow-[0_2px_10px_rgba(255,122,0,0.4)]">
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
               <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
@@ -101,7 +101,7 @@ export function VoiceFirstWelcomeToast({
           <button
             type="button"
             onClick={handleSpeak}
-            className="flex items-center gap-1.5 rounded-lg bg-[#FF7A00] px-3.5 py-1 text-xs font-semibold text-white shadow-[0_2px_12px_rgba(255,122,0,0.4)] hover:bg-[#E05A00] transition active:scale-95"
+            className="flex items-center gap-1.5 rounded-lg bg-[#E8720C] px-3.5 py-1 text-xs font-semibold text-white shadow-[0_2px_12px_rgba(255,122,0,0.4)] hover:bg-[#d06100] transition active:scale-95"
           >
             <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />

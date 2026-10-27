@@ -245,19 +245,19 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
             initial={{ scale: 0.95, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.95, y: 20 }}
-            className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col"
+            className="bg-[#1C1712] dark:bg-[#1C1712] rounded-[1.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.5)] max-w-md w-full overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-center justify-between p-5 border-b border-white/8 dark:border-white/8">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-50 dark:bg-red-500/10 rounded-full">
                   <MapPin className="text-red-600 dark:text-red-500" size={20} />
                 </div>
-                <h2 className="text-lg font-black text-gray-900 dark:text-white">{title}</h2>
+                <h2 className="text-lg font-black text-[#FFF8F0] dark:text-[#FFF8F0]">{title}</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                className="p-2 hover:hover:bg-white/5 dark:hover:bg-white/5 rounded-full transition-colors"
               >
                 <X size={20} className="text-gray-500" />
               </button>
@@ -272,8 +272,8 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                   <div className="w-24 h-24 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center mb-6">
                     <Navigation className="text-red-600 dark:text-red-500 w-10 h-10" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">Find Your Location</h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-center text-sm mb-8 px-4">
+                  <h3 className="text-xl font-bold text-[#FFF8F0] dark:text-[#FFF8F0] mb-2 text-center">Find Your Location</h3>
+                  <p className="text-[#A89B8C] dark:text-[#A89B8C] text-center text-sm mb-8 px-4">
                     Allow location access to instantly check delivery availability and exact fees.
                   </p>
                   
@@ -291,7 +291,7 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                   
                   <div className="mt-6 flex items-center w-full gap-4">
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800"></div>
-                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">OR</span>
+                    <span className="text-xs text-[#A89B8C] font-medium uppercase tracking-wider">OR</span>
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800"></div>
                   </div>
                   
@@ -307,14 +307,14 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
               {/* STEP: MANUAL SEARCH */}
               {step === 'manual' && (
                 <div className="py-2">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white mb-4">Search your area or street</p>
+                  <p className="text-sm font-bold text-[#FFF8F0] dark:text-[#FFF8F0] mb-4">Search your area or street</p>
                   <form onSubmit={handleManualSearch} className="relative mb-6">
                     <input
                       type="text"
                       value={manualSearchQuery}
                       onChange={(e) => setManualSearchQuery(e.target.value)}
                       placeholder="e.g. MG Road, Pune"
-                      className="w-full pl-4 pr-12 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 transition-shadow text-gray-900 dark:text-white"
+                      className="w-full pl-4 pr-12 py-3.5 bg-[#13100D] dark:bg-[#13100D] border border-white/10 dark:border-white/10 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#E8720C] transition-shadow text-[#FFF8F0] dark:text-[#FFF8F0]"
                       autoFocus
                     />
                     <button 
@@ -331,9 +331,9 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                       <button
                         key={idx}
                         onClick={() => handleSelectSearchResult(result)}
-                        className="w-full text-left p-4 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-red-200 hover:bg-red-50 dark:hover:bg-gray-800 transition-colors flex gap-3 items-start"
+                        className="w-full text-left p-4 rounded-xl border border-white/8 dark:border-white/8 hover:border-[#E8720C]/30 hover:bg-[#E8720C]/5 dark:hover:bg-[#E8720C]/5 transition-colors flex gap-3 items-start"
                       >
-                        <MapPin className="text-gray-400 mt-0.5 shrink-0" size={18} />
+                        <MapPin className="text-[#A89B8C] mt-0.5 shrink-0" size={18} />
                         <span className="text-sm text-gray-700 dark:text-gray-300 leading-snug">{result.display_name}</span>
                       </button>
                     ))}
@@ -341,7 +341,7 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                   
                   <button
                     onClick={() => setStep('detect')}
-                    className="mt-6 flex items-center justify-center gap-2 w-full py-3 text-sm font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                    className="mt-6 flex items-center justify-center gap-2 w-full py-3 text-sm font-bold text-gray-600 dark:text-[#A89B8C] hover:bg-white/5 dark:hover:bg-white/5 rounded-xl transition-colors"
                   >
                     <Navigation size={16} /> Try Auto Detect Again
                   </button>
@@ -354,13 +354,13 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                   <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
                     <AlertCircle className="text-red-600 dark:text-red-400" size={32} />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Location Not Serviceable</h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+                  <h3 className="text-lg font-bold text-[#FFF8F0] dark:text-[#FFF8F0] mb-2">Location Not Serviceable</h3>
+                  <p className="text-[#A89B8C] dark:text-[#A89B8C] text-sm mb-6">
                     Sorry, this kitchen currently does not deliver to your selected location. You are outside the delivery radius.
                   </p>
                   <button
                     onClick={() => setStep('manual')}
-                    className="w-full py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="w-full py-3.5 bg-[#13100D] dark:bg-[#13100D] text-[#FFF8F0] dark:text-[#FFF8F0] rounded-xl font-bold text-sm hover:bg-[#1C1712] dark:hover:bg-[#1C1712] transition-colors"
                   >
                     Try Another Location
                   </button>
@@ -370,27 +370,27 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
               {/* STEP: ADDRESS DETAILS FORM */}
               {step === 'form' && distanceInfo && (
                 <div className="space-y-5">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                  <div className="p-4 bg-[#13100D] dark:bg-[#13100D] rounded-[1.25rem] border border-white/8 dark:border-white/8 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 dark:bg-red-500/10 rounded-bl-full pointer-events-none"></div>
                     <div className="flex items-start gap-3 mb-3">
                       <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full shrink-0">
                         <Check size={14} className="text-green-600 dark:text-green-400" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Delivering To</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">{detectedAddress}</p>
+                        <p className="text-xs font-bold text-[#A89B8C] dark:text-[#A89B8C] uppercase tracking-wide mb-1">Delivering To</p>
+                        <p className="text-sm font-semibold text-[#FFF8F0] dark:text-[#FFF8F0] line-clamp-2">{detectedAddress}</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4 pt-3 border-t border-gray-200 dark:border-gray-700 mt-1">
+                    <div className="flex items-center gap-4 pt-3 border-t border-white/10 dark:border-white/10 mt-1">
                       <div className="flex-1">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Distance</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{distanceInfo.distance.toFixed(1)} km</p>
+                        <p className="text-xs text-[#A89B8C] dark:text-[#A89B8C]">Distance</p>
+                        <p className="text-sm font-bold text-[#FFF8F0] dark:text-[#FFF8F0]">{distanceInfo.distance.toFixed(1)} km</p>
                       </div>
                       <div className="w-px h-8 bg-gray-200 dark:bg-gray-700"></div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Delivery Fee</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        <p className="text-xs text-[#A89B8C] dark:text-[#A89B8C]">Delivery Fee</p>
+                        <p className="text-sm font-bold text-[#FFF8F0] dark:text-[#FFF8F0]">
                           {distanceInfo.fee === 0 ? <span className="text-green-600">Free</span> : `₹${distanceInfo.fee}`}
                         </p>
                       </div>
@@ -404,7 +404,7 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                         placeholder="House / Flat No. *"
                         value={formDetails.house}
                         onChange={(e) => setFormDetails({ ...formDetails, house: e.target.value })}
-                        className="w-full p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium"
+                        className="w-full p-3.5 rounded-xl border border-white/10 dark:border-white/10 bg-[#13100D] dark:bg-[#13100D] text-[#FFF8F0] dark:text-[#FFF8F0] focus:ring-2 focus:ring-[#E8720C] outline-none text-sm font-medium"
                       />
                     </div>
                     <div>
@@ -413,7 +413,7 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                         placeholder="Building / Apartment Name"
                         value={formDetails.building}
                         onChange={(e) => setFormDetails({ ...formDetails, building: e.target.value })}
-                        className="w-full p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium"
+                        className="w-full p-3.5 rounded-xl border border-white/10 dark:border-white/10 bg-[#13100D] dark:bg-[#13100D] text-[#FFF8F0] dark:text-[#FFF8F0] focus:ring-2 focus:ring-[#E8720C] outline-none text-sm font-medium"
                       />
                     </div>
                     <div>
@@ -422,7 +422,7 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                         placeholder="Landmark *"
                         value={formDetails.landmark}
                         onChange={(e) => setFormDetails({ ...formDetails, landmark: e.target.value })}
-                        className="w-full p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium"
+                        className="w-full p-3.5 rounded-xl border border-white/10 dark:border-white/10 bg-[#13100D] dark:bg-[#13100D] text-[#FFF8F0] dark:text-[#FFF8F0] focus:ring-2 focus:ring-[#E8720C] outline-none text-sm font-medium"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -431,14 +431,14 @@ const AutoLocationForm: React.FC<AutoLocationFormProps> = ({
                         placeholder="Phone No (Optional)"
                         value={formDetails.phone}
                         onChange={(e) => setFormDetails({ ...formDetails, phone: e.target.value })}
-                        className="w-full p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium"
+                        className="w-full p-3.5 rounded-xl border border-white/10 dark:border-white/10 bg-[#13100D] dark:bg-[#13100D] text-[#FFF8F0] dark:text-[#FFF8F0] focus:ring-2 focus:ring-[#E8720C] outline-none text-sm font-medium"
                       />
                       <input
                         type="text"
                         placeholder="Instructions (Optional)"
                         value={formDetails.instructions}
                         onChange={(e) => setFormDetails({ ...formDetails, instructions: e.target.value })}
-                        className="w-full p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none text-sm font-medium"
+                        className="w-full p-3.5 rounded-xl border border-white/10 dark:border-white/10 bg-[#13100D] dark:bg-[#13100D] text-[#FFF8F0] dark:text-[#FFF8F0] focus:ring-2 focus:ring-[#E8720C] outline-none text-sm font-medium"
                       />
                     </div>
                   </div>

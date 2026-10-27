@@ -23,15 +23,15 @@ export function MapPinPicker({ coordinates, onChange }: MapPinPickerProps) {
   };
 
   return (
-    <GlassCard hoverEffect={false} className="!rounded-2xl !p-4" aria-label="Map pin location">
+    <GlassCard hoverEffect={false} className="!rounded-[1.25rem] !p-4" aria-label="Map pin location">
       <p className="text-base font-bold text-white">Confirm map pin</p>
       <p className="text-xs text-white/60">Adjust pin to your exact delivery spot</p>
       <div
-        className="relative mt-4 flex h-36 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,122,0,0.08),rgba(255,255,255,0.02))]"
+        className="relative mt-4 flex h-36 items-center justify-center overflow-hidden rounded-[1.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,122,0,0.08),rgba(255,255,255,0.02))]"
         role="img"
         aria-label="Map pin preview"
       >
-        <MapPin className="h-8 w-8 text-[#FF7A00]" aria-hidden />
+        <MapPin className="h-8 w-8 text-[#E8720C]" aria-hidden />
       </div>
       <p className="mt-3 text-sm text-white/80">
         {coordinates.lat.toFixed(5)}, {coordinates.lng.toFixed(5)}

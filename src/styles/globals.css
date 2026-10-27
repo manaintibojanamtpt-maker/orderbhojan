@@ -3,26 +3,38 @@
 @source "../../storefront-src/design-system/**/*.{ts,tsx}";
 @import "../../storefront-src/design-system/styles/index.css";
 @import "./mib-theme.css";
+@import "./ob-tokens.css";
+@import "./bds.css";
 @layer base {
   html {
     @apply antialiased;
     color-scheme: dark;
-    background: var(--mib-bg, #050403);
+  }
+
+  html[data-theme="light"],
+  html.theme-light {
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"],
+  html.theme-dark {
+    color-scheme: dark;
+    background: var(--ob-bg, #080706);
   }
 
   body {
     margin: 0;
     min-height: 100dvh;
-    background: var(--mib-bg, #050403);
-    color: var(--mib-text, #fff8f0);
-    font-family: "Figtree", var(--bds-font-sans, ui-sans-serif), system-ui, sans-serif;
+    background: var(--ob-bg, #080706);
+    color: var(--ob-text-primary, #FFF8F0);
+    font-family: var(--ob-font-sans, var(--bds-font-sans, "Plus Jakarta Sans")), system-ui, sans-serif;
     overscroll-behavior-y: none;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
 
   :focus-visible {
-    outline: 2px solid var(--mib-primary, #e85d04);
+    outline: 2px solid var(--ob-brand, #E8720C);
     outline-offset: 2px;
   }
 

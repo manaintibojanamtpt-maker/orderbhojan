@@ -76,7 +76,7 @@ export function DiscoveryCollectionRail({
           </div>
           <Link
             to="/search"
-            className="shrink-0 text-xs font-semibold text-[#e85d04] touch-manipulation"
+            className="shrink-0 text-xs font-semibold text-[#E8720C] touch-manipulation"
           >
             View all
           </Link>

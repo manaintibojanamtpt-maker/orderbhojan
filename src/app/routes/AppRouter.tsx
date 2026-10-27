@@ -11,6 +11,7 @@ import { Skeleton } from '@bhojan/storefront-design-system/primitives/Skeleton';
 import { useAndroidBackButton } from '@/hooks/useAndroidBackButton';
 import { useEffect } from 'react';
 import { isNativePlatform } from '@/lib/nativePlatform';
+import { applyStatusBarTheme, getStoredTheme, resolveEffectiveTheme } from '@/features/theme/themeService';
 
 const FoundationPage = lazy(() =>
   import('@/app/pages/FoundationPage').then((m) => ({ default: m.FoundationPage })),
@@ -71,7 +72,7 @@ function RouteFallback() {
 
 function FoodRouteFallback() {
   return (
-    <div className="min-h-screen bg-[#030303] p-4 text-white" aria-busy="true" aria-label="Loading menu">
+    <div className="min-h-screen bg-[var(--ob-bg,#080706)] p-4 text-[#FFF8F0]" aria-busy="true" aria-label="Loading menu">
       <Skeleton className="mb-4 h-12 w-full rounded-2xl ob-shimmer" />
       <div className="mb-6 flex gap-2 overflow-hidden">
         <Skeleton className="h-9 w-24 shrink-0 rounded-full ob-shimmer" />
@@ -97,10 +98,7 @@ export function AppRouter() {
 
   useEffect(() => {
     if (isNativePlatform()) {
-      import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
-        StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-        StatusBar.setBackgroundColor({ color: '#050403' }).catch(() => {});
-      }).catch(() => {});
+      void applyStatusBarTheme(resolveEffectiveTheme(getStoredTheme()));
 
       import('@capacitor/splash-screen').then(({ SplashScreen }) => {
         // App shell is mounted and React has painted the initial DOM.

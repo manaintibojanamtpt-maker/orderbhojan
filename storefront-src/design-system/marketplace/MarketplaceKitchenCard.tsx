@@ -26,12 +26,12 @@ const badgeStyles: Record<string, string> = {
   closest: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
   fast_delivery: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
   highly_rated: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  within_delivery_radius: 'bg-[#e85d04]/15 text-[#e85d04] border-[#e85d04]/30',
-  offer: 'bg-[#e85d04]/15 text-[#e85d04] border-[#e85d04]/30',
-  closed: 'bg-red-500/15 text-red-300 border-red-500/30',
-  kitchen_format: 'bg-white/10 text-white/80 border-white/15',
+  within_delivery_radius: 'bg-[#E8720C]/15 text-[#E8720C] border-[#E8720C]/30',
+  offer: 'bg-[#E8720C]/15 text-[#E8720C] border-[#E8720C]/30',
+  closed: 'bg-[#F87171]/15 text-[#F87171] border-[#F87171]/30',
+  kitchen_format: 'bg-[var(--ob-surface-strong)] text-[var(--ob-text-secondary)] border-[var(--ob-border)]',
   pure_veg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  non_veg: 'bg-red-500/15 text-red-300 border-red-500/30',
+  non_veg: 'bg-[#F87171]/15 text-[#F87171] border-[#F87171]/30',
 };
 
 function KitchenThumbnail({
@@ -59,7 +59,7 @@ function KitchenThumbnail({
   }
 
   return (
-    <div className={`flex items-center justify-center text-xs text-white/40 ${className ?? ''}`}>
+    <div className={`flex items-center justify-center text-xs text-[var(--ob-text-secondary)]/70 ${className ?? ''}`}>
       Kitchen
     </div>
   );
@@ -70,7 +70,7 @@ function KitchenMetadata({ kitchen }: { kitchen: MarketplaceKitchenCard }) {
   const showDistance = isDisplayableDistanceKm(distanceKm);
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[#c4b5a5]">
+    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[var(--ob-text-secondary)]">
       {showDistance ? (
         <span className="inline-flex items-center gap-1">
           <MapPin className="h-3.5 w-3.5" />
@@ -108,7 +108,7 @@ function KitchenBadges({ kitchen }: { kitchen: MarketplaceKitchenCard }) {
         <span
           key={`${badge.id}-${badge.label}`}
           className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-            badgeStyles[badge.id] ?? 'border-white/10 text-white/70'
+            badgeStyles[badge.id] ?? 'border-[var(--ob-border)] text-[var(--ob-text-secondary)]'
           }`}
         >
           {badge.label}
@@ -138,9 +138,9 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
       <Link
         to={kitchen.storePath}
         state={linkState}
-        className={`group flex items-center gap-3 py-3 transition active:bg-white/[0.03] active:scale-[0.98] touch-manipulation ${className}`}
+        className={`group flex items-center gap-3 py-3 transition active:bg-[var(--ob-surface-strong)] active:scale-[0.98] touch-manipulation ${className}`}
       >
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white/5">
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--ob-surface-strong)]">
           <KitchenThumbnail
             kitchen={kitchen}
             imageLoading={imageLoading}
@@ -149,10 +149,10 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
         </div>
 
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-bold text-[#fff8f0] group-hover:text-[#f4a261]">
+          <h3 className="truncate text-[15px] font-bold text-[var(--ob-text-primary)] group-hover:text-[#f4a261]">
             {kitchen.name}
           </h3>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12px] text-[#c4b5a5]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12px] text-[var(--ob-text-secondary)]">
             {kitchen.rating !== undefined ? (
               <span className="inline-flex items-center gap-0.5">
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden />
@@ -162,14 +162,14 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
             {kitchen.rating !== undefined && etaLabel ? <span aria-hidden>·</span> : null}
             {etaLabel ? <span>{etaLabel}</span> : null}
           </div>
-          <p className="mt-0.5 line-clamp-1 text-[12px] text-white/45">
+          <p className="mt-0.5 line-clamp-1 text-[12px] text-[var(--ob-text-secondary)]/80">
             {kitchen.cuisineTags?.join(' · ') || kitchen.eligibilityLabel}
           </p>
         </div>
 
         <div className="flex max-w-[40%] shrink-0 items-center justify-end gap-1.5 sm:max-w-none sm:gap-2">
           {offerBadge ? (
-            <span className="max-w-[4.5rem] truncate rounded-md bg-[#e85d04] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            <span className="max-w-[4.5rem] truncate rounded-md bg-[#E8720C] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
               {offerBadge.label}
             </span>
           ) : null}
@@ -179,7 +179,7 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
             </span>
           ) : null}
           {favoriteSlot ? <span className="hidden min-[360px]:inline-flex">{favoriteSlot}</span> : null}
-          <ChevronRight className="h-4 w-4 shrink-0 text-white/30 group-hover:text-[#f4a261]" aria-hidden />
+          <ChevronRight className="h-4 w-4 shrink-0 text-[var(--ob-text-secondary)]/60 group-hover:text-[#f4a261]" aria-hidden />
         </div>
       </Link>
     );
@@ -190,9 +190,9 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
       <Link
         to={kitchen.storePath}
         state={linkState}
-        className={`group block overflow-hidden rounded-2xl border border-[color:var(--mib-border,white/10)] bg-[#120d0c] transition hover:border-[#e85d04]/40 hover:bg-[#120d0c]/90 hover:shadow-[0_24px_56px_rgba(0,0,0,0.45)] active:scale-[0.98] touch-manipulation ${className}`}
+        className={`group block overflow-hidden rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)] transition hover:border-[#E8720C]/40 hover:bg-[var(--ob-surface)]/90 hover:shadow-[0_24px_56px_rgba(0,0,0,0.45)] active:scale-[0.98] touch-manipulation ${className}`}
       >
-        <div className="relative h-48 overflow-hidden bg-white/5">
+        <div className="relative h-48 overflow-hidden bg-[var(--ob-surface-strong)]">
           <KitchenThumbnail
             kitchen={kitchen}
             imageLoading={imageLoading}
@@ -200,17 +200,17 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
           {favoriteSlot ? <div className="absolute right-3 top-3 z-10">{favoriteSlot}</div> : null}
-          <span className="absolute left-3 top-3 rounded-full border border-[#e85d04]/30 bg-[#e85d04]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#e85d04]">
+          <span className="absolute left-3 top-3 rounded-full border border-[#E8720C]/30 bg-[#E8720C]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#E8720C]">
             {spotlightEyebrow}
           </span>
         </div>
         <div className="p-5">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#e85d04]/80">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#E8720C]/80">
             {kitchen.eligibilityLabel}
           </p>
-          <h3 className="mt-1 line-clamp-2 text-xl font-bold text-[#fff8f0] group-hover:text-[#e85d04]">{kitchen.name}</h3>
+          <h3 className="mt-1 line-clamp-2 text-xl font-bold text-[var(--ob-text-primary)] group-hover:text-[#E8720C]">{kitchen.name}</h3>
           {kitchen.cuisineTags?.length ? (
-            <p className="mt-1 text-sm text-white/60">{kitchen.cuisineTags.join(' · ')}</p>
+            <p className="mt-1 text-sm text-[var(--ob-text-secondary)]">{kitchen.cuisineTags.join(' · ')}</p>
           ) : null}
           <KitchenMetadata kitchen={kitchen} />
           <KitchenBadges kitchen={kitchen} />
@@ -223,10 +223,10 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
     <Link
       to={kitchen.storePath}
       state={linkState}
-      className={`group block h-full min-w-0 rounded-2xl border border-[color:var(--mib-border,white/10)] bg-[#120d0c] p-4 transition hover:border-[#e85d04]/40 hover:bg-[#120d0c]/90 hover:shadow-[0_16px_48px_rgba(0,0,0,0.38)] active:scale-[0.98] touch-manipulation ${className}`}
+      className={`group block h-full min-w-0 rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)] p-4 transition hover:border-[#E8720C]/40 hover:bg-[var(--ob-surface)]/90 hover:shadow-[0_16px_48px_rgba(0,0,0,0.38)] active:scale-[0.98] touch-manipulation ${className}`}
     >
       <div className="flex gap-4">
-        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-white/5">
+        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-[var(--ob-surface-strong)]">
           <KitchenThumbnail
             kitchen={kitchen}
             imageLoading={imageLoading}
@@ -238,14 +238,14 @@ export const MarketplaceKitchenCardView: React.FC<MarketplaceKitchenCardViewProp
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-base font-bold text-[#fff8f0] group-hover:text-[#e85d04]">
+              <h3 className="truncate text-base font-bold text-[var(--ob-text-primary)] group-hover:text-[#E8720C]">
                 {kitchen.name}
               </h3>
-              <p className="mt-0.5 text-xs text-[#c4b5a5]">
+              <p className="mt-0.5 text-xs text-[var(--ob-text-secondary)]">
                 {kitchen.cuisineTags?.join(' · ') || kitchen.eligibilityLabel}
               </p>
             </div>
-            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-white/30 group-hover:text-[#e85d04]" />
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ob-text-secondary)]/60 group-hover:text-[#E8720C]" />
           </div>
 
           <KitchenMetadata kitchen={kitchen} />

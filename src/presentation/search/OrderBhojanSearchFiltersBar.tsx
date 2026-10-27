@@ -6,7 +6,7 @@ import { SoftButton } from '@bhojan/storefront-design-system/primitives/SoftButt
 
 const chipClass = (active: boolean) =>
   active
-    ? 'border-[#FF7A00]/50 bg-[#FF7A00]/15 text-[#FF7A00]'
+    ? 'border-[#E8720C]/50 bg-[#E8720C]/15 text-[#E8720C]'
     : 'border-white/10 bg-white/5 text-white/70 hover:border-white/20';
 
 export function OrderBhojanSearchFiltersBar() {

@@ -45,10 +45,10 @@ export function OrderBhojanRestaurantHero({
         } ${enterFromPoster && !collapsed ? 'origin-top scale-[1.02]' : ''}`}
       >
         <div
-          className="h-full w-full bg-gradient-to-br from-[#120d0c] via-[#0a0706] to-[#050403]"
+          className="h-full w-full bg-gradient-to-br from-[#13100D] via-[#0a0706] to-[#080706]"
           aria-hidden
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050403] via-[#050403]/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#080706] via-[#080706]/40 to-transparent" />
 
         <div className="absolute left-4 right-4 top-[max(1rem,env(safe-area-inset-top))] flex justify-end">
           <OrderBhojanRestaurantActions
@@ -60,7 +60,7 @@ export function OrderBhojanRestaurantHero({
 
         <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
           {primaryOfferLabel ? (
-            <span className={`${pillClass} border-[#e85d04]/40 text-[#e85d04]`}>
+            <span className={`${pillClass} border-[#E8720C]/40 text-[#E8720C]`}>
               {primaryOfferLabel}
             </span>
           ) : null}
@@ -85,7 +85,7 @@ export function OrderBhojanRestaurantHero({
             />
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#e85d04]/25 bg-[#e85d04]/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#fff8f0]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#E8720C]/25 bg-[#E8720C]/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#FFF8F0]">
                   <Sparkles className="h-3 w-3" aria-hidden />
                   {kitchenFormatLabel(experience.kitchenFormat)}
                 </span>
@@ -96,11 +96,11 @@ export function OrderBhojanRestaurantHero({
                   </span>
                 ) : null}
               </div>
-              <h1 className="text-xl font-black leading-tight tracking-tight text-[#fff8f0] sm:text-2xl">
+              <h1 className="text-xl font-black leading-tight tracking-tight text-[#FFF8F0] sm:text-2xl">
                 {experience.displayName}
               </h1>
               {experience.description ? (
-                <p className="mt-1 line-clamp-2 text-xs font-medium text-[#c4b5a5] sm:text-sm">
+                <p className="mt-1 line-clamp-2 text-xs font-medium text-[#A89B8C] sm:text-sm">
                   {experience.description}
                 </p>
               ) : null}

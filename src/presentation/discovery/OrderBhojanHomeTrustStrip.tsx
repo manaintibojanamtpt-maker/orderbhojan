@@ -17,12 +17,12 @@ export function OrderBhojanHomeTrustStrip({
 
   return (
     <div
-      className="flex items-center gap-3 rounded-2xl border border-[var(--mib-border)] bg-gradient-to-r from-[#120d0c] to-[#1a1412] px-4 py-3.5 shadow-[var(--mib-shadow-card)]"
+      className="flex items-center gap-3 rounded-2xl border border-[var(--mib-border)] bg-gradient-to-r from-[#13100D] to-[#1C1712] px-4 py-3.5 shadow-[var(--mib-shadow-card)]"
       role="region"
       aria-label="Why order from home kitchens"
       data-testid="home-trust-strip"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e85d04]/15">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8720C]/15">
         {freeDeliveryThreshold ? (
           <ShieldCheck className="h-5 w-5 text-[#f4a261]" aria-hidden />
         ) : (
@@ -30,8 +30,8 @@ export function OrderBhojanHomeTrustStrip({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-bold leading-tight text-[#fff8f0]">Cooked in trusted kitchens</p>
-        <p className="mt-0.5 text-[12px] leading-snug text-[#c4b5a5]">
+        <p className="text-[15px] font-bold leading-tight text-[#FFF8F0]">Cooked in trusted kitchens</p>
+        <p className="mt-0.5 text-[12px] leading-snug text-[#A89B8C]">
           {subtitleText}
         </p>
       </div>

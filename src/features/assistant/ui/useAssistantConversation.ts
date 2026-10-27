@@ -1118,6 +1118,11 @@ const usePostOrderPath =
           lang: voiceLanguage,
           agentMode,
           ac,
+          restaurantId: restaurantId || undefined,
+          restaurantSlug: restaurantSlug || undefined,
+          restaurantContext: {
+            cartItems: cartLines.map((l) => ({ name: l.name || l.foodId })),
+          },
           onInterim: (partial) => {
             if (sheetOpenRef.current) {
               setInterimTranscript(partial);
@@ -1391,7 +1396,8 @@ const usePostOrderPath =
             setVoiceTurnPhase('idle');
           }
         }
-        return;
+        // Do NOT return here — let the session enter the while loop so the user can continue naturally!
+        await new Promise((r) => setTimeout(r, 350));
       }
 
       if (options?.playGreetingFirst) {
@@ -1423,7 +1429,7 @@ const usePostOrderPath =
       }
       if (outcome === 'timeout') {
         emptyListenStreak += 1;
-        if (emptyListenStreak >= 2) {
+        if (emptyListenStreak >= 4) {
           const nudge =
             voiceLanguage.toLowerCase().startsWith('te')
               ? 'మీ మాట వినిపించలేదు. మళ్లీ AI బటన్ నొక్కి స్పష్టంగా చెప్పండి.'

@@ -154,21 +154,21 @@ export function ConsumerAssistantSheet({
 
   return (
     <div
-      className="fixed inset-x-3 z-[88] mx-auto flex max-h-[min(68dvh,540px)] w-full max-w-md flex-col overflow-hidden rounded-[1.25rem] border border-white/10 bg-[#120D0A]/96 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)] backdrop-blur-md"
+      className="fixed inset-x-3 z-[88] mx-auto flex max-h-[min(68dvh,540px)] w-full max-w-md flex-col overflow-hidden rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)]/96 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)] backdrop-blur-md"
       style={{ bottom: 'calc(118px + var(--ob-safe-bottom, 0px))' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="consumer-assistant-title"
       data-testid="consumer-assistant-sheet"
     >
-      <header className="flex shrink-0 items-start justify-between border-b border-white/10 px-4 py-3">
+      <header className="flex shrink-0 items-start justify-between border-b border-[var(--ob-border)] px-4 py-3">
         <div className="flex items-center gap-3 w-full max-w-[80%]">
           {speaking ? (
-            <div className="flex h-10 w-10 animate-pulse items-center justify-center rounded-full bg-[#FF7A00]/20 text-[#FF7A00]">
+            <div className="flex h-10 w-10 animate-pulse items-center justify-center rounded-full bg-[#E8720C]/20 text-[#E8720C]">
               <Mic className="h-5 w-5" />
             </div>
           ) : listening ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF7A00] text-white shadow-[0_0_12px_rgba(255,122,0,0.5)]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E8720C] text-white shadow-[0_0_12px_rgba(255,122,0,0.5)]">
               <Mic className="h-5 w-5" />
             </div>
           ) : (
@@ -178,7 +178,7 @@ export function ConsumerAssistantSheet({
           )}
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 id="consumer-assistant-title" className="text-sm font-semibold text-[#fffaf3] whitespace-nowrap">
+              <h2 id="consumer-assistant-title" className="text-sm font-semibold text-[var(--ob-text-primary)] whitespace-nowrap">
                 {isPostOrder ? 'Support Assistant' : 'OrderBhojan Voice Agent'}
               </h2>
               {voiceEnabled && (
@@ -188,7 +188,7 @@ export function ConsumerAssistantSheet({
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#d0c4b5] truncate mt-0.5">
+            <p className="text-xs text-[var(--ob-text-secondary)] truncate mt-0.5">
               {isPostOrder
                 ? 'Order support & help'
                 : voiceAgentActive
@@ -200,7 +200,7 @@ export function ConsumerAssistantSheet({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg px-2 py-1 text-xs text-[#d0c4b5] hover:bg-white/5 hover:text-white shrink-0 ml-2"
+          className="rounded-lg px-2 py-1 text-xs text-[var(--ob-text-secondary)] hover:bg-white/5 hover:text-[var(--ob-text-primary)] shrink-0 ml-2"
         >
           Close
         </button>
@@ -246,7 +246,7 @@ export function ConsumerAssistantSheet({
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && !loading && (
           <div className="space-y-3">
-            <p className="text-sm text-[#d0c4b5]">
+            <p className="text-sm text-[var(--ob-text-secondary)]">
               {isPostOrder
                 ? 'Ask about tracking, delivery, reorder shortcuts, or cancel/refund/payment issues. This chat guides and escalates — it never cancels, refunds, or promises outcomes.'
                 : 'Tell me what you would like to eat in Telugu, Hindi, or English — I will find it and prepare your cart.'}
@@ -258,7 +258,7 @@ export function ConsumerAssistantSheet({
                   if (voiceAgentActive) onStopVoiceAgent?.();
                   else onStartVoiceAgent();
                 }}
-                className="w-full rounded-xl bg-gradient-to-r from-[#FF7A00] to-[#E05A00] px-3 py-2.5 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(255,122,0,0.35)] hover:opacity-95 transition"
+                className="w-full rounded-xl bg-gradient-to-r from-[#FA7A1E] to-[#E8720C] px-3.5 py-3 text-sm font-semibold text-white shadow-sm hover:brightness-105 active:scale-[0.99] transition touch-manipulation flex items-center justify-center gap-2"
                 data-testid="consumer-assistant-live-voice"
               >
                 {voiceAgentActive ? 'Stop live voice' : 'Tap to speak & order'}
@@ -269,7 +269,7 @@ export function ConsumerAssistantSheet({
                 <button
                   key={starter}
                   type="button"
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-left text-xs text-[#fffaf3] transition hover:border-[#FF7A00]/40"
+                  className="rounded-full border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 py-1.5 text-left text-xs text-[var(--ob-text-primary)] transition hover:border-[#E8720C]/40"
                   onClick={() => void onSend(starter)}
                 >
                   {starter}
@@ -293,16 +293,16 @@ export function ConsumerAssistantSheet({
             <div
               className={
                 msg.role === 'user'
-                  ? 'max-w-[85%] rounded-2xl rounded-br-md bg-[#FF7A00] px-3 py-2 text-sm text-black'
+                  ? 'max-w-[85%] rounded-2xl rounded-br-md bg-[#E8720C] px-3 py-2 text-sm text-black'
                   : msg.role === 'system'
-                    ? 'max-w-[95%] rounded-xl border border-[#FF7A00]/25 bg-[#FF7A00]/10 px-3 py-2 text-xs text-[#ffe0c2]'
-                    : 'max-w-[90%] rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-[#fffaf3]'
+                    ? 'max-w-[95%] rounded-xl border border-[#E8720C]/25 bg-[#E8720C]/10 px-3 py-2 text-xs text-[#F4A05C]'
+                    : 'max-w-[90%] rounded-2xl rounded-bl-md border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 py-2 text-sm text-[var(--ob-text-primary)]'
               }
             >
               <p className="whitespace-pre-wrap">{msg.text}</p>
 
               {msg.cartActions && msg.cartActions.length > 0 ? (
-                <ul className="mt-2 space-y-1 border-t border-white/10 pt-2 text-[11px] text-[#d0c4b5]">
+                <ul className="mt-2 space-y-1 border-t border-[var(--ob-border)] pt-2 text-[11px] text-[var(--ob-text-secondary)]">
                   {msg.cartActions.map((action, idx) => (
                     <li key={`${action.type}-${idx}`}>
                       {action.type.replace(/_/g, ' ')}
@@ -321,7 +321,7 @@ export function ConsumerAssistantSheet({
                     <button
                       key={`${hint.type}-${hint.target ?? ''}-${idx}`}
                       type="button"
-                      className="rounded-full border border-[#FF7A00]/40 bg-[#FF7A00]/15 px-2.5 py-1 text-[11px] text-[#ffe0c2]"
+                      className="rounded-full border border-[#E8720C]/40 bg-[#E8720C]/15 px-2.5 py-1 text-[11px] text-[#F4A05C]"
                       onClick={() => onFollowHint(hint)}
                     >
                       {hint.type === 'navigate' && hint.target === '/profile'
@@ -346,8 +346,8 @@ export function ConsumerAssistantSheet({
         ))}
 
         {interimTranscript && (
-          <div className="flex items-center gap-2 rounded-xl border border-[#FF7A00]/30 bg-[#FF7A00]/10 px-3 py-2 text-xs text-[#ffe0c2] animate-pulse">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#FF7A00]" />
+          <div className="flex items-center gap-2 rounded-xl border border-[#E8720C]/30 bg-[#E8720C]/10 px-3 py-2 text-xs text-[#F4A05C] animate-pulse">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#E8720C]" />
             <span className="italic truncate">“{interimTranscript}”</span>
           </div>
         )}
@@ -357,9 +357,9 @@ export function ConsumerAssistantSheet({
             {statusPhase === 'listening' ? (
               <div className="flex items-center gap-2">
                 <span className="flex h-3 items-center gap-0.5" aria-hidden>
-                  <span className="h-2 w-0.5 animate-pulse rounded-full bg-[#FF7A00]" />
-                  <span className="h-4 w-0.5 animate-bounce rounded-full bg-[#FF7A00]" />
-                  <span className="h-3 w-0.5 animate-pulse rounded-full bg-[#FF7A00]" />
+                  <span className="h-2 w-0.5 animate-pulse rounded-full bg-[#E8720C]" />
+                  <span className="h-4 w-0.5 animate-bounce rounded-full bg-[#E8720C]" />
+                  <span className="h-3 w-0.5 animate-pulse rounded-full bg-[#E8720C]" />
                 </span>
                 <span className="font-medium text-[#FFA043]">
                   {pendingValidation?.status === 'validated' && pendingValidation.valid
@@ -398,7 +398,7 @@ export function ConsumerAssistantSheet({
         {error && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200" role="alert">
             <p>{error}</p>
-            <button type="button" className="mt-1 text-[#FF7A00] underline" onClick={onClearError}>
+            <button type="button" className="mt-1 text-[#E8720C] underline" onClick={onClearError}>
               Dismiss
             </button>
           </div>
@@ -407,7 +407,7 @@ export function ConsumerAssistantSheet({
 
       {pendingValidation ? (
         <div
-          className="border-t border-white/10 px-4 py-3"
+          className="border-t border-[var(--ob-border)] px-4 py-3"
           data-testid="consumer-assistant-cart-confirm"
         >
           <div className="flex items-center justify-between mb-2">
@@ -417,14 +417,14 @@ export function ConsumerAssistantSheet({
                 ? 'Order plan ready for confirmation'
                 : 'Validating cart plan…'}
             </span>
-            <span className="text-[10px] text-[#d0c4b5]">Say “confirm” or tap below</span>
+            <span className="text-[10px] text-[var(--ob-text-secondary)]">Say “confirm” or tap below</span>
           </div>
           {(() => {
             const lines = summarizePendingCartPlan(pendingValidation);
             if (lines.length === 0) return null;
             return (
               <div
-                className="mb-2 rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-[12px] text-[#fffaf3]"
+                className="mb-2 rounded-lg border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-3 py-2 text-[12px] text-[var(--ob-text-primary)]"
                 data-testid="consumer-assistant-plan-summary"
               >
                 {lines.map((line, idx) => (
@@ -433,10 +433,10 @@ export function ConsumerAssistantSheet({
                       {line.quantity}× {line.dish}
                     </span>
                     {line.kitchen ? (
-                      <span className="text-[#d0c4b5]"> · {line.kitchen}</span>
+                      <span className="text-[var(--ob-text-secondary)]"> · {line.kitchen}</span>
                     ) : null}
                     {line.modifiers ? (
-                      <span className="text-[#d0c4b5]"> · {line.modifiers}</span>
+                      <span className="text-[var(--ob-text-secondary)]"> · {line.modifiers}</span>
                     ) : null}
                   </p>
                 ))}
@@ -458,7 +458,7 @@ export function ConsumerAssistantSheet({
                 if (uniqueDetail.length === 0) return null;
                 return (
                   <ul
-                    className="mb-2 list-disc space-y-1 pl-4 text-[11px] text-[#ffe0c2]"
+                    className="mb-2 list-disc space-y-1 pl-4 text-[11px] text-[#F4A05C]"
                     data-testid="consumer-assistant-clarifications"
                   >
                     <li>{uniqueDetail[0]}</li>
@@ -471,36 +471,35 @@ export function ConsumerAssistantSheet({
               type="button"
               disabled={!canConfirm}
               onClick={() => void onConfirmPlan()}
-              className="flex-1 rounded-xl bg-gradient-to-r from-[#ff6b35] to-[#ff9f1c] px-3 py-2.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex-1 rounded-xl bg-gradient-to-r from-[#f4a05c] to-[#E8720C] px-3 py-2.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
             >
               {applying ? 'Applying…' : 'Confirm & add to cart'}
             </button>
             <button
               type="button"
               onClick={onDismissPlan}
-              className="rounded-xl border border-white/15 px-3 py-2.5 text-sm text-[#d0c4b5]"
+              className="rounded-xl border border-[var(--ob-border)] px-3 py-2.5 text-sm text-[var(--ob-text-secondary)]"
             >
               Discard
             </button>
           </div>
           {!canConfirm && pendingValidation.status !== 'validated' ? (
-            <p className="mt-2 text-[11px] text-[#d0c4b5]">
+            <p className="mt-2 text-[11px] text-[var(--ob-text-secondary)]">
               Confirm stays disabled until the plan is validated. Reply with the exact item if asked.
             </p>
           ) : null}
         </div>
       ) : null}
 
-      <footer className="border-t border-white/10 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+<footer className="border-t border-[var(--ob-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
         {listening || speaking ? (
-          <div className="mb-2 flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-3 py-1">
-            <span className="text-[11px] font-medium text-[#d0c4b5]">
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-3 py-1">
+            <span className="text-[11px] font-medium text-[var(--ob-text-muted)]">
               {listening ? 'Listening to speech…' : 'OrderBhojan speaking…'}
             </span>
             <AudioReactiveWaveform isActive={true} mode={listening ? 'listening' : 'speaking'} />
           </div>
         ) : null}
-
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}
@@ -521,7 +520,7 @@ export function ConsumerAssistantSheet({
                 : 'Ask OrderBhojan…'
             }
             disabled={loading || listening}
-            className="max-h-28 min-h-[48px] flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-[#fffaf3] placeholder:text-[#8a7f72] focus:border-[#FF7A00]/50 focus:outline-none"
+className="max-h-28 min-h-[48px] flex-1 resize-none rounded-xl border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-3 py-2.5 text-sm text-[var(--ob-text-primary)] placeholder:text-[var(--ob-text-muted)] focus:border-[#E8720C]/50 focus:outline-none"
           />
           {showMic ? (
             <button
@@ -541,8 +540,8 @@ export function ConsumerAssistantSheet({
               data-testid="consumer-assistant-mic"
               className={
                 listening
-                  ? 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-red-400/40 bg-red-500/20 px-3 text-red-200'
-                  : 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-white/15 bg-white/[0.04] px-3 text-[#FF7A00] disabled:opacity-40 hover:bg-white/10 transition'
+? 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-red-400/40 bg-red-500/20 px-3 text-red-200'
+                  : 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 text-[#E8720C] disabled:opacity-40 hover:bg-[var(--ob-surface-strong)] transition'
               }
             >
               {listening ? <Square size={18} fill="currentColor" /> : <Mic size={18} />}
@@ -555,13 +554,13 @@ export function ConsumerAssistantSheet({
               submit();
             }}
             disabled={loading || listening || !draft.trim()}
-            className="shrink-0 flex items-center justify-center min-h-[48px] rounded-xl bg-[#FF7A00] px-4 text-sm font-semibold text-black disabled:opacity-40 hover:opacity-95 transition"
+className="shrink-0 flex items-center justify-center min-h-[48px] rounded-xl bg-[#E8720C] px-4 text-sm font-semibold text-white disabled:opacity-40 hover:opacity-95 transition"
           >
             Send
           </button>
         </div>
         {showMic ? (
-          <p className="mt-2 text-[11px] text-[#8a7f72]">
+          <p className="mt-2 text-[11px] text-[var(--ob-text-muted)]">
             {voiceAgentActive
               ? 'Listening continuously in Telugu, Hindi, or English. Say “confirm” anytime to add to cart, or “stop” to pause.'
               : 'Speak or type in Telugu, Hindi, or English. Confirm anytime to add items to your cart.'}

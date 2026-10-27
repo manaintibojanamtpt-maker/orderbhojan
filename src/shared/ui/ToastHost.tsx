@@ -38,7 +38,7 @@ export function ToastHost({
 export function LoadingSpinner({ label }: { readonly label: string }) {
   return (
     <div className="flex flex-col items-center gap-3 text-white/70" role="status" aria-live="polite">
-      <Loader2 className="h-8 w-8 animate-spin text-[#FF7A00] motion-reduce:animate-none" aria-hidden />
+      <Loader2 className="h-8 w-8 animate-spin text-[#E8720C] motion-reduce:animate-none" aria-hidden />
       <span className="text-sm">{label}</span>
     </div>
   );

@@ -229,7 +229,7 @@ export function UpiPaymentPendingView({
       embedded
     >
       <div className="mx-auto max-w-lg space-y-3 pb-[180px]">
-        <div className="rounded-2xl border border-white/10 bg-[#120d0c] p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.35)]">
+        <div className="rounded-2xl border border-white/10 bg-[#13100D] p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.35)]">
           <OrderBhojanOrderTrustPanel
             orderNumber={orderNumber}
             orderId={orderId}
@@ -240,7 +240,7 @@ export function UpiPaymentPendingView({
           />
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#120d0c] p-3.5 space-y-2">
+        <div className="rounded-2xl border border-white/10 bg-[#13100D] p-3.5 space-y-2">
           <p className="text-sm font-semibold text-white/90">Pay {formatAmount(amount)}</p>
           <p className="text-xs leading-relaxed text-white/55">
             Opening GPay / PhonePe only starts the payment. The kitchen confirms UPI in their bank
@@ -319,13 +319,13 @@ export function UpiPaymentPendingView({
         ) : null}
 
         {autoLaunching ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-white/5 bg-[#120d0c]/40 p-6 backdrop-blur-sm">
+          <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-white/5 bg-[#13100D]/40 p-6 backdrop-blur-sm">
             <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             <p className="text-center font-medium text-white/90">Opening your UPI app...</p>
             <p className="mt-2 text-center text-xs text-white/50">Please do not press back</p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/5 bg-[#120d0c]/40 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/5 bg-[#13100D]/40 backdrop-blur-sm">
             {!mobile && !showQr && (
               <div className="border-b border-white/5 p-6 text-center">
                 <p className="text-sm text-white/70">
@@ -411,7 +411,7 @@ export function UpiPaymentPendingView({
         )}
 
         {onNotifyKitchen ? (
-          <div className="rounded-2xl border border-white/10 bg-[#120d0c] p-3.5 space-y-2.5">
+          <div className="rounded-2xl border border-white/10 bg-[#13100D] p-3.5 space-y-2.5">
             <p className="text-sm font-semibold text-white/90">Already paid?</p>
             <label className="block text-xs text-white/55" htmlFor={`upi-ref-${orderId}`}>
               UPI transaction ID (optional)

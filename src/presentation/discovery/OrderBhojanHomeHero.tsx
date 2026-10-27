@@ -110,7 +110,7 @@ export function OrderBhojanHomeHero() {
   if (!heroReady) {
     return (
       <section
-        className="bg-[#050403] px-4 pt-3 sm:px-6"
+        className="bg-[var(--ob-bg,#0E0C0A)] px-4 pt-3 sm:px-6"
         aria-busy="true"
         aria-label="Loading home"
       >

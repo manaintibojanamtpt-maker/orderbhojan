@@ -24,7 +24,7 @@ export const MarketplaceHomeStates: React.FC<MarketplaceHomeStatesProps> = ({
   if (view.status === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-20 text-white/70">
-        <Loader2 className="h-8 w-8 animate-spin text-[#FF7A00]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#E8720C]" />
         <p className="text-sm">Finding nearby kitchens…</p>
       </div>
     );
@@ -46,9 +46,9 @@ export const MarketplaceHomeStates: React.FC<MarketplaceHomeStatesProps> = ({
           : 'Discover kitchens and restaurants near you.';
 
     return (
-      <div className="mx-auto max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#FF7A00]/15">
-          <MapPin className="h-6 w-6 text-[#FF7A00]" />
+      <div className="mx-auto max-w-lg rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-6 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#E8720C]/15">
+          <MapPin className="h-6 w-6 text-[#E8720C]" />
         </div>
         <h2 className="text-lg font-semibold text-white">{title}</h2>
         <p className="mt-2 text-sm text-white/60">{description}</p>
@@ -57,7 +57,7 @@ export const MarketplaceHomeStates: React.FC<MarketplaceHomeStatesProps> = ({
           type="button"
           onClick={onDetectLocation}
           disabled={detecting}
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#FF7A00] px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[#ff8f2b] disabled:opacity-60"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#E8720C] px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[#ff8f2b] disabled:opacity-60"
         >
           {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
           Use my location
@@ -79,13 +79,13 @@ export const MarketplaceHomeStates: React.FC<MarketplaceHomeStatesProps> = ({
               value={manualAddress}
               onChange={(event) => setManualAddress(event.target.value)}
               placeholder="Enter area, city, or pincode"
-              className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-[#FF7A00]/50 focus:outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-[#E8720C]/50 focus:outline-none"
             />
           </div>
           <button
             type="submit"
             disabled={manualSubmitting || !manualAddress.trim()}
-            className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white hover:border-[#FF7A00]/40 disabled:opacity-50"
+            className="rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white hover:border-[#E8720C]/40 disabled:opacity-50"
           >
             {manualSubmitting ? '…' : 'Set'}
           </button>
@@ -105,7 +105,7 @@ export const MarketplaceHomeStates: React.FC<MarketplaceHomeStatesProps> = ({
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm text-white hover:border-[#FF7A00]/40"
+          className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm text-white hover:border-[#E8720C]/40"
         >
           <RefreshCw className="h-4 w-4" />
           Retry

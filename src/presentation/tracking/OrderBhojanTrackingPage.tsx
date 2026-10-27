@@ -19,6 +19,8 @@ import { useNativeTrackHandoff } from '@/features/nativeTrack/useNativeTrackHand
 import { useOrderTracking } from '@/features/tracking/hooks/useOrderTracking';
 import { useReorderFromTracking } from '@/features/tracking/hooks/useReorderFromTracking';
 import { normalizeTrackingStatus } from '@/features/tracking/utils/trackingSteps';
+import { isAsapSlot, getScheduledForTimestamp } from '@/features/checkout/domain/deliveryTimeSlots';
+import { readOrderDeliveryPreference } from '@/features/checkout/hooks/useCheckoutFlow';
 import {
   mapTrackingDelivery,
   mapTrackingHero,
@@ -56,22 +58,50 @@ export function OrderBhojanTrackingPage() {
   const scheduledForLabel = useMemo(() => {
     const tracking = trackingQuery.data;
     if (!tracking) return null;
-    const scheduledFor = (tracking as unknown as { readonly scheduledFor?: string }).scheduledFor;
-    if (!scheduledFor) return null;
-    try {
-      const d = new Date(scheduledFor);
-      if (Number.isNaN(d.getTime())) return null;
-      return d.toLocaleString('en-IN', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return null;
+
+    // Primary: API-provided scheduled time
+    if (tracking.scheduledFor) {
+      try {
+        const d = new Date(tracking.scheduledFor);
+        if (!Number.isNaN(d.getTime())) {
+          return d.toLocaleString('en-IN', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        }
+      } catch {
+        // fall through
+      }
     }
-  }, [trackingQuery.data]);
+
+    // Fallback: read persisted delivery slot from checkout
+    if (orderId) {
+      const savedSlot = readOrderDeliveryPreference(orderId);
+      if (savedSlot && !isAsapSlot(savedSlot)) {
+        const scheduledFor = getScheduledForTimestamp(savedSlot);
+        if (scheduledFor) {
+          try {
+            const d = new Date(scheduledFor);
+            if (!Number.isNaN(d.getTime())) {
+              return d.toLocaleString('en-IN', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+            }
+          } catch {
+            // fall through
+          }
+        }
+      }
+    }
+    return null;
+  }, [trackingQuery.data, orderId]);
 
   const tracking = trackingQuery.data;
 

@@ -1,3 +1,4 @@
+import { getStoredTheme, resolveEffectiveTheme } from '@/features/theme/themeService';
 import { Capacitor } from '@capacitor/core';
 
 import { isNativePlatform } from './nativePlatform';
@@ -11,7 +12,7 @@ declare global {
   }
 }
 
-const ANDROID_STATUS_BAR_FALLBACK_PX = 28;
+const ANDROID_STATUS_BAR_FALLBACK_PX = 38;
 const ANDROID_GESTURE_BAR_FALLBACK_PX = 48;
 const IOS_STATUS_BAR_FALLBACK_PX = 47;
 
@@ -89,8 +90,9 @@ export async function bootstrapCapacitorNative(): Promise<void> {
     ]);
 
     try {
-      await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#070504' });
+      const effective = resolveEffectiveTheme(getStoredTheme());
+      await StatusBar.setStyle({ style: effective === 'light' ? Style.Light : Style.Dark });
+      await StatusBar.setBackgroundColor({ color: effective === 'light' ? '#FAF7F2' : '#070504' });
       await StatusBar.setOverlaysWebView({ overlay: true });
     } catch {
       // iOS ignores backgroundColor / overlay on some versions.
@@ -101,7 +103,31 @@ export async function bootstrapCapacitorNative(): Promise<void> {
     window.addEventListener('orientationchange', applyNativeSafeAreaInsets);
 
     try {
-      // Splash screen is intentionally NOT hidden here.
+      const { Keyboard } = await import('@capacitor/keyboard');
+      await Keyboard.addListener('keyboardWillShow', () => {
+        document.documentElement.classList.add('ob-keyboard-open');
+      });
+      await Keyboard.addListener('keyboardWillHide', () => {
+        document.documentElement.classList.remove('ob-keyboard-open');
+      });
+    } catch {
+      // Non-fatal if Keyboard plugin is unavailable.
+    }
+
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        const heightDiff = window.innerHeight - (window.visualViewport?.height ?? window.innerHeight);
+        if (heightDiff > 150) {
+          document.documentElement.classList.add('ob-keyboard-open');
+        } else {
+          document.documentElement.classList.remove('ob-keyboard-open');
+        }
+      });
+    }
+
+    try {
+      const { SplashScreen } = await import('@capacitor/splash-screen');
+      await SplashScreen.hide({ fadeOutDuration: 200 });
       // It will be hidden by the app shell (AppRouter) once mounted
       // to prevent white flashes during React render.
     } catch {

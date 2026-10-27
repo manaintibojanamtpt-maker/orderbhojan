@@ -78,7 +78,7 @@ export function LocationSelectorSheet() {
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search saved addresses"
             aria-label="Search addresses"
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-white outline-none placeholder:text-white/55 focus:border-[#FF7A00]/50"
+            className="w-full rounded-[1.25rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-white outline-none placeholder:text-white/55 focus:border-[#E8720C]/50"
           />
 
           <SoftButton
@@ -96,7 +96,7 @@ export function LocationSelectorSheet() {
 
           {uiError ? (
             <div role="alert">
-              <GlassCard hoverEffect={false} className="!rounded-2xl !p-4">
+              <GlassCard hoverEffect={false} className="!rounded-[1.25rem] !p-4">
                 <p className="text-sm text-white/80">{uiError.message}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {uiError.retryable ? (
@@ -155,7 +155,7 @@ export function LocationSelectorSheet() {
             <section className="flex flex-col gap-2" aria-label="Saved addresses">
               <p className="text-sm font-bold text-white">Saved addresses</p>
               {uiStatus === 'loading' && saved.length === 0 ? (
-                <Skeleton className="h-12 w-full rounded-2xl" />
+                <Skeleton className="h-12 w-full rounded-[1.25rem]" />
               ) : null}
               {addressSyncFailed ? (
                 <EmptyStateView
@@ -209,7 +209,7 @@ export function LocationSelectorSheet() {
               ) : null}
             </section>
           ) : (
-            <GlassCard hoverEffect={false} className="relative z-10 !rounded-2xl !p-4">
+            <GlassCard hoverEffect={false} className="relative z-10 !rounded-[1.25rem] !p-4">
               <p className="text-sm text-white/80">Sign in to save addresses for faster checkout.</p>
               <SoftButton
                 type="button"

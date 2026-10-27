@@ -58,7 +58,7 @@ function OrderBhojanRestaurantContent({
   const enterFromPoster = Boolean((location.state as { fromPoster?: boolean } | null)?.fromPoster);
 
   return (
-    <div className="min-h-screen bg-[#030303] pb-28 text-white">
+    <div className="min-h-screen bg-[var(--ob-bg,#080706)] pb-28 text-[var(--ob-text-primary)]">
       <OrderBhojanRestaurantStickyHeader name={experience.displayName} />
       <div style={{ paddingTop: 'calc(3.5rem + var(--ob-safe-top))' }}>
       <OrderBhojanRestaurantHero
@@ -83,7 +83,7 @@ function OrderBhojanRestaurantContent({
       ) : null}
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#030303]/95 backdrop-blur-md ob-menu-container pb-[max(1rem,env(safe-area-inset-bottom))] pt-4"
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--ob-border)] bg-[var(--ob-bg,#080706)]/95 backdrop-blur-md ob-menu-container pb-[max(1rem,env(safe-area-inset-bottom))] pt-4"
       >
         <SoftButton
           type="button"

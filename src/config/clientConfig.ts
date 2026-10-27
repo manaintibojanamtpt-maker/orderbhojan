@@ -1,4 +1,4 @@
-import type { AppConfig } from './environment';
+import { type AppConfig, BHOJANOS_PROD_FIREBASE_PUBLIC } from './environment';
 
 export interface RemoteClientConfig {
   readonly firebase: {
@@ -12,15 +12,7 @@ export interface RemoteClientConfig {
   readonly configured?: boolean;
 }
 
-/** Public bhojanos-prod Firebase web SDK config (apiKey is not secret — domain-restricted in GCP). */
-export const BHOJANOS_PROD_FIREBASE_PUBLIC = {
-  apiKey: 'AIzaSyC6kCJwsEWuwLVPGmJsVDDxTyWlayp2yLQ',
-  authDomain: 'bhojanos-prod.firebaseapp.com',
-  projectId: 'bhojanos-prod',
-  storageBucket: 'bhojanos-prod.firebasestorage.app',
-  messagingSenderId: '170989397954',
-  appId: '1:170989397954:web:9c67dbacc58329f360185b',
-} as const;
+export { BHOJANOS_PROD_FIREBASE_PUBLIC };
 
 /**
  * Web OAuth client ID for native Google sign-in (Capacitor).
@@ -38,14 +30,46 @@ export function isFirebaseConfigIncomplete(config: AppConfig): boolean {
   return !firebase.apiKey || !firebase.authDomain || !firebase.appId || !firebase.messagingSenderId;
 }
 
-function applyFirebaseDefaults(config: AppConfig): AppConfig {
+function isCapacitorRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hasCapacitorGlobal = Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+    );
+    const isCapacitorScheme = window.location.protocol === 'capacitor:';
+    const isLocalhostHttps = window.location.hostname === 'localhost' && window.location.protocol === 'https:';
+    return hasCapacitorGlobal || isCapacitorScheme || isLocalhostHttps;
+  } catch {
+    return false;
+  }
+}
+
+export function shouldApplyProdFirebaseDefaults(config: AppConfig): boolean {
+  // Apply bhojanos-prod public defaults ONLY when the project explicitly matches bhojanos-prod,
+  // or in production/Capacitor when no project ID is specified.
+  if (config.firebase.projectId === BHOJANOS_PROD_FIREBASE_PUBLIC.projectId) {
+    return true;
+  }
+  if (!config.firebase.projectId && (config.environment === 'production' || isCapacitorRuntime())) {
+    return true;
+  }
+  return false;
+}
+
+export function applyFirebaseDefaults(config: AppConfig): AppConfig {
+  if (!shouldApplyProdFirebaseDefaults(config)) {
+    return config;
+  }
   return {
     ...config,
     firebase: {
       ...config.firebase,
-      projectId: config.firebase.projectId || BHOJANOS_PROD_FIREBASE_PUBLIC.projectId,
+      apiKey: config.firebase.apiKey || BHOJANOS_PROD_FIREBASE_PUBLIC.apiKey,
       authDomain: config.firebase.authDomain || BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain,
+      projectId: config.firebase.projectId || BHOJANOS_PROD_FIREBASE_PUBLIC.projectId,
       storageBucket: config.firebase.storageBucket || BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket,
+      messagingSenderId: config.firebase.messagingSenderId || BHOJANOS_PROD_FIREBASE_PUBLIC.messagingSenderId,
+      appId: config.firebase.appId || BHOJANOS_PROD_FIREBASE_PUBLIC.appId,
     },
   };
 }
@@ -159,10 +183,11 @@ export async function hydrateFirebaseConfig(
       );
     }
     hydrated =
-      wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)
+      wrongProdFirebaseProject || (usesLiveBackend && Boolean(import.meta.env?.PROD))
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
         : mergeRemoteFirebaseConfig(hydrated, remote);
-  } else if (wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)) {
+  }
+  if (isFirebaseConfigIncomplete(hydrated) && shouldApplyProdFirebaseDefaults(hydrated)) {
     hydrated = mergeRemoteFirebaseConfigPreferRemote(hydrated, {
       firebase: BHOJANOS_PROD_FIREBASE_PUBLIC,
       configured: true,

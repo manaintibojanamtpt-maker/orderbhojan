@@ -15,61 +15,67 @@
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
     <title>OrderBhojan</title>
     <script>
-      var isCapacitor = !!window.Capacitor || window.location.protocol === 'capacitor:';
+      // Correctly detect Capacitor across 'capacitor:' and 'https://localhost' native runtimes
+      var isCapacitor = !!window.Capacitor || 
+                        window.location.protocol === 'capacitor:' || 
+                        (window.location.hostname === 'localhost' && window.location.protocol === 'https:');
+      
       if (isCapacitor) {
         window.__SKIP_SPLASH__ = true;
-      }
-      var EXPECTED_PWA_CACHE_PREFIX = 'orderbhojan-pwa-v15';
-      if ('caches' in window) {
-        caches.keys().then(function (keys) {
-          keys.forEach(function (key) {
-            if (
-              /orderbhojan-pwa-v/i.test(key) &&
-              key.indexOf(EXPECTED_PWA_CACHE_PREFIX) === -1
-            ) {
+
+        // Force aggressive cleanup of all old PWA caches (orderbhojan-pwa-v) and service workers ONLY on native runtime
+        if ('caches' in window) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) {
               caches.delete(key);
-            }
+            });
           });
-        });
-      }
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          registrations.forEach(function (registration) {
-            var worker = registration.active || registration.waiting || registration.installing;
-            var scriptUrl = worker && worker.scriptURL ? worker.scriptURL : '';
-            var isOrderBhojanSw = /\/sw\.js(\?|$)/.test(scriptUrl);
-            var isFirebaseMessagingSw = /\/firebase-messaging-sw\.js(\?|$)/.test(scriptUrl);
-            if (isCapacitor || (scriptUrl && !isOrderBhojanSw && !isFirebaseMessagingSw)) {
+        }
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) {
               registration.unregister();
-              return;
-            }
-            if (!isCapacitor) {
-              registration.update();
-            }
+            });
           });
-          if (isCapacitor) {
-            navigator.serviceWorker.register = function() { return Promise.reject(); };
-          }
-        });
+          navigator.serviceWorker.register = function() { return Promise.reject(); };
+        }
       }
+    </script>
+    <script>
+      (function() {
+        try {
+          var p = localStorage.getItem('ob-theme-preference');
+          var t = (p === 'light' || p === 'dark') ? p : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.setAttribute('data-theme', t);
+          if (t === 'light') {
+            document.documentElement.classList.add('theme-light');
+          } else {
+            document.documentElement.classList.add('theme-dark');
+          }
+        } catch (e) {}
+      })();
     </script>
   </head>
   <body>
     <div id="root">
       <div
         id="ob-boot-shell"
-        style="min-height:100dvh;background:#050403;color:#fff8f0;font-family:Figtree,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(1rem,env(safe-area-inset-top)) 1rem max(1rem,env(safe-area-inset-bottom))"
+        style="min-height:100dvh;background:var(--ob-bg, #080706);color:var(--ob-text-primary, #fff8f0);font-family:Figtree,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:max(1rem,env(safe-area-inset-top)) 1rem max(1rem,env(safe-area-inset-bottom))"
         aria-hidden="true"
       >
-        <div style="display:flex;gap:4px">
-          <span style="width:8px;height:8px;border-radius:50%;background:#FF7A00;animation:bounce 1.4s infinite ease-in-out both"></span>
-          <span style="width:8px;height:8px;border-radius:50%;background:#FF7A00;animation:bounce 1.4s infinite ease-in-out both;animation-delay:0.16s"></span>
-          <span style="width:8px;height:8px;border-radius:50%;background:#FF7A00;animation:bounce 1.4s infinite ease-in-out both;animation-delay:0.32s"></span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
+          <div style="font-size:24px;font-weight:800;letter-spacing:-0.03em;color:#FFF8F0">
+            Order<span style="color:#FA7A1E">Bhojan</span>
+          </div>
+          <div style="width:120px;height:3px;background:rgba(255,255,255,0.08);border-radius:9999px;overflow:hidden;position:relative">
+            <div style="position:absolute;top:0;left:0;height:100%;width:40%;background:linear-gradient(90deg, #FA7A1E, #FF9E4A);border-radius:9999px;animation:ob-progress-slide 1.2s infinite ease-in-out"></div>
+          </div>
         </div>
         <style>
-          @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
+          @keyframes ob-progress-slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
           }
         </style>
       </div>

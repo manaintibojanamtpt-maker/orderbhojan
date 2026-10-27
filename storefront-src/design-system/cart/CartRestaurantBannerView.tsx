@@ -10,10 +10,10 @@ export interface CartRestaurantBannerViewProps {
 
 export function CartRestaurantBannerView({ restaurant, onMenu }: CartRestaurantBannerViewProps) {
   return (
-    <GlassCard hoverEffect={false} className="!rounded-2xl !p-4">
+    <GlassCard hoverEffect={false} className="!rounded-[1.25rem] !p-4">
       <div className="flex items-center gap-3" aria-label="Restaurant">
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e85d04]/15 text-[#e85d04]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E8720C]/15 text-[#E8720C]"
           aria-hidden
         >
           <Store className="h-5 w-5" />

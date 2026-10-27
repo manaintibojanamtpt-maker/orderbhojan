@@ -10,6 +10,18 @@ import {
   isVoiceCaptureAvailable,
   settleMicForSpeechCapture,
 } from '../infrastructure/voiceSpeechCapture';
+import {
+  startAudioRecording,
+  isMediaRecorderSupported,
+  type AudioRecordingSession,
+} from '../infrastructure/audioBlobRecorder';
+import {
+  transcribeAudioViaGateway,
+} from '../infrastructure/voiceSttGatewayClient';
+import {
+  buildDynamicMenuKeyterms,
+  type RestaurantContextForKeyterms,
+} from '../domain/buildDynamicMenuKeyterms';
 import { AssistantApiError } from '../types';
 import { useAiNativeSttFeature } from '../hooks/useAiNativeSttFeature';
 import { useAiVoiceStreamingFeature } from '../hooks/useAiVoiceStreamingFeature';
@@ -25,17 +37,37 @@ function preferNativeSttForLanguage(lang: string): boolean {
   return normalized === 'te' || normalized.startsWith('te-') || normalized.startsWith('te_');
 }
 
+export interface StartListeningOptions {
+  lang: string;
+  agentMode: boolean;
+  ac: AbortController;
+  onInterim?: (partial: string) => void;
+  /** When false, must not open the mic (sheet closed / agent stopped). */
+  isVoiceSessionLive?: () => boolean;
+  restaurantId?: string;
+  restaurantSlug?: string;
+  restaurantContext?: RestaurantContextForKeyterms;
+  customKeyterms?: readonly string[];
+}
+
 export function useVoiceStt() {
   const nativeSttEnabled = useAiNativeSttFeature();
   const streamingEnabled = useAiVoiceStreamingFeature();
   const [listening, setListening] = useState(false);
   const voiceAbortRef = useRef<AbortController | null>(null);
   const realtimeClientRef = useRef<RealtimeVoiceSession | null>(null);
+  const activeRecorderRef = useRef<AudioRecordingSession | null>(null);
 
   const voiceCaptureAvailable = useMemo(
-    () => isVoiceCaptureAvailable() || isVoiceStreamingSupported(),
+    () => isVoiceCaptureAvailable() || isVoiceStreamingSupported() || isMediaRecorderSupported(),
     [],
   );
+
+  const stopListening = useCallback(async () => {
+    if (activeRecorderRef.current) {
+      await activeRecorderRef.current.stop();
+    }
+  }, []);
 
   const cancelListening = useCallback(() => {
     voiceAbortRef.current?.abort();
@@ -45,21 +77,28 @@ export function useVoiceStt() {
       realtimeClientRef.current.disconnect();
       realtimeClientRef.current = null;
     }
+    if (activeRecorderRef.current) {
+      activeRecorderRef.current.cancel();
+      activeRecorderRef.current = null;
+    }
     forceStopSpeechCapture();
     void nativeSttCancelListening();
     setListening(false);
   }, []);
 
   const startListening = useCallback(
-    async (options: {
-      lang: string;
-      agentMode: boolean;
-      ac: AbortController;
-      onInterim?: (partial: string) => void;
-      /** When false, must not open the mic (sheet closed / agent stopped). */
-      isVoiceSessionLive?: () => boolean;
-    }): Promise<string> => {
-      const { lang, agentMode, ac, onInterim, isVoiceSessionLive } = options;
+    async (options: StartListeningOptions): Promise<string> => {
+      const {
+        lang,
+        agentMode,
+        ac,
+        onInterim,
+        isVoiceSessionLive,
+        restaurantId,
+        restaurantSlug,
+        restaurantContext,
+        customKeyterms,
+      } = options;
 
       const sessionLive = () => isVoiceSessionLive?.() !== false && !ac.signal.aborted;
 
@@ -170,7 +209,7 @@ export function useVoiceStt() {
             ) {
               throw streamErr;
             }
-            // Otherwise fall back quietly to Web Speech
+            // Otherwise fall back quietly
           } finally {
             if (realtimeClientRef.current) {
               realtimeClientRef.current.stopMicrophoneCapture();
@@ -180,7 +219,53 @@ export function useVoiceStt() {
           }
         }
 
-        // 2. Fallback path: Native Android STT bridge
+        // 2. Gateway STT Path: Sarvam Saaras v4 with Dynamic Menu Biasing
+        if (!transcript && isMediaRecorderSupported() && !canUseNative) {
+          try {
+            await settleMicForSpeechCapture(agentMode ? 250 : 150);
+            if (sessionLive()) {
+              const recorder = await startAudioRecording({
+                maxDurationMs: agentMode ? 7000 : 5000,
+                silenceTimeoutMs: agentMode ? 1800 : 1400,
+                signal: ac.signal,
+              });
+              activeRecorderRef.current = recorder;
+
+              // Record speech while user speaks until finished (silence, timeout, or user stop)
+              const audioBlob = await recorder.completion;
+              activeRecorderRef.current = null;
+
+              if (audioBlob && sessionLive()) {
+                const keyterms = buildDynamicMenuKeyterms(restaurantContext, customKeyterms);
+                const gatewayResult = await transcribeAudioViaGateway({
+                  audioBlob,
+                  lang: lang || 'unknown',
+                  keyterms,
+                  restaurantId,
+                  restaurantSlug,
+                  signal: ac.signal,
+                });
+
+                if (gatewayResult.transcript) {
+                  transcript = gatewayResult.transcript;
+                }
+              }
+            }
+          } catch (gatewayErr) {
+            activeRecorderRef.current = null;
+            if (
+              gatewayErr instanceof AssistantApiError &&
+              (gatewayErr.code === 'AI_VOICE_ABORTED' ||
+                gatewayErr.code === 'AI_VOICE_TIMEOUT' ||
+                gatewayErr.code === 'AI_VOICE_PERMISSION_DENIED')
+            ) {
+              throw gatewayErr;
+            }
+            // Fall back to native or Web Speech
+          }
+        }
+
+        // 3. Fallback path: Native Android STT bridge
         if (!transcript && canUseNative) {
           try {
             const native = await captureNativeAndroidStt({
@@ -208,7 +293,7 @@ export function useVoiceStt() {
           }
         }
 
-        // 3. Fallback path: Web Speech API
+        // 4. Fallback path: Web Speech API
         if (!transcript) {
           if (!isVoiceCaptureAvailable()) {
             throw new AssistantApiError({
@@ -217,7 +302,6 @@ export function useVoiceStt() {
               retryable: false,
             });
           }
-          // Cancel leftover TTS / prior recognition before opening the mic.
           await settleMicForSpeechCapture(agentMode ? 550 : 400);
           if (!sessionLive()) {
             forceStopSpeechCapture();
@@ -231,7 +315,6 @@ export function useVoiceStt() {
             signal: ac.signal,
             platform: 'web',
             lang,
-            // Live agent: longer window so pause after dish name is OK.
             timeoutMs: agentMode ? 10_000 : 7_000,
             onInterim,
           });
@@ -262,6 +345,7 @@ export function useVoiceStt() {
     listening,
     setListening,
     startListening,
+    stopListening,
     cancelListening,
     voiceCaptureAvailable,
     voiceAbortRef,

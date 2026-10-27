@@ -1,7 +1,6 @@
 import { memo, useState, type MouseEvent } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { MenuItemCardView } from '@bhojan/storefront-design-system/food/MenuItemCardView';
-import { SoftButton } from '@bhojan/storefront-design-system/primitives/SoftButton';
 import type { FoodPublic } from '@/types/marketplace-food';
 import { useCartStore } from '@/features/cart/store/cartStore';
 import { mapFoodToMenuItemCardView } from './mapFoodToMenuItemCardView';
@@ -35,10 +34,10 @@ const FoodCartQuantitySelector = memo(function FoodCartQuantitySelector({
   const lines = useCartStore((s) => s.lines);
 
   return (
-    <div className="flex h-11 w-full items-center justify-between rounded-full border border-[#e85d04]/35 bg-[#120d0c] px-1 shadow-[0_4px_12px_rgba(0,0,0,0.35)]">
+    <div className="flex h-8 w-full items-center justify-between rounded-lg border border-[#E8720C]/35 bg-[var(--ob-surface)] px-1 shadow-sm">
       <button
         type="button"
-        className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 touch-manipulation"
+        className="flex h-7 w-7 items-center justify-center rounded hover:bg-white/10 touch-manipulation"
         aria-label={`Decrease quantity of ${foodName}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -50,12 +49,12 @@ const FoodCartQuantitySelector = memo(function FoodCartQuantitySelector({
           }
         }}
       >
-        <Minus className="h-4 w-4 text-[#f4a261]" strokeWidth={3} aria-hidden />
+        <Minus className="h-3.5 w-3.5 text-[#f4a261]" strokeWidth={2.5} aria-hidden />
       </button>
-      <span className="min-w-[1.5rem] text-center text-sm font-black tabular-nums text-[#fff8f0]">{total}</span>
+      <span className="min-w-[1.25rem] text-center text-xs font-bold tabular-nums text-[var(--ob-text-primary)]">{total}</span>
       <button
         type="button"
-        className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 touch-manipulation"
+        className="flex h-7 w-7 items-center justify-center rounded hover:bg-white/10 touch-manipulation"
         aria-label={`Increase quantity of ${foodName}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -64,7 +63,7 @@ const FoodCartQuantitySelector = memo(function FoodCartQuantitySelector({
           else addItem({ foodId, name: foodName, price: unitPrice }, 1);
         }}
       >
-        <Plus className="h-4 w-4 text-[#f4a261]" strokeWidth={3} aria-hidden />
+        <Plus className="h-3.5 w-3.5 text-[#f4a261]" strokeWidth={2.5} aria-hidden />
       </button>
     </div>
   );
@@ -118,10 +117,9 @@ export const OrderBhojanFoodCardItem = memo(function OrderBhojanFoodCardItem({
         onCustomize={onCustomize}
       />
     ) : (
-      <SoftButton
+      <button
         type="button"
-        size="compact"
-        className={`w-full !min-h-11 !rounded-full !border !border-[#e85d04]/50 !bg-[#e85d04] !py-2.5 !text-xs !font-black !uppercase !tracking-widest !text-[#fff8f0] !shadow-[0_6px_16px_-4px_rgba(232,93,4,0.55)] hover:!bg-[#f0701a] active:!scale-95 touch-manipulation${fly ? ' scale-95' : ''}`}
+        className={`w-full h-8 rounded-lg border border-[#E8720C]/40 bg-gradient-to-r from-[#FA7A1E] to-[#E8720C] text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:brightness-105 active:scale-95 transition-all touch-manipulation disabled:opacity-50${fly ? ' scale-95' : ''}`}
         disabled={!food.availability}
         onClick={(e: MouseEvent<HTMLButtonElement>) => {
           e.stopPropagation();
@@ -130,7 +128,7 @@ export const OrderBhojanFoodCardItem = memo(function OrderBhojanFoodCardItem({
         aria-label={`Add ${food.name}`}
       >
         Add
-      </SoftButton>
+      </button>
     );
 
   return (

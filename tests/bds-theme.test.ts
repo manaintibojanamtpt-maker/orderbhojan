@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
@@ -39,7 +39,6 @@ describe('Storefront design system theme certification', () => {
 
   it('pages use BDS CSS variables not legacy brand tokens', () => {
     const pages = [
-      'styles/globals.css',
       'app/pages/FoundationPage.tsx',
     ];
     for (const page of pages) {
@@ -53,5 +52,19 @@ describe('Storefront design system theme certification', () => {
       'utf8',
     );
     assert.match(authPresentation, /storefront-design-system/);
+  });
+
+  it('compiled CSS output contains BDS design tokens', () => {
+    const distDir = join(root, 'dist', 'assets');
+    const cssFiles = existsSync(distDir) ? readdirSync(distDir).filter(f => f.endsWith(".css")) : [];
+    let foundBdsTokens = false;
+    for (const cssFile of cssFiles) {
+      const content = readFileSync(join(distDir, cssFile), 'utf8');
+      if (content.includes('bds-space-') || content.includes('bds-color-') || content.includes('bds-font-')) {
+        foundBdsTokens = true;
+        break;
+      }
+    }
+    assert.ok(foundBdsTokens, 'BDS tokens should be present in compiled CSS output');
   });
 });

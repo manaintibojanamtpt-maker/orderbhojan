@@ -52,7 +52,7 @@ function GridKitchenThumbnail({
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-white/5 text-xs text-white/40">
+    <div className="flex h-full w-full items-center justify-center bg-[var(--ob-surface-strong)] text-xs text-[var(--ob-text-secondary)]/70">
       Kitchen
     </div>
   );
@@ -131,8 +131,8 @@ export function OrderBhojanKitchenCard({
   const favoriteSlot = (
     <button
       type="button"
-      className={`flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--mib-border,white/10)] bg-black/50 backdrop-blur-md transition hover:border-[#e85d04]/40 touch-manipulation ${
-        favorite ? 'text-[#e85d04]' : 'text-white/70'
+      className={`flex h-11 w-11 items-center justify-center rounded-full border border-[var(--ob-border)] bg-[var(--ob-surface-strong)]/80 backdrop-blur-md transition hover:border-[#E8720C]/40 touch-manipulation ${
+        favorite ? 'text-[#E8720C]' : 'text-[var(--ob-text-secondary)]'
       }`}
       aria-label={
         favorite
@@ -155,8 +155,8 @@ export function OrderBhojanKitchenCard({
     const listFavoriteSlot = (
       <button
         type="button"
-        className={`flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition hover:text-[#e85d04] touch-manipulation ${
-          favorite ? 'text-[#e85d04]' : ''
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-[var(--ob-text-secondary)] transition hover:text-[#E8720C] touch-manipulation ${
+          favorite ? 'text-[#E8720C]' : ''
         }`}
         aria-label={
           favorite
@@ -176,7 +176,7 @@ export function OrderBhojanKitchenCard({
 
     return (
       <div
-        className={`min-w-0 border-b border-white/[0.06] last:border-b-0 ${
+        className={`min-w-0 border-b border-[var(--ob-border)] last:border-b-0 ${
           restaurantEnabled ? '' : 'pointer-events-none opacity-60'
         } ${className}`}
         aria-label={`${restaurant.displayName}, rated ${restaurant.rating ?? '—'}`}
@@ -208,13 +208,13 @@ export function OrderBhojanKitchenCard({
         <Link
           to={kitchen.storePath}
           state={kitchenLinkState}
-          className="group block h-full overflow-hidden rounded-2xl border border-[color:var(--mib-border,white/10)] bg-[#120d0c] transition hover:border-[#e85d04]/40 hover:bg-[#120d0c]/90 hover:shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
+          className="group block h-full overflow-hidden rounded-2xl border border-[var(--ob-border)] bg-[var(--ob-surface)] transition hover:border-[#E8720C]/40 hover:bg-[var(--ob-surface)]/90 hover:shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
           onMouseEnter={prefetchKitchenNavigation}
           onFocus={prefetchKitchenNavigation}
           onPointerDown={prefetchKitchenNavigation}
           onTouchStart={prefetchKitchenNavigation}
         >
-          <div className="relative aspect-[5/4] overflow-hidden bg-white/5">
+          <div className="relative aspect-[5/4] overflow-hidden bg-[var(--ob-surface-strong)]">
             <GridKitchenThumbnail
               src={kitchen.thumbnailUrl}
               alt={kitchen.name}
@@ -223,7 +223,7 @@ export function OrderBhojanKitchenCard({
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
             <div className="absolute right-2 top-2 z-10">{favoriteSlot}</div>
             {offerBadge ? (
-              <span className="absolute bottom-2 left-2 rounded-full border border-[#e85d04]/40 bg-[#e85d04]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#e85d04]">
+              <span className="absolute bottom-2 left-2 rounded-full border border-[#E8720C]/40 bg-[#E8720C]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#E8720C]">
                 {offerBadge.label}
               </span>
             ) : null}
@@ -235,10 +235,10 @@ export function OrderBhojanKitchenCard({
           </div>
 
           <div className="space-y-1.5 p-3.5">
-            <h3 className="line-clamp-1 text-sm font-bold text-[#fff8f0] group-hover:text-[#e85d04]">
+            <h3 className="line-clamp-1 text-sm font-bold text-[var(--ob-text-primary)] group-hover:text-[#E8720C]">
               {kitchen.name}
             </h3>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#c4b5a5]">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--ob-text-secondary)]">
               {distanceLabel ? (
                 <span className="inline-flex items-center gap-0.5">
                   <MapPin className="h-3 w-3" aria-hidden />
@@ -259,7 +259,7 @@ export function OrderBhojanKitchenCard({
               ) : null}
             </div>
             {kitchen.cuisineTags?.length ? (
-              <p className="line-clamp-1 text-xs text-[#c4b5a5]/80">{kitchen.cuisineTags.join(' · ')}</p>
+              <p className="line-clamp-1 text-xs text-[var(--ob-text-secondary)]/80">{kitchen.cuisineTags.join(' · ')}</p>
             ) : null}
           </div>
         </Link>
