@@ -233,6 +233,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
   const { sessionUser, status: authStatus } = useAuth();
 
   const attemptRecovery = useCheckoutAttempt(sessionUser?.uid);
+  const checkCheckoutAttempt = attemptRecovery.check;
 
   const resolvedRestaurantId = resolveCheckoutRestaurantId(restaurantId, restaurantSlug);
   const coords = activeLocation?.coordinates;
@@ -773,7 +774,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setPlacingMethod(null);
       }
     },
-    [assertCanPlaceOrder, getPayload, sessionUser, attemptRecovery, quote?.grandTotal, prepareQuery.dataUpdatedAt],
+    [assertCanPlaceOrder, getPayload, sessionUser, attemptRecovery, deliveryTimeSlot, quote?.grandTotal, prepareQuery.dataUpdatedAt],
   );
 
   const placeRazorpayOrder = useCallback(
@@ -875,7 +876,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setPlacingMethod(null);
       }
     },
-    [assertCanPlaceOrder, getPayload, quote?.grandTotal, sessionUser, attemptRecovery, prepareQuery.dataUpdatedAt],
+    [assertCanPlaceOrder, getPayload, quote?.grandTotal, sessionUser, attemptRecovery, deliveryTimeSlot, prepareQuery.dataUpdatedAt],
   );
 
   const finalizeUpiPaymentSuccess = useCallback((placed: PlacedOrderConfirmation) => {
@@ -994,7 +995,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setUpiPollMessage(null);
         setUpiSession(null);
         setPlaceStatus('error');
-        void attemptRecovery.check();
+        void checkCheckoutAttempt();
       } finally {
         if (upiPollAbortRef.current === controller) {
           upiPollAbortRef.current = null;
@@ -1002,7 +1003,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setUpiVerifying(false);
       }
     },
-    [finalizeUpiPaymentSuccess, sessionUser?.uid, attemptRecovery.check],
+    [finalizeUpiPaymentSuccess, sessionUser?.uid, checkCheckoutAttempt],
   );
 
   const placeUpiOrder = useCallback(
