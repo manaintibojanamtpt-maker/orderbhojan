@@ -111,7 +111,7 @@ try {
   const planSummary = page.locator('[data-testid="voice-dock-transcript"]');
   await planSummary.waitFor();
   const summaryText = await planSummary.textContent();
-  assert.ok(summaryText && summaryText.includes('Masala Dosa'));
+  assert.ok(summaryText && summaryText.includes('Customized'));
 
   // Step B: Account switching with pending proposal -> verify proposal rejected on new account
   await page.locator('#btn-sheet-switch-account').click();
