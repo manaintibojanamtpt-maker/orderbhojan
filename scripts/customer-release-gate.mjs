@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 
-const checks = ['typecheck','lint:customer','test:unit','test:backend:customer','build','test:performance','test:static-readiness','test:browser:customer','audit'];
+const checks = ['typecheck','lint:customer','build','test:unit','test:backend:customer','test:performance','test:static-readiness','test:browser:customer','audit'];
 const results=[];
 for(const command of checks) {
   console.log(`Running ${command}`);
