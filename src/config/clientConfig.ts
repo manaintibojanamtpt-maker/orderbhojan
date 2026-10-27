@@ -164,11 +164,30 @@ export async function hydrateFirebaseConfig(
 ): Promise<AppConfig> {
   let hydrated = applyFirebaseDefaults(config);
   const usesLiveBackend = hydrated.marketplaceApiBaseUrl.includes('manaintibojanam-backend');
+  const isLiveProductionBackend = hydrated.environment === 'production' && usesLiveBackend;
   const wrongProdFirebaseProject =
-    import.meta.env?.PROD && usesLiveBackend && hydrated.firebase.projectId === 'orderbhojan';
+    isLiveProductionBackend && hydrated.firebase.projectId === 'orderbhojan';
 
-  if (!isFirebaseConfigIncomplete(hydrated) && !wrongProdFirebaseProject && timeoutMs === undefined) {
-    return hydrated;
+  // The browser bundle already has the canonical public Firebase config. If a production
+  // build accidentally names the legacy project, correct it locally instead of blocking
+  // first paint on a Render request that may be cold or temporarily unavailable.
+  if (wrongProdFirebaseProject) {
+    hydrated = {
+      ...hydrated,
+      firebase: {
+        ...BHOJANOS_PROD_FIREBASE_PUBLIC,
+        measurementId: hydrated.firebase.measurementId,
+      },
+    };
+  }
+
+  // Only fetch remote config when required fields are genuinely missing, or a production
+  // live-backend build targets a non-canonical project that must be checked against the API.
+  const needsRemoteProjectValidation =
+    isLiveProductionBackend &&
+    hydrated.firebase.projectId !== BHOJANOS_PROD_FIREBASE_PUBLIC.projectId;
+  if (!isFirebaseConfigIncomplete(hydrated) && !needsRemoteProjectValidation) {
+    return applyFirebaseDefaults(hydrated);
   }
 
   const remote = await fetchRemoteClientConfig(hydrated.marketplaceApiBaseUrl, timeoutMs);
@@ -183,7 +202,7 @@ export async function hydrateFirebaseConfig(
       );
     }
     hydrated =
-      wrongProdFirebaseProject || (usesLiveBackend && Boolean(import.meta.env?.PROD))
+      wrongProdFirebaseProject || isLiveProductionBackend
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
         : mergeRemoteFirebaseConfig(hydrated, remote);
   }
