@@ -141,6 +141,8 @@ export function loadAppConfig(): AppConfig {
   const marketplaceApiBaseUrl = resolveMarketplaceApiBaseUrl(liveMarketplace);
   const projectId = resolveFirebaseProjectId(liveMarketplace);
   const isDev = !import.meta.env?.PROD || resolveEnvironment() === 'development';
+  const isCanonicalProd = projectId === CANONICAL_FIREBASE_PROJECT_ID;
+  const useProdDefaults = isCanonicalProd && (liveMarketplace || resolveEnvironment() === 'production');
 
   return {
     environment: resolveEnvironment(),
@@ -149,30 +151,30 @@ export function loadAppConfig(): AppConfig {
     firebase: {
       apiKey:
         readEnv('VITE_FIREBASE_API_KEY') ||
-        (liveMarketplace || resolveEnvironment() === 'production'
+        (useProdDefaults
           ? BHOJANOS_PROD_FIREBASE_PUBLIC.apiKey
           : isDev && projectId.startsWith('demo-')
             ? 'demo-api-key'
             : ''),
       authDomain:
         readEnv('VITE_FIREBASE_AUTH_DOMAIN') ||
-        (liveMarketplace || resolveEnvironment() === 'production'
+        (useProdDefaults
           ? BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain
           : ''),
       projectId,
       storageBucket:
         readEnv('VITE_FIREBASE_STORAGE_BUCKET') ||
-        (liveMarketplace || resolveEnvironment() === 'production'
+        (useProdDefaults
           ? BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket
           : ''),
       messagingSenderId:
         readEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') ||
-        (liveMarketplace || resolveEnvironment() === 'production'
+        (useProdDefaults
           ? BHOJANOS_PROD_FIREBASE_PUBLIC.messagingSenderId
           : ''),
       appId:
         readEnv('VITE_FIREBASE_APP_ID') ||
-        (liveMarketplace || resolveEnvironment() === 'production'
+        (useProdDefaults
           ? BHOJANOS_PROD_FIREBASE_PUBLIC.appId
           : isDev && projectId.startsWith('demo-')
             ? 'demo-app-id'

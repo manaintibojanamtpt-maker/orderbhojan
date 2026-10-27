@@ -30,7 +30,36 @@ export function isFirebaseConfigIncomplete(config: AppConfig): boolean {
   return !firebase.apiKey || !firebase.authDomain || !firebase.appId || !firebase.messagingSenderId;
 }
 
-function applyFirebaseDefaults(config: AppConfig): AppConfig {
+function isCapacitorRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hasCapacitorGlobal = Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+    );
+    const isCapacitorScheme = window.location.protocol === 'capacitor:';
+    const isLocalhostHttps = window.location.hostname === 'localhost' && window.location.protocol === 'https:';
+    return hasCapacitorGlobal || isCapacitorScheme || isLocalhostHttps;
+  } catch {
+    return false;
+  }
+}
+
+export function shouldApplyProdFirebaseDefaults(config: AppConfig): boolean {
+  // Apply bhojanos-prod public defaults ONLY when the project explicitly matches bhojanos-prod,
+  // or in production/Capacitor when no project ID is specified.
+  if (config.firebase.projectId === BHOJANOS_PROD_FIREBASE_PUBLIC.projectId) {
+    return true;
+  }
+  if (!config.firebase.projectId && (config.environment === 'production' || isCapacitorRuntime())) {
+    return true;
+  }
+  return false;
+}
+
+export function applyFirebaseDefaults(config: AppConfig): AppConfig {
+  if (!shouldApplyProdFirebaseDefaults(config)) {
+    return config;
+  }
   return {
     ...config,
     firebase: {
@@ -158,7 +187,7 @@ export async function hydrateFirebaseConfig(
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
         : mergeRemoteFirebaseConfig(hydrated, remote);
   }
-  if (isFirebaseConfigIncomplete(hydrated)) {
+  if (isFirebaseConfigIncomplete(hydrated) && shouldApplyProdFirebaseDefaults(hydrated)) {
     hydrated = mergeRemoteFirebaseConfigPreferRemote(hydrated, {
       firebase: BHOJANOS_PROD_FIREBASE_PUBLIC,
       configured: true,
