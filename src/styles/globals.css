@@ -27,7 +27,7 @@
     min-height: 100dvh;
     background: var(--ob-bg, #080706);
     color: var(--ob-text-primary, #FFF8F0);
-    font-family: var(--ob-font-sans, "Plus Jakarta Sans"), system-ui, sans-serif;
+    font-family: var(--ob-font-sans, var(--bds-font-sans, "Plus Jakarta Sans")), system-ui, sans-serif;
     overscroll-behavior-y: none;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;

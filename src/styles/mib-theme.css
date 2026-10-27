@@ -320,6 +320,10 @@ html.ob-razorpay-open iframe.razorpay-checkout-frame {
   letter-spacing: -0.02em;
 }
 
+.ds-discovery-hero--compact .ds-discovery-hero__promo {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
 .ds-discovery-hero--compact .ds-discovery-hero__headline {
   font-family: var(--ob-font-sans), system-ui, sans-serif;
   text-shadow: none;
@@ -360,7 +364,7 @@ html.ob-razorpay-open iframe.razorpay-checkout-frame {
 .ds-discovery-hero__scrim {
   background: linear-gradient(
     to top,
-    rgba(8, 7, 6, 0.92) 0%,
+    rgba(5, 4, 3, 0.92) 0%,
     rgba(8, 7, 6, 0.62) 28%,
     rgba(8, 7, 6, 0.28) 58%,
     transparent 100%

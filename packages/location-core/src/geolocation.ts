@@ -7,7 +7,7 @@ import {
 export const DEFAULT_GEOLOCATION_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
   /** Fast satellite attempt; on timeout falls back to network position. */
-  timeout: 10_000,
+  timeout: 15_000,
   maximumAge: 120_000,
 };
 
