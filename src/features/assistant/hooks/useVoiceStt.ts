@@ -180,7 +180,7 @@ export function useVoiceStt() {
                       );
                       sessionRejecter = null;
                     }
-                  }, agentMode ? 10_000 : 7_000);
+                  }, agentMode ? 14_000 : 12_000);
 
                   ac.signal.addEventListener(
                     'abort',
@@ -225,8 +225,10 @@ export function useVoiceStt() {
             await settleMicForSpeechCapture(agentMode ? 250 : 150);
             if (sessionLive()) {
               const recorder = await startAudioRecording({
-                maxDurationMs: agentMode ? 7000 : 5000,
-                silenceTimeoutMs: agentMode ? 1800 : 1400,
+                maxDurationMs: agentMode ? 12000 : 10000,
+                silenceTimeoutMs: agentMode ? 1100 : 1000,
+                speechArmingWindowMs: 1000,
+                rmsThreshold: 0.025,
                 signal: ac.signal,
               });
               activeRecorderRef.current = recorder;

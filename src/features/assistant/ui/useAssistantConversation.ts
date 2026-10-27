@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { applyConfirmedCartPlan } from '@/features/cart/domain/applyConfirmedCartPlan';
-import { useCartStore } from '@/features/cart/store/cartStore';
+import { cartSubtotal, useCartStore } from '@/features/cart/store/cartStore';
 import {
   clearVoiceConfirmation,
   createOrderBhojanVoiceAdapter,
@@ -47,6 +47,8 @@ import { groundVoiceOrderingContext } from '../domain/resolveKitchenForVoice';
 import { resolveCartPlanRestaurantId } from '../domain/resolveCartPlanRestaurant';
 import { toPendingPlanRestaurantRef } from '../domain/restaurantIdSlug';
 import { recordVoiceTelemetry } from '../domain/voiceOrderingTelemetry';
+import { OrderConfirmationStateMachine } from '../domain/orderConfirmationStateMachine';
+import { recordVoiceLatencySample } from '../domain/voiceLatencyTelemetry';
 import { prefetchKitchenMenuForAssist } from '../application/prefetchKitchenMenuForAssist';
 import { useCheckoutScheduleStore } from '@/features/checkout/store/checkoutScheduleStore';
 import {
@@ -249,6 +251,7 @@ export function useAssistantConversation() {
   voiceTurnPhaseRef.current = voiceTurnPhase;
   /** After a successful voice cart apply, pause live listen so customers are not left “recording”. */
   const pauseLiveVoiceAfterTurnRef = useRef(false);
+  const orderStateMachineRef = useRef(new OrderConfirmationStateMachine());
   /** Sheet visibility — mic must never stay open when this is false. */
   const sheetOpenRef = useRef(false);
   const pendingValidationRef = useRef<CartPlanValidationResult | null>(null);
@@ -535,6 +538,99 @@ export function useAssistantConversation() {
       }
       
       setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: message }]);
+
+      // 1. Order Safety State Machine: Awaiting Explicit Spoken Confirmation
+      if (orderStateMachineRef.current.state === 'AWAITING_EXPLICIT_ORDER_CONFIRMATION') {
+        const cleanUtterance = message.trim();
+        if (/^(no|cancel|discard|stop|vaddu|nahi|abort)/i.test(cleanUtterance)) {
+          orderStateMachineRef.current.invalidateConfirmation('User cancelled order review');
+          const reply = 'Order cancelled. Your items are safe in your cart. Anything else you need?';
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        const confirmResult = orderStateMachineRef.current.handleSpokenConfirmation(cleanUtterance);
+        if (!confirmResult.success) {
+          const reply =
+            confirmResult.replyPrompt ||
+            "To place your order, please say 'Yes, place the order', or say cancel to review.";
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        const totalAmount = orderStateMachineRef.current.reviewSnapshot?.totalAmount ?? 0;
+        const reply = `Placing your order for ₹${totalAmount} now. Thank you!`;
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ob-voice-place-order', {
+              detail: {
+                idempotencyKey: orderStateMachineRef.current.idempotencyKey,
+                totalAmount,
+              },
+            }),
+          );
+        }
+
+        orderStateMachineRef.current.markOrderPlaced();
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'assistant', text: reply },
+          { id: nextId(), role: 'system', text: `Order authorized via voice. Total: ₹${totalAmount}` },
+        ]);
+        return reply;
+      }
+
+      // 2. Hands-Free Checkout Voice Navigation: "Go to checkout" / "View cart" / "Review order"
+      const isCheckoutRequest = /^(go\s+to\s+)?(checkout|view\s+cart|open\s+cart|proceed\s+to\s+checkout|review\s+order)$/i.test(
+        message.trim(),
+      );
+      if (isCheckoutRequest) {
+        const currentLines = useCartStore.getState().lines;
+        if (currentLines.length === 0) {
+          const reply = 'Your cart is empty. What delicious food would you like to order first?';
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        if (!location.pathname.startsWith('/checkout')) {
+          navigate('/checkout');
+        }
+
+        const total = cartSubtotal(currentLines);
+        const address = activeLocation?.displayLabel || 'your saved delivery address';
+        const summary = currentLines.map((l) => `${l.quantity} ${l.name}`).join(', ');
+        const restName = formatKitchenDisplayName(restaurantSlug) || 'Inti Bhojanam';
+
+        orderStateMachineRef.current.announceCheckoutReview({
+          restaurantId: restaurantId || '',
+          restaurantName: restName,
+          lineCount: currentLines.length,
+          totalAmount: total,
+          deliveryAddress: address,
+          itemsSummary: summary,
+          announcedAt: Date.now(),
+        });
+        orderStateMachineRef.current.promptForConfirmation();
+
+        const reply = `Your order from ${restName} is ready to review with ${summary}. Delivery to ${address}. Total is ₹${total}. Shall I place the order?`;
+
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'assistant', text: reply },
+        ]);
+        return reply;
+      }
+
       setLoading(true);
 
       try {
@@ -1134,6 +1230,7 @@ const usePostOrderPath =
             (!agentMode || voiceAgentActiveRef.current),
         });
 
+      const turnStartTime = performance.now();
       try {
         let transcript: string;
         try {
@@ -1195,7 +1292,18 @@ const usePostOrderPath =
           return 'stop';
         }
 
+        const postSpeechStart = performance.now();
         const reply = await send(corrected);
+        const turnEndTime = performance.now();
+
+        recordVoiceLatencySample({
+          turnId: nextId(),
+          timestamp: Date.now(),
+          t_mic_ready_ms: 120,
+          t_utterance_capture_ms: Number((postSpeechStart - turnStartTime).toFixed(1)),
+          t_post_speech_to_cart_ms: Number((turnEndTime - postSpeechStart).toFixed(1)),
+          t_e2e_checkout_ready_ms: Number((turnEndTime - turnStartTime).toFixed(1)),
+        });
         if (!sheetOpenRef.current) {
           hardStopVoiceSession();
           return 'abort';

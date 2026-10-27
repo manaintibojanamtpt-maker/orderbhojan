@@ -129,7 +129,7 @@ export function CheckoutPageView({
         }
       }, 250);
     }
-  }, []);
+  }, [contact.value]);
   return (
     <div className="relative">
       <TransactionalPageShell
