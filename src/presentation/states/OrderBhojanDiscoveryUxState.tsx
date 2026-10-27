@@ -87,13 +87,13 @@ const PRESETS: Record<
   'location-disabled': {
     title: 'Location unavailable',
     description: 'Set your delivery location to see kitchens near you.',
-    icon: <MapPin className="h-10 w-10 text-[#FF7A00]" aria-hidden />,
+    icon: <MapPin className="h-10 w-10 text-[#E8720C]" aria-hidden />,
     role: 'status',
   },
   'permission-denied': {
     title: 'Location permission denied',
     description: 'Enable location access or enter your address manually.',
-    icon: <MapPin className="h-10 w-10 text-[#FF7A00]" aria-hidden />,
+    icon: <MapPin className="h-10 w-10 text-[#E8720C]" aria-hidden />,
     role: 'alert',
   },
   'load-more-error': {

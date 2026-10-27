@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTheme, type ThemeMode } from '@/features/theme/themeService';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { SettingsPreferenceViewModel } from '@bhojan/storefront-design-system/settings';
@@ -17,12 +18,19 @@ export function useCustomerSettingsActions() {
   const { sessionUser } = useAuth();
   const profileQuery = useCustomerProfile();
   const devicePush = useDevicePushStatus();
+  const { theme: currentTheme, setTheme: setCurrentTheme } = useTheme();
 
   const preferenceRows = useMemo((): readonly SettingsPreferenceViewModel[] => {
     const prefs = profileQuery.data?.preferences;
     return [
       { id: 'spice', icon: '🌶', label: 'Spice level', value: prefs?.spiceLevel ?? 'Medium' },
       { id: 'dietary', icon: '🥬', label: 'Dietary', value: prefs?.dietary ?? 'Veg' },
+      {
+        id: 'theme',
+        icon: '🎨',
+        label: 'Appearance',
+        value: currentTheme === 'light' ? 'Light (Warm Cream)' : currentTheme === 'system' ? 'System default' : 'Dark (Culinary Warm)',
+      },
       {
         id: 'notifications',
         icon: '🔔',
@@ -34,6 +42,14 @@ export function useCustomerSettingsActions() {
   }, [devicePush.settingsLabel, profileQuery.data?.preferences]);
 
   const handlePreferenceRow = (id: string) => {
+    if (id === 'theme') {
+      const THEMES: ThemeMode[] = ['dark', 'light', 'system'];
+      const next = THEMES[(THEMES.indexOf(currentTheme) + 1) % THEMES.length]!;
+      
+      setCurrentTheme(next);
+      notifyToast(`Theme set to ${next === 'light' ? 'Light (Warm Cream)' : next === 'system' ? 'System' : 'Dark (Culinary)'}`, 'success');
+      return;
+    }
     const uid = sessionUser?.uid;
     if (!uid) return;
 

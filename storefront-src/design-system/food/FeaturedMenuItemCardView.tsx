@@ -33,7 +33,7 @@ export function FeaturedMenuItemCardView({
       role={onPress ? 'button' : undefined}
       tabIndex={onPress ? 0 : undefined}
     >
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#151515]">
+      <div className="overflow-hidden rounded-[1.25rem] border border-white/10 bg-[#13100D]">
         <div className="relative aspect-square w-full bg-white/5">
           {!imageLoaded ? <div className="absolute inset-0 shimmer bg-white/5" aria-hidden /> : null}
           <img

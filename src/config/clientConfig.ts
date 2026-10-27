@@ -1,4 +1,4 @@
-import type { AppConfig } from './environment';
+import { type AppConfig, BHOJANOS_PROD_FIREBASE_PUBLIC } from './environment';
 
 export interface RemoteClientConfig {
   readonly firebase: {
@@ -12,15 +12,7 @@ export interface RemoteClientConfig {
   readonly configured?: boolean;
 }
 
-/** Public bhojanos-prod Firebase web SDK config (apiKey is not secret — domain-restricted in GCP). */
-export const BHOJANOS_PROD_FIREBASE_PUBLIC = {
-  apiKey: 'AIzaSyC6kCJwsEWuwLVPGmJsVDDxTyWlayp2yLQ',
-  authDomain: 'bhojanos-prod.firebaseapp.com',
-  projectId: 'bhojanos-prod',
-  storageBucket: 'bhojanos-prod.firebasestorage.app',
-  messagingSenderId: '170989397954',
-  appId: '1:170989397954:web:9c67dbacc58329f360185b',
-} as const;
+export { BHOJANOS_PROD_FIREBASE_PUBLIC };
 
 /**
  * Web OAuth client ID for native Google sign-in (Capacitor).
@@ -43,9 +35,12 @@ function applyFirebaseDefaults(config: AppConfig): AppConfig {
     ...config,
     firebase: {
       ...config.firebase,
-      projectId: config.firebase.projectId || BHOJANOS_PROD_FIREBASE_PUBLIC.projectId,
+      apiKey: config.firebase.apiKey || BHOJANOS_PROD_FIREBASE_PUBLIC.apiKey,
       authDomain: config.firebase.authDomain || BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain,
+      projectId: config.firebase.projectId || BHOJANOS_PROD_FIREBASE_PUBLIC.projectId,
       storageBucket: config.firebase.storageBucket || BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket,
+      messagingSenderId: config.firebase.messagingSenderId || BHOJANOS_PROD_FIREBASE_PUBLIC.messagingSenderId,
+      appId: config.firebase.appId || BHOJANOS_PROD_FIREBASE_PUBLIC.appId,
     },
   };
 }
@@ -159,10 +154,11 @@ export async function hydrateFirebaseConfig(
       );
     }
     hydrated =
-      wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)
+      wrongProdFirebaseProject || (usesLiveBackend && Boolean(import.meta.env?.PROD))
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
         : mergeRemoteFirebaseConfig(hydrated, remote);
-  } else if (wrongProdFirebaseProject || (usesLiveBackend && import.meta.env?.PROD)) {
+  }
+  if (isFirebaseConfigIncomplete(hydrated)) {
     hydrated = mergeRemoteFirebaseConfigPreferRemote(hydrated, {
       firebase: BHOJANOS_PROD_FIREBASE_PUBLIC,
       configured: true,

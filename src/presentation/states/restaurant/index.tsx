@@ -12,7 +12,7 @@ import {
 import { MarketplaceUxStateView } from '@bhojan/storefront-design-system/marketplace/MarketplaceUxStateView';
 
 export function OrderBhojanRestaurantUxShell({ children }: { readonly children: ReactNode }) {
-  return <div className="min-h-screen bg-[#030303] px-4 py-12 text-white">{children}</div>;
+  return <div className="min-h-screen bg-[var(--ob-bg,#080706)] px-4 py-12 text-[#FFF8F0]">{children}</div>;
 }
 
 export interface OrderBhojanRestaurantRetryStateProps {
@@ -78,7 +78,7 @@ export function OrderBhojanRestaurantClosedBanner({ label, onBrowse }: OrderBhoj
           <button
             type="button"
             onClick={onBrowse}
-            className="mt-3 text-xs font-semibold text-[#FF7A00] underline-offset-2 hover:underline touch-manipulation"
+            className="mt-3 text-xs font-semibold text-[#E8720C] underline-offset-2 hover:underline touch-manipulation"
           >
             Browse other kitchens
           </button>
@@ -170,7 +170,7 @@ export function OrderBhojanRestaurantPermissionState({
       role="alert"
       title="Permission required"
       description="Enable the required permissions to view this restaurant."
-      icon={<MapPin className="h-10 w-10 text-[#FF7A00]" aria-hidden />}
+      icon={<MapPin className="h-10 w-10 text-[#E8720C]" aria-hidden />}
       primaryLabel={onRetry ? 'Retry' : undefined}
       onPrimary={onRetry}
     />

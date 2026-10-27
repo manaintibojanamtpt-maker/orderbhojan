@@ -22,7 +22,7 @@ export function QuantityStepperView({
 
   return (
     <div
-      className={`inline-flex h-11 items-center gap-3 rounded-full border border-[#e85d04]/35 bg-[#120d0c] px-2 shadow-[0_4px_12px_rgba(0,0,0,0.3)] ${className}`.trim()}
+      className={`inline-flex h-11 items-center gap-3 rounded-full border border-[#E8720C]/35 bg-[var(--ob-surface)] px-2 shadow-[0_4px_12px_rgba(0,0,0,0.3)] ${className}`.trim()}
       role="group"
       aria-label={ariaLabel}
     >
@@ -35,7 +35,7 @@ export function QuantityStepperView({
       >
         −
       </button>
-      <span className="min-w-[2ch] text-center text-sm font-black tabular-nums text-[#fff8f0]" aria-live="polite">
+      <span className="min-w-[2ch] text-center text-sm font-black tabular-nums text-[var(--ob-text-primary)]" aria-live="polite">
         {value}
       </span>
       <button
@@ -70,8 +70,8 @@ export function CustomizationToggleButton({
       onClick={onToggle}
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${
         selected
-          ? 'border-[#e85d04] bg-[#e85d04] text-[#fff8f0]'
-          : 'border-white/20 bg-[#120d0c] text-transparent'
+          ? 'border-[#E8720C] bg-[#E8720C] text-[var(--ob-text-primary)]'
+          : 'border-[var(--ob-border)] bg-[var(--ob-surface)] text-transparent'
       }`}
     >
       <Check size={14} strokeWidth={3} className={selected ? 'opacity-100' : 'opacity-0'} aria-hidden />

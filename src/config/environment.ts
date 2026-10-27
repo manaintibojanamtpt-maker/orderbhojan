@@ -1,3 +1,13 @@
+/** Public bhojanos-prod Firebase web SDK config (apiKey is not secret — domain-restricted in GCP). */
+export const BHOJANOS_PROD_FIREBASE_PUBLIC = {
+  apiKey: 'AIzaSyC6kCJwsEWuwLVPGmJsVDDxTyWlayp2yLQ',
+  authDomain: 'bhojanos-prod.firebaseapp.com',
+  projectId: 'bhojanos-prod',
+  storageBucket: 'bhojanos-prod.firebasestorage.app',
+  messagingSenderId: '170989397954',
+  appId: '1:170989397954:web:9c67dbacc58329f360185b',
+} as const;
+
 export type AppEnvironment = 'development' | 'preview' | 'production';
 
 export interface AppConfig {
@@ -41,11 +51,25 @@ function resolveEnvironment(): AppEnvironment {
   return env.PROD ? 'production' : 'development';
 }
 
+function isCapacitorRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hasCapacitorGlobal = Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+    );
+    const isCapacitorScheme = window.location.protocol === 'capacitor:';
+    const isLocalhostHttps = window.location.hostname === 'localhost' && window.location.protocol === 'https:';
+    return hasCapacitorGlobal || isCapacitorScheme || isLocalhostHttps;
+  } catch {
+    return false;
+  }
+}
+
 function isLiveMarketplaceBuild(): boolean {
   const explicit = readEnv('VITE_FF_OB_FIRESTORE');
   if (explicit === 'true') return true;
   if (explicit === 'false') return false;
-  return Boolean(import.meta.env?.PROD);
+  return Boolean(import.meta.env?.PROD || isCapacitorRuntime());
 }
 
 export const CANONICAL_FIREBASE_PROJECT_ID = 'bhojanos-prod';
@@ -53,6 +77,9 @@ export const CANONICAL_FIREBASE_PROJECT_ID = 'bhojanos-prod';
 export function resolveFirebaseProjectId(liveMarketplace: boolean): string {
   const explicit = readEnv('VITE_FIREBASE_PROJECT_ID');
   if (explicit) {
+    if (isCapacitorRuntime() && explicit === 'orderbhojan') {
+      return CANONICAL_FIREBASE_PROJECT_ID;
+    }
     return explicit;
   }
   // Intentional documented default: bhojanos-prod for production / live marketplace, orderbhojan for mock dev
@@ -79,23 +106,30 @@ export function isNonRoutableDevApiHost(url: string): boolean {
 }
 
 function resolveMarketplaceApiBaseUrl(liveMarketplace: boolean): string {
-  const explicitApiUrl = readEnv('VITE_MARKETPLACE_API_URL');
+  const explicitApiUrl = readEnv('VITE_MARKETPLACE_API_URL') || readEnv('VITE_API_URL');
+  const isCapacitor = isCapacitorRuntime();
+
   let marketplaceApiBaseUrl = explicitApiUrl
     ? explicitApiUrl.replace(/\/$/, '')
-    : liveMarketplace && import.meta.env?.DEV
-      ? typeof window !== 'undefined'
-        ? window.location.origin
-        : readEnv('VITE_MARKETPLACE_API_PROXY', 'http://localhost:8080')
-      : liveMarketplace
-        ? readEnv('VITE_MARKETPLACE_API_PROXY', LIVE_MARKETPLACE_API_DEFAULT)
-        : import.meta.env?.DEV
-          ? typeof window !== 'undefined'
-            ? window.location.origin
-            : 'http://localhost:5174'
-          : LIVE_MARKETPLACE_API_DEFAULT;
+    : isCapacitor
+      ? LIVE_MARKETPLACE_API_DEFAULT
+      : liveMarketplace && import.meta.env?.DEV
+        ? typeof window !== 'undefined'
+          ? window.location.origin
+          : readEnv('VITE_MARKETPLACE_API_PROXY', 'http://localhost:8080')
+        : liveMarketplace
+          ? readEnv('VITE_MARKETPLACE_API_PROXY', LIVE_MARKETPLACE_API_DEFAULT)
+          : import.meta.env?.DEV
+            ? typeof window !== 'undefined'
+              ? window.location.origin
+              : 'http://localhost:5174'
+            : LIVE_MARKETPLACE_API_DEFAULT;
 
-  // Capacitor/`vite build` must never ship localhost in production from a leftover .env proxy.
-  if (resolveEnvironment() === 'production' && isNonRoutableDevApiHost(marketplaceApiBaseUrl)) {
+  // Capacitor/native runtime or production builds must never use non-routable dev hosts (localhost, 127.0.0.1).
+  if (
+    (isCapacitor || resolveEnvironment() === 'production' || isLiveMarketplaceBuild()) &&
+    isNonRoutableDevApiHost(marketplaceApiBaseUrl)
+  ) {
     marketplaceApiBaseUrl = LIVE_MARKETPLACE_API_DEFAULT;
   }
 
@@ -113,12 +147,36 @@ export function loadAppConfig(): AppConfig {
     marketplaceApiBaseUrl,
     marketplaceApiVersion: readEnv('VITE_MARKETPLACE_API_VERSION', '1.0'),
     firebase: {
-      apiKey: readEnv('VITE_FIREBASE_API_KEY') || (isDev && projectId.startsWith('demo-') ? 'demo-api-key' : ''),
-      authDomain: readEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+      apiKey:
+        readEnv('VITE_FIREBASE_API_KEY') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.apiKey
+          : isDev && projectId.startsWith('demo-')
+            ? 'demo-api-key'
+            : ''),
+      authDomain:
+        readEnv('VITE_FIREBASE_AUTH_DOMAIN') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.authDomain
+          : ''),
       projectId,
-      storageBucket: readEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-      messagingSenderId: readEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-      appId: readEnv('VITE_FIREBASE_APP_ID') || (isDev && projectId.startsWith('demo-') ? 'demo-app-id' : ''),
+      storageBucket:
+        readEnv('VITE_FIREBASE_STORAGE_BUCKET') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.storageBucket
+          : ''),
+      messagingSenderId:
+        readEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.messagingSenderId
+          : ''),
+      appId:
+        readEnv('VITE_FIREBASE_APP_ID') ||
+        (liveMarketplace || resolveEnvironment() === 'production'
+          ? BHOJANOS_PROD_FIREBASE_PUBLIC.appId
+          : isDev && projectId.startsWith('demo-')
+            ? 'demo-app-id'
+            : ''),
       measurementId: readEnv('VITE_FIREBASE_MEASUREMENT_ID') || undefined,
       firestoreEmulatorHost:
         import.meta.env?.DEV || resolveEnvironment() === 'development'

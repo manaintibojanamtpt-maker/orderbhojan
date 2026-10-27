@@ -1,4 +1,7 @@
-/* MIB founder app theme — aligned with src/index.css (--mib-* tokens) */
+/** OrderBhojan Premium Theme — Unified token layer
+ *  All components should read from --ob-* variables defined in ob-tokens.css.
+ *  This file provides legacy --mib-* aliases for backward compatibility.
+ */
 
 :root {
   --ob-safe-top: env(safe-area-inset-top, 0px);
@@ -6,79 +9,83 @@
   --ob-safe-left: env(safe-area-inset-left, 0px);
   --ob-safe-right: env(safe-area-inset-right, 0px);
   --bottom-bar-height: 72px;
-  /* Floating cart sits at bottom: 96px + safe, height ~56px (h-14). */
   --ob-floating-cart-offset: 96px;
   --ob-floating-cart-height: 48px;
   --ob-fixed-cta-height: 118px;
-  /* Clear nav + floating cart stack so last kitchen cards stay tappable. */
   --ob-chrome-bottom: calc(
     var(--ob-floating-cart-offset) + var(--ob-floating-cart-height) + 12px + var(--ob-safe-bottom)
   );
   --ob-focus-bottom: calc(var(--ob-fixed-cta-height) + var(--ob-safe-bottom) + 20px);
-  /* Menu sticky View cart bar (padding + card + safe). */
-  --ob-menu-cart-spacer: calc(7.25rem + var(--ob-safe-bottom));
-  --mib-bg: #050403;
-  --mib-surface: #120d0c;
-  --mib-surface-strong: #1a1412;
-  --mib-border: rgba(255, 220, 180, 0.07);
-  --mib-border-strong: rgba(232, 93, 4, 0.28);
-  --mib-text: #fff8f0;
-  --mib-muted: #c4b5a5;
-  --mib-primary: #e85d04;
-  --mib-primary-2: #f4a261;
-  --mib-radius-card: 1.25rem;
-  --mib-shadow-card:
-    0 16px 48px -12px rgba(0, 0, 0, 0.65),
-    0 1px 0 rgba(255, 220, 180, 0.05) inset;
-  --mib-shadow-glow: 0 0 40px -8px rgba(232, 93, 4, 0.35);
+  --ob-menu-cart-spacer: calc(8.5rem + var(--ob-safe-bottom));
+
+  /* Legacy aliases (backward compat) — delegate to ob-* tokens */
+  --mib-bg: var(--ob-bg);
+  --mib-surface: var(--ob-surface);
+  --mib-surface-strong: var(--ob-surface-strong);
+  --mib-border: var(--ob-border);
+  --mib-border-strong: var(--ob-border-strong);
+  --mib-text: var(--ob-text-primary);
+  --mib-muted: var(--ob-text-secondary);
+  --mib-primary: var(--ob-brand);
+  --mib-primary-2: var(--ob-brand-light);
+  --mib-success: var(--ob-success);
+  --mib-radius-card: var(--ob-radius-xl);
+  --mib-shadow-card: var(--ob-shadow-card);
+  --mib-shadow-glow: var(--ob-shadow-glow);
 }
+
+/* ── Glass ─────────────────────────────────────────────────────────────────── */
 
 .mib-glass {
-  background:
-    linear-gradient(160deg, rgba(255, 220, 180, 0.06), rgba(255, 255, 255, 0.02)),
-    rgba(18, 13, 12, 0.94);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border: 1px solid var(--mib-border);
-  box-shadow: var(--mib-shadow-card);
+  background: var(--ob-glass-bg);
+  backdrop-filter: blur(var(--ob-glass-blur)) saturate(var(--ob-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--ob-glass-blur)) saturate(var(--ob-glass-saturate));
+  border: 1px solid var(--ob-border);
 }
+
+/* ── Card ──────────────────────────────────────────────────────────────────── */
 
 .premium-card {
-  background: var(--mib-surface);
-  border-radius: var(--mib-radius-card);
-  border: 1px solid var(--mib-border);
-  box-shadow: var(--mib-shadow-card);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: var(--ob-surface);
+  border-radius: var(--ob-radius-xl);
+  border: 1px solid var(--ob-border);
+  box-shadow: var(--ob-shadow-card);
+  transition: border-color var(--ob-duration-normal) var(--ob-ease-standard),
+              box-shadow var(--ob-duration-normal) var(--ob-ease-standard);
 }
 
-.premium-card-hover:hover {
-  box-shadow: var(--mib-shadow-card), var(--mib-shadow-glow);
-  border-color: var(--mib-border-strong);
+.premium-card:hover {
+  border-color: var(--ob-border-strong);
+  box-shadow: var(--ob-shadow-card-hover);
 }
+
+/* ── Primary Button ────────────────────────────────────────────────────────── */
 
 .btn-orange,
 .mib-primary-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--bds-space-2, 0.5rem);
+  gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  border-radius: var(--ds-radius-pill, 9999px);
+  border-radius: var(--ob-radius-full);
   border: none;
   font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #fff8f0;
+  color: var(--ob-text-inverse);
   cursor: pointer;
-  background: linear-gradient(135deg, var(--mib-primary), var(--mib-primary-2));
-  box-shadow: var(--ds-shadow-cta, 0 14px 28px -10px rgba(232, 93, 4, 0.45));
-  transition: transform 0.15s ease, filter 0.2s ease, background 0.2s ease;
+  background: linear-gradient(135deg, var(--ob-brand) 0%, var(--ob-brand-light) 100%);
+  box-shadow: var(--ob-shadow-cta);
+  transition: transform var(--ob-duration-fast) var(--ob-ease-spring),
+              filter var(--ob-duration-fast) var(--ob-ease-standard),
+              box-shadow var(--ob-duration-fast) var(--ob-ease-standard);
 }
 
 .btn-orange:hover,
 .mib-primary-action:hover {
-  background: linear-gradient(135deg, #f06d1a, #ffb347);
-  filter: brightness(1.03);
+  filter: brightness(1.08);
+  box-shadow: 0 16px 32px -10px rgba(232, 114, 12, 0.55);
 }
 
 .btn-orange:active,
@@ -86,256 +93,62 @@
   transform: scale(0.97);
 }
 
+/* ── Restaurant / Food Tile Surface ────────────────────────────────────────── */
+
 .ob-restaurant-tile.premium-card,
 .ob-food-tile.premium-card,
 .bds-card.premium-card {
   background:
-    radial-gradient(circle at top left, rgba(255, 159, 28, 0.08), transparent 34%),
-    linear-gradient(145deg, rgba(32, 23, 17, 0.98), rgba(12, 9, 7, 0.98));
-  border: 1px solid var(--mib-border);
-  box-shadow: var(--mib-shadow-card);
+    radial-gradient(circle at top left, rgba(244, 160, 92, 0.07), transparent 34%),
+    linear-gradient(145deg, var(--ob-surface-strong), var(--ob-surface));
+  border: 1px solid var(--ob-border);
+  box-shadow: var(--ob-shadow-card);
 }
+
+/* ── Glass Surfaces (Nav, Header) ──────────────────────────────────────────── */
 
 .ob-bottom-nav-shell.mib-glass,
 .ob-hero-header--scrolled.mib-glass {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
-    rgba(18, 13, 10, 0.9);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 248, 240, 0.06),
+    rgba(255, 255, 255, 0.02)
+  ),
+  var(--ob-glass-bg);
 }
 
-@media (min-width: 768px) {
-  :root {
-    --ob-bp: tablet;
-  }
-}
-
-@media (min-width: 1024px) {
-  :root {
-    --ob-bp: desktop;
-  }
-}
-
-@media (min-width: 1280px) {
-  :root {
-    --ob-bp: wide;
-  }
-}
-
-@media (max-width: 768px) {
-  .mib-glass {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .btn-orange,
-  .mib-primary-action,
-  .premium-card,
-  .premium-card-hover:hover,
-  .ob-press,
-  .ob-press:active {
-    transition: none !important;
-    transform: none !important;
-  }
-
-  .ob-shimmer {
-    animation: none !important;
-    background: rgba(255, 255, 255, 0.06) !important;
-  }
-}
-
-@keyframes ob-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes ob-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.ob-menu-enter {
-  animation: ob-fade-in 0.4s ease forwards;
-}
+/* ── Shimmer Loading ──────────────────────────────────────────────────────── */
 
 .ob-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.04) 100%
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.03) 100%
   );
   background-size: 200% 100%;
   animation: ob-shimmer 1.4s ease-in-out infinite;
 }
 
-.ob-app-shell {
-  /* MarketplaceLayout shell — sole top/side safe-area padding for marketplace routes. */
-  padding-top: var(--ob-safe-top);
-  padding-left: var(--ob-safe-left);
-  padding-right: var(--ob-safe-right);
+@keyframes ob-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.pt-safe {
-  padding-top: var(--ob-safe-top);
+.ob-fade-in {
+  animation: ob-fade-in 0.35s var(--ob-ease-spring) both;
 }
 
-.pb-safe {
-  padding-bottom: var(--ob-safe-bottom);
+@keyframes ob-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.ob-fullscreen-shell.ob-app-shell {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: hidden;
-  padding-left: 0;
-  padding-right: 0;
-}
-
-html.ob-native-android {
-  --ob-safe-top: max(env(safe-area-inset-top, 0px), 28px);
-  --ob-safe-bottom: max(env(safe-area-inset-bottom, 0px), 32px);
-}
-
-html.ob-native-ios {
-  --ob-safe-top: max(env(safe-area-inset-top, 0px), 47px);
-}
-
-html.ob-native .ob-app-shell {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.ob-menu-page {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: hidden;
-  /* Do not use transform here — it creates a containing block and traps
-     position:fixed descendants (View cart stripe) at the end of the menu. */
-}
-
-.ob-menu-sticky-chrome {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: hidden;
-}
-
-.ob-menu-section {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: hidden;
-}
-
-.ob-menu-container {
-  --ob-menu-inline-pad: 1rem;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  overflow-x: hidden;
-  padding-left: var(--ob-menu-inline-pad);
-  padding-right: var(--ob-menu-inline-pad);
-}
-
-@media (min-width: 48rem) {
-  .ob-menu-container {
-    max-width: 48rem;
-  }
-}
-
-html.ob-native .ob-menu-container {
-  --ob-menu-inline-pad: max(0.75rem, var(--ob-safe-left));
-  padding-left: var(--ob-menu-inline-pad);
-  padding-right: max(0.75rem, var(--ob-safe-right));
-}
-
-.ob-menu-rail-bleed {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: hidden;
-  margin-left: calc(-1 * var(--ob-menu-inline-pad));
-  margin-right: calc(-1 * var(--ob-menu-inline-pad));
-}
-
-.ob-menu-rail-scroll {
-  box-sizing: border-box;
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-  padding-left: var(--ob-menu-inline-pad);
-  padding-right: var(--ob-menu-inline-pad);
-  scroll-padding-left: var(--ob-menu-inline-pad);
-  scroll-padding-right: var(--ob-menu-inline-pad);
-}
-
-.ob-menu-card-list {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.ob-menu-card-list > .ob-menu-card-item {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.ob-menu-card-item__body {
-  min-width: 0;
-}
-
-.ob-menu-card-item__media {
-  width: 5.5rem;
-  max-width: 5.5rem;
-}
-
-@media (min-width: 40rem) {
-  .ob-menu-card-item__media {
-    width: 7.5rem;
-    max-width: 7.5rem;
-  }
-}
-
-.ob-transactional-shell {
-  width: 100%;
-  padding-left: max(1rem, var(--ob-safe-left));
-  padding-right: max(1rem, var(--ob-safe-right));
-}
-
-html.ob-native .ob-transactional-shell {
-  max-width: none;
-  margin-left: 0;
-  margin-right: 0;
-}
+/* ── Press Feedback ────────────────────────────────────────────────────────── */
 
 .ob-press {
-  transition: transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease;
+  transition: transform var(--ob-duration-fast) var(--ob-ease-spring),
+              opacity var(--ob-duration-fast) var(--ob-ease-standard);
 }
 
 .ob-touch-target {
@@ -351,13 +164,13 @@ html.ob-native .ob-transactional-shell {
   min-height: 2.75rem;
   min-width: 2.75rem;
   touch-action: manipulation;
-  border-radius: 9999px;
-  color: rgba(255, 255, 255, 0.92);
-  transition: background-color 0.15s ease, opacity 0.15s ease;
+  border-radius: var(--ob-radius-full);
+  color: var(--ob-text-primary);
+  transition: background-color var(--ob-duration-fast) var(--ob-ease-standard);
 }
 
 .ob-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--ob-border);
 }
 
 .ob-icon-btn:active {
@@ -368,6 +181,8 @@ html.ob-native .ob-transactional-shell {
   transform: scale(0.96);
   opacity: 0.92;
 }
+
+/* ── Layout Shells ─────────────────────────────────────────────────────────── */
 
 .ob-menu-cart-spacer {
   height: var(--ob-menu-cart-spacer);
@@ -381,16 +196,19 @@ html.ob-native .ob-transactional-shell {
   left: 0;
   right: 0;
   z-index: 40;
-  border-top: 1px solid var(--mib-border, rgba(255, 255, 255, 0.12));
-  background: #070504;
-  padding: 0.75rem 1rem max(0.75rem, var(--ob-safe-bottom));
+  border-top: 1px solid var(--ob-border);
+  background: var(--ob-bg);
+  padding: 0.75rem 1rem var(--ob-space-safe-bottom);
   box-shadow: 0 -12px 40px -12px rgba(0, 0, 0, 0.95);
 }
 
+html.ob-keyboard-open .ob-fixed-cta-bar {
+  position: static !important;
+  box-shadow: none !important;
+  padding-bottom: 1rem !important;
+}
+
 html.ob-native-android .ob-fixed-cta-bar {
-  /* Safe fallback leveraging the injected --ob-safe-bottom from capacitorBootstrap.
-     Guarantees at least 3.5rem (56px) to safely clear the standard 48dp Android 3-button nav,
-     while scaling up if safe-area-inset-bottom or the injected variable is larger. */
   padding-bottom: max(calc(var(--ob-safe-bottom) + 0.75rem), 3.5rem) !important;
 }
 
@@ -399,7 +217,7 @@ html.ob-native-android {
   --ob-fixed-cta-height: 132px;
 }
 
-/* Razorpay Checkout modal — clear Android system / gesture navigation bar. */
+/* Razorpay modal chrome hide */
 html.ob-razorpay-open,
 html.ob-razorpay-open body {
   padding-bottom: var(--ob-razorpay-nav-pad, 72px) !important;
@@ -421,26 +239,16 @@ html.ob-razorpay-open iframe.razorpay-checkout-frame {
   max-height: calc(100% - var(--ob-razorpay-nav-pad, 72px)) !important;
 }
 
-/* Auth — premium sign-in shell (edge-to-edge on native, safe-area aware) */
+/* ── Auth Layout ───────────────────────────────────────────────────────────── */
+
 .ob-auth-layout {
   position: relative;
   isolation: isolate;
   overflow-x: clip;
   background:
-    radial-gradient(ellipse 120% 80% at 50% -18%, rgba(255, 122, 0, 0.2), transparent 58%),
-    radial-gradient(ellipse 90% 65% at 100% 100%, rgba(168, 85, 247, 0.14), transparent 52%),
-    radial-gradient(ellipse 70% 55% at 0% 85%, rgba(255, 107, 53, 0.1), transparent 48%),
-    #070504;
-}
-
-.ob-auth-layout::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(255, 159, 28, 0.08), transparent 42%),
-    radial-gradient(circle at 82% 18%, rgba(168, 85, 247, 0.06), transparent 36%);
+    radial-gradient(ellipse 120% 80% at 50% -18%, rgba(232, 114, 12, 0.18), transparent 58%),
+    radial-gradient(ellipse 70% 55% at 0% 85%, rgba(232, 114, 12, 0.08), transparent 48%),
+    var(--ob-bg);
 }
 
 .ob-auth-shell {
@@ -450,100 +258,70 @@ html.ob-razorpay-open iframe.razorpay-checkout-frame {
   min-height: calc(100dvh - var(--ob-safe-top) - max(1rem, var(--ob-safe-bottom)));
   align-items: center;
   justify-content: center;
-  padding: max(1rem, var(--ob-safe-top)) max(1rem, var(--ob-safe-left)) max(1.25rem, var(--ob-safe-bottom))
-    max(1rem, var(--ob-safe-right));
+  padding: max(1rem, var(--ob-safe-top)) max(1rem, var(--ob-safe-left))
+    max(1.25rem, var(--ob-safe-bottom)) max(1rem, var(--ob-safe-right));
 }
 
 .ob-auth-card {
   background:
-    radial-gradient(circle at top left, rgba(255, 159, 28, 0.1), transparent 38%),
-    radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.08), transparent 42%),
-    linear-gradient(145deg, rgba(18, 13, 10, 0.96), rgba(10, 8, 7, 0.98)) !important;
-  border: 1px solid rgba(255, 170, 95, 0.12) !important;
-  box-shadow:
-    0 24px 64px -28px rgba(0, 0, 0, 0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 0 48px -20px rgba(255, 107, 53, 0.22) !important;
+    radial-gradient(circle at top left, rgba(244, 160, 92, 0.08), transparent 38%),
+    linear-gradient(145deg, var(--ob-surface-strong), var(--ob-surface));
+  border: 1px solid var(--ob-border-strong);
+  box-shadow: var(--ob-shadow-card), var(--ob-shadow-glow);
+  border-radius: var(--ob-radius-2xl);
 }
 
 .ob-auth-brand-glow::before {
   content: '';
   position: absolute;
   inset: -18%;
-  border-radius: 1.75rem;
-  background: radial-gradient(circle, rgba(255, 122, 0, 0.35), rgba(168, 85, 247, 0.18) 55%, transparent 72%);
+  border-radius: var(--ob-radius-2xl);
+  background: radial-gradient(circle, rgba(232, 114, 12, 0.30), transparent 70%);
   filter: blur(14px);
-  opacity: 0.85;
+  opacity: 0.80;
   z-index: -1;
 }
 
 .ob-auth-brand-logo {
   position: relative;
   z-index: 1;
-  border-radius: 1.25rem;
-  box-shadow:
-    0 0 0 1px rgba(255, 122, 0, 0.28),
-    0 16px 40px -18px rgba(255, 107, 53, 0.55),
-    0 0 56px -16px rgba(168, 85, 247, 0.35);
+  border-radius: var(--ob-radius-xl);
+  box-shadow: 0 0 0 1px var(--ob-border-strong),
+              0 16px 40px -18px rgba(232, 114, 12, 0.50);
 }
 
 .ob-auth-tagline {
-  text-shadow: 0 0 24px rgba(255, 122, 0, 0.12);
+  text-shadow: 0 0 20px rgba(232, 114, 12, 0.10);
 }
 
-.ob-auth-title {
-  font-family: 'Fraunces', var(--bds-font-serif, ui-serif, Georgia, serif);
-  text-wrap: balance;
-}
+/* ── Onboarding ────────────────────────────────────────────────────────────── */
 
-html.ob-native .ob-auth-shell {
-  min-height: calc(100dvh - var(--ob-safe-top) - var(--ob-safe-bottom));
-}
-
-/* Onboarding — Zomato-style hero carousel + bottom auth sheet */
-.ob-onboarding-slide {
-  opacity: 0;
-  transition: opacity 2s ease;
-}
-
-.ob-onboarding-slide--active {
-  opacity: 1;
-}
+.ob-onboarding-slide { opacity: 0; transition: opacity 2s ease; }
+.ob-onboarding-slide--active { opacity: 1; }
 
 .ob-onboarding-hero-scrim {
   background:
-    linear-gradient(180deg, rgba(7, 5, 4, 0.55) 0%, rgba(7, 5, 4, 0.08) 42%, rgba(7, 5, 4, 0.72) 100%),
-    linear-gradient(180deg, transparent 58%, rgba(12, 9, 8, 0.95) 100%);
-}
-
-.ob-onboarding-hero-title {
-  font-family: 'Fraunces', var(--bds-font-serif, ui-serif, Georgia, serif);
-  text-wrap: balance;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+    linear-gradient(180deg, rgba(8, 7, 6, 0.55) 0%, rgba(8, 7, 6, 0.08) 42%, rgba(8, 7, 6, 0.72) 100%),
+    linear-gradient(180deg, transparent 58%, var(--ob-bg) 100%);
 }
 
 .ob-onboarding-sheet {
   background:
-    radial-gradient(circle at top left, rgba(255, 159, 28, 0.08), transparent 38%),
-    linear-gradient(180deg, rgba(12, 9, 8, 0.98), rgba(7, 5, 4, 1));
+    radial-gradient(circle at top left, rgba(244, 160, 92, 0.06), transparent 38%),
+    linear-gradient(180deg, var(--ob-surface-strong), var(--ob-bg));
 }
 
-/* Discovery home hero — compact promo + optional cinematic layer */
-.ds-discovery-hero {
-  isolation: isolate;
-}
+/* ── Discovery Hero ────────────────────────────────────────────────────────── */
+
+.ds-discovery-hero { isolation: isolate; }
 
 .ds-discovery-hero--compact .ds-discovery-hero__brand {
-  font-family: var(--font-sans, ui-sans-serif), system-ui, sans-serif;
+  font-family: var(--ob-font-sans), system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
 
-.ds-discovery-hero--compact .ds-discovery-hero__promo {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-}
-
 .ds-discovery-hero--compact .ds-discovery-hero__headline {
-  font-family: var(--font-sans, ui-sans-serif), system-ui, sans-serif;
+  font-family: var(--ob-font-sans), system-ui, sans-serif;
   text-shadow: none;
 }
 
@@ -560,29 +338,21 @@ html.ob-native .ob-auth-shell {
   min-height: 0;
 }
 
-.ds-discovery-hero--compact .ds-discovery-hero__copy::before {
-  display: none;
-}
-
 .ds-discovery-hero--compact .ds-discovery-hero__scrim {
   background: linear-gradient(
     to right,
-    rgba(18, 13, 12, 0.95) 0%,
-    rgba(18, 13, 12, 0.55) 45%,
+    rgba(19, 16, 13, 0.95) 0%,
+    rgba(19, 16, 13, 0.55) 45%,
     transparent 100%
   );
 }
 
-.ds-discovery-hero--compact .ds-discovery-hero__glow {
-  background: radial-gradient(ellipse 70% 80% at 70% 50%, rgba(244, 162, 97, 0.18), transparent 70%);
-}
-
-.ds-discovery-hero__media {
-  background: #050403;
-}
+.ds-discovery-hero__media { background: var(--ob-bg); }
 
 .ds-discovery-hero__spotlight {
-  background: radial-gradient(ellipse 72% 58% at 50% 34%, rgba(244, 162, 97, 0.14) 0%, transparent 68%);
+  background: radial-gradient(
+    ellipse 72% 58% at 50% 34%, rgba(244, 160, 92, 0.12), transparent 68%
+  );
   mix-blend-mode: screen;
   opacity: 0.5;
 }
@@ -590,77 +360,62 @@ html.ob-native .ob-auth-shell {
 .ds-discovery-hero__scrim {
   background: linear-gradient(
     to top,
-    rgba(5, 4, 3, 0.92) 0%,
-    rgba(5, 4, 3, 0.62) 28%,
-    rgba(5, 4, 3, 0.28) 58%,
+    rgba(8, 7, 6, 0.92) 0%,
+    rgba(8, 7, 6, 0.62) 28%,
+    rgba(8, 7, 6, 0.28) 58%,
     transparent 100%
   );
 }
 
 .ds-discovery-hero__glow {
   background:
-    radial-gradient(ellipse 55% 38% at 50% 30%, rgba(232, 93, 4, 0.12), transparent 70%),
-    radial-gradient(ellipse 40% 30% at 80% 20%, rgba(244, 162, 97, 0.08), transparent 65%);
+    radial-gradient(ellipse 55% 38% at 50% 30%, rgba(232, 114, 12, 0.10), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 20%, rgba(244, 160, 92, 0.07), transparent 65%);
   pointer-events: none;
 }
 
 @keyframes ds-discovery-hero-steam {
-  0% {
-    opacity: 0.15;
-    transform: translateY(8px) scale(1);
-  }
-  100% {
-    opacity: 0.35;
-    transform: translateY(-6px) scale(1.04);
-  }
+  0% { opacity: 0.15; transform: translateY(8px) scale(1); }
+  100% { opacity: 0.35; transform: translateY(-6px) scale(1.04); }
 }
 
 .ds-discovery-hero__steam {
-  background: radial-gradient(ellipse 50% 40% at 50% 70%, rgba(255, 248, 240, 0.08), transparent 70%);
+  background: radial-gradient(
+    ellipse 50% 40% at 50% 70%, rgba(255, 248, 240, 0.06), transparent 70%
+  );
   animation: ds-discovery-hero-steam 9s ease-in-out infinite alternate;
   will-change: transform, opacity;
   transform: translateZ(0);
 }
 
-.ds-discovery-hero__copy {
-  position: relative;
-}
+.ds-discovery-hero__copy { position: relative; }
 
 .ds-discovery-hero__copy::before {
   content: '';
   position: absolute;
   inset: -12% -8% auto -8%;
   height: 140%;
-  background: radial-gradient(ellipse at bottom left, rgba(5, 4, 3, 0.35), transparent 70%);
+  background: radial-gradient(ellipse at bottom left, rgba(8, 7, 6, 0.30), transparent 70%);
   z-index: -1;
   pointer-events: none;
 }
 
 .ds-discovery-hero__eyebrow {
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
-  color: rgba(255, 248, 240, 0.92);
+  color: var(--ob-text-primary);
 }
 
 .ds-discovery-hero__headline {
-  font-family: 'Fraunces', var(--font-display, ui-serif), Georgia, serif;
-  text-shadow:
-    0 2px 24px rgba(0, 0, 0, 0.55),
-    0 1px 2px rgba(0, 0, 0, 0.4);
-  color: #fff8f0;
-}
-
-.ds-discovery-hero__headline--offer {
-  color: #fff8f0;
+  font-family: var(--ob-font-display), Georgia, serif;
+  color: var(--ob-text-primary);
 }
 
 .ds-discovery-hero__subline {
-  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.5);
-  color: rgba(255, 248, 240, 0.88);
+  color: var(--ob-text-secondary);
 }
 
 .ds-discovery-hero__cta {
-  background: linear-gradient(135deg, var(--mib-primary), var(--mib-primary-2));
-  box-shadow: var(--ds-shadow-cta);
+  background: linear-gradient(135deg, var(--ob-brand), var(--ob-brand-light));
+  box-shadow: var(--ob-shadow-cta);
   border: none;
 }
 
@@ -669,77 +424,76 @@ html.ob-native .ob-auth-shell {
 }
 
 .ds-discovery-hero__offer-card {
-  background:
-    linear-gradient(145deg, rgba(8, 6, 5, 0.96), rgba(18, 13, 12, 0.94));
-  border: 1px solid rgba(232, 93, 4, 0.45);
-  box-shadow:
-    var(--mib-shadow-card),
-    var(--mib-shadow-glow),
-    0 0 0 1px rgba(0, 0, 0, 0.45) inset;
+  background: linear-gradient(145deg, rgba(28, 23, 18, 0.96), var(--ob-surface));
+  border: 1px solid var(--ob-border-strong);
+  box-shadow: var(--ob-shadow-card), var(--ob-shadow-glow),
+              0 0 0 1px rgba(0, 0, 0, 0.45) inset;
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.65);
+  border-radius: var(--ob-radius-xl);
 }
 
-.ds-discovery-hero__offer-card p {
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
-}
+/* ── Reduced Motion ────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-discovery-hero__steam {
-    animation: none;
-    opacity: 0.18;
+  .ob-card, .ob-pressable, .ob-shimmer, .ob-fade-in {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
   }
-
-  .ds-discovery-hero__cta:hover {
-    filter: none;
-  }
+  .ob-shimmer { background: rgba(255, 255, 255, 0.05) !important; }
+  .ds-discovery-hero__steam { animation: none !important; opacity: 0.18; }
+  .ds-discovery-hero__cta:hover { filter: none; }
 }
 
-@media (max-width: 768px) {
-  .ds-discovery-hero__offer-card {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
+/* ── Native Android Performance Overrides ──────────────────────────────────── */
+
+html.ob-native-android .mib-glass {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--ob-surface) !important;
 }
 
-html.ob-native .ds-discovery-hero__steam,
-html.ob-native .ob-shimmer {
-  animation: none !important;
-}
-
-html.ob-native .ds-discovery-hero__steam {
-  opacity: 0.15 !important;
-}
-
-/* ==========================================================================
-   Android-Specific Performance Overrides (Phase B Addendum)
-   These rules explicitly disable heavy compositing (blur/gradients)
-   to eliminate Main Thread scroll jank on Android's WebView.
-   ========================================================================== */
-
-/* Disable Backdrop Blur on Android */
-html.ob-native-android .mib-glass,
 html.ob-native-android .ds-discovery-hero__offer-card {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background: rgba(18, 13, 12, 0.98) !important; /* Resets gradient layers to a solid fallback */
 }
 
-/* Disable aesthetic GPU-heavy radial glow layers */
 html.ob-native-android .ds-discovery-hero__glow,
 html.ob-native-android .ds-discovery-hero__spotlight,
 html.ob-native-android .ds-discovery-hero__copy::before {
   display: none !important;
 }
 
-/* Simplify the scrim to a fast 3-stop linear gradient for strong text contrast */
-html.ob-native-android .ds-discovery-hero__scrim {
-  background: linear-gradient(
-    to top,
-    rgba(5, 4, 3, 0.98) 0%,
-    rgba(5, 4, 3, 0.60) 50%,
-    transparent 100%
-  ) !important;
+/* Native android hero scrim override removed to preserve crisp food photography */
+
+html.ob-native-android .ds-discovery-hero__steam,
+html.ob-native-android .ob-shimmer {
+  animation: none !important;
 }
 
+html.ob-native-android .ds-discovery-hero__steam {
+  opacity: 0.15 !important;
+}
+
+/* ── Typography Scale ──────────────────────────────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ob-font-display), var(--ob-font-sans), system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+
+/* Hardware-accelerated smooth scrolling in Android WebView */
+html.ob-native-android * {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.ob-native-android .mib-glass,
+html.ob-native-android .ds-glass {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(19, 16, 13, 0.96) !important;
+}

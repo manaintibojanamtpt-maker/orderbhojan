@@ -159,6 +159,8 @@ export interface OrderTrackingResponse {
   readonly status: string;
   readonly paymentStatus?: string;
   readonly expiresAt?: string;
+  readonly deliveryType?: 'asap' | 'scheduled';
+  readonly scheduledFor?: string;
   readonly timeline: readonly { readonly status: string; readonly at: string; readonly message?: string }[];
   readonly etaMinutes?: { readonly min: number; readonly max: number };
   readonly restaurant?: {

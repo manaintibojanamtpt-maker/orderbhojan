@@ -1,10 +1,13 @@
-/** Elevation / shadow tokens — premium food-first depth */
 :root {
   --mib-shadow-card:
     0 16px 48px -12px rgba(0, 0, 0, 0.65),
-    0 1px 0 rgba(255, 220, 180, 0.05) inset;
-  --mib-shadow-glow: 0 0 40px -8px rgba(232, 93, 4, 0.35);
+    0 1px 0 rgba(255, 248, 240, 0.04) inset;
+  --mib-shadow-card-hover:
+    0 20px 56px -12px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 248, 240, 0.05) inset,
+    0 0 0 1px rgba(232, 130, 50, 0.25);
+  --mib-shadow-glow: 0 0 40px -8px rgba(232, 114, 12, 0.30);
   --ds-shadow-soft: 0 12px 32px -12px rgba(0, 0, 0, 0.45);
-  --ds-shadow-cta: 0 14px 28px -10px rgba(232, 93, 4, 0.45);
+  --ds-shadow-cta: 0 14px 28px -10px rgba(232, 114, 12, 0.45);
   --ds-shadow-nav: 0 18px 48px rgba(0, 0, 0, 0.55);
 }

@@ -17,6 +17,7 @@ import { warmMarketplaceApi } from '@/lib/warmMarketplaceApi';
 import { markPerf, markPerfOnce } from '@/lib/perfMarks';
 import { trackEvent } from '@/telemetry';
 import '@/styles/globals.css';
+import { initTheme } from '@/features/theme/themeService';
 
 if (isNativePlatform()) {
   (window as Window & { __SKIP_SPLASH__?: boolean }).__SKIP_SPLASH__ = true;
@@ -51,10 +52,16 @@ function renderApp(): void {
 
   requestAnimationFrame(() => {
     markPerfOnce('first_paint');
+    if (isNativePlatform()) {
+      import('@capacitor/splash-screen').then(({ SplashScreen }) => {
+        SplashScreen.hide({ fadeOutDuration: 200 }).catch(() => {});
+      }).catch(() => {});
+    }
   });
 }
 
 async function bootstrap() {
+  initTheme();
   markPerf('app_start');
   bootstrapObDebugFromUrl();
   suppressFirestorePermissionRejections();
@@ -120,6 +127,11 @@ async function bootstrap() {
 
 bootstrap().catch((error) => {
   console.error('[OrderBhojan] bootstrap failed', error);
+  if (isNativePlatform()) {
+    import('@capacitor/splash-screen').then(({ SplashScreen }) => {
+      SplashScreen.hide({ fadeOutDuration: 200 }).catch(() => {});
+    }).catch(() => {});
+  }
   const rootElement = document.getElementById('root');
   if (rootElement) {
     rootElement.innerHTML = `<div style="padding:2rem;font-family:system-ui;color:#fff;background:#070504;min-height:100vh"><h1>OrderBhojan failed to start</h1><p>${error instanceof Error ? error.message : String(error)}</p></div>`;

@@ -94,7 +94,7 @@ export const MarketplaceBottomNavView: React.FC<MarketplaceBottomNavViewProps> =
         aria-label="Primary"
       >
         {activeOrderSlot}
-        <div className="max-w-lg mx-auto bg-[#120d0c]/90 backdrop-blur-3xl rounded-[2.5rem] px-2 py-2 flex items-center justify-around shadow-[0_20px_50px_rgba(0,0,0,0.55)] border border-white/[0.08] relative overflow-hidden pointer-events-auto">
+        <div className="max-w-lg mx-auto bg-[var(--ob-surface)]/95 backdrop-blur-3xl rounded-[2.5rem] px-2 py-2 flex items-center justify-around shadow-[0_20px_50px_rgba(0,0,0,0.25)] border border-[var(--ob-border)] relative overflow-hidden pointer-events-auto">
           {items.map((item) => {
             const isActive = resolveActive(activePath, item);
             const Icon = item.icon;
@@ -116,14 +116,14 @@ export const MarketplaceBottomNavView: React.FC<MarketplaceBottomNavViewProps> =
                 {isActive && !reducedMotion && (
                   <m.div
                     layoutId="obActiveBar"
-                    className="absolute -bottom-0.5 h-1 w-5 rounded-full bg-[#e85d04] shadow-[0_0_10px_rgba(232,93,4,0.65)]"
+                    className="absolute -bottom-0.5 h-1 w-5 rounded-full bg-gradient-to-r from-[#FA7A1E] to-[#E8720C]"
                     transition={{ type: 'spring', bounce: 0.3, duration: 0.6 }}
                   />
                 )}
 
                 {isActive && reducedMotion ? (
                   <span
-                    className="absolute -bottom-0.5 h-1 w-5 rounded-full bg-[#e85d04]"
+                    className="absolute -bottom-0.5 h-1 w-5 rounded-full bg-[#E8720C]"
                     aria-hidden
                   />
                 ) : null}
@@ -141,8 +141,8 @@ export const MarketplaceBottomNavView: React.FC<MarketplaceBottomNavViewProps> =
                     className={cn(
                       'rounded-xl px-2 py-1 transition-colors duration-300',
                       isActive
-                        ? 'bg-[#e85d04]/15 text-[#e85d04]'
-                        : 'text-[#c4b5a5] group-active:text-[#fff8f0]/80',
+                        ? 'bg-[#E8720C]/15 text-[#E8720C]'
+                        : 'text-[var(--ob-text-secondary)] group-active:text-[var(--ob-text-primary)]',
                     )}
                   >
                     <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
@@ -150,20 +150,14 @@ export const MarketplaceBottomNavView: React.FC<MarketplaceBottomNavViewProps> =
                   <span
                     className={cn(
                       'text-[9px] font-bold tracking-[0.16em] uppercase transition-all duration-300',
-                      isActive ? 'text-[#fff8f0]' : 'text-[#c4b5a5]/80',
+                      isActive ? 'text-[var(--ob-text-primary)]' : 'text-[var(--ob-text-secondary)]/80',
                     )}
                   >
                     {item.label}
                   </span>
                 </div>
 
-                {isActive && !reducedMotion ? (
-                  <m.div
-                    layoutId="obNavGlow"
-                    className="absolute inset-0 rounded-full bg-[#e85d04]/12 blur-xl"
-                    transition={{ duration: 1 }}
-                  />
-                ) : null}
+
               </button>
             );
           })}

@@ -35,9 +35,9 @@ export function ProfileMemberView({
           alt={profile.displayName}
           className="mx-auto mb-4 h-20 w-20"
         />
-        <h2 className="text-2xl font-extrabold tracking-tight text-white">{profile.displayName}</h2>
-        <p className="mt-1 truncate text-sm text-white/60">{profile.contactLine}</p>
-        <p className="mt-3 text-xs text-white/45">Details sync from your sign-in method</p>
+        <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ob-text-primary)]">{profile.displayName}</h2>
+        <p className="mt-1 truncate text-sm text-[var(--ob-text-secondary)]">{profile.contactLine}</p>
+        <p className="mt-3 text-xs text-[var(--ob-text-secondary)]/80">Details sync from your sign-in method</p>
       </GlassCard>
 
       <div className="grid grid-cols-3 gap-3">
@@ -45,7 +45,7 @@ export function ProfileMemberView({
           <button
             key={tile.id}
             type="button"
-            className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-4 text-sm font-bold text-white transition hover:border-[#FF7A00]/40"
+            className="rounded-2xl border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 py-4 text-sm font-bold text-[var(--ob-text-primary)] transition hover:border-[#E8720C]/40 active:scale-[0.97] touch-manipulation shadow-sm"
             onClick={() => onQuickTile(tile.id)}
           >
             {tile.label}

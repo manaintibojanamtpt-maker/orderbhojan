@@ -30,7 +30,7 @@ export function OrderBhojanRestaurantActions({
   };
 
   const iconBtn =
-    'flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white transition hover:border-[#FF7A00]/40';
+    'flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white transition hover:border-[#E8720C]/40';
 
   return (
     <GlassCard hoverEffect={false} className="!rounded-full !p-1.5">
@@ -40,7 +40,7 @@ export function OrderBhojanRestaurantActions({
         </button>
         <button
           type="button"
-          className={`${iconBtn}${burst ? ' scale-110' : ''} ${favorite ? 'text-[#FF7A00]' : ''}`}
+          className={`${iconBtn}${burst ? ' scale-110' : ''} ${favorite ? 'text-[#E8720C]' : ''}`}
           aria-label={favorite ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
           aria-pressed={favorite}
           onClick={() => {
@@ -67,7 +67,7 @@ export function OrderBhojanRestaurantStickyHeader({
 
   return (
     <div
-      className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-[#030303]/92 px-4 backdrop-blur-md"
+      className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-[var(--ob-bg,#080706)]/92 px-4 backdrop-blur-md"
       style={{ paddingTop: 'max(0.75rem, var(--ob-safe-top))', paddingBottom: '0.75rem' }}
     >
       <div className="mx-auto flex max-w-3xl items-center gap-3">

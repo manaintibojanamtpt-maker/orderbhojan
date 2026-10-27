@@ -84,12 +84,12 @@ const BottomSheet: React.FC<BottomSheetProps> = ({
   };
 
   const panelBaseClass =
-    `fixed bottom-0 left-0 right-0 z-[1201] flex flex-col rounded-t-[32px] bg-white shadow-2xl dark:bg-gray-900 pb-safe ${panelClassName}`.trim();
+    `fixed bottom-0 left-0 right-0 z-[1201] flex flex-col rounded-t-[2rem] bg-[#1C1712] shadow-[0_-10px_40px_rgba(0,0,0,0.4)] dark:bg-[#1C1712] pb-safe ${panelClassName}`.trim();
 
   const panelContent = (
     <>
       <div className="flex w-full shrink-0 justify-center pb-2 pt-4">
-        <div className="h-1.5 w-12 rounded-full bg-gray-300 dark:bg-gray-700" />
+        <div className="h-1.5 w-12 rounded-full bg-white/15 dark:bg-white/15" />
       </div>
       {title ? (
         <div className="shrink-0 px-6 pb-4 text-center">

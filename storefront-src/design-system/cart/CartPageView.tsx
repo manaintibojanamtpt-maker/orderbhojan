@@ -46,17 +46,17 @@ export function CartPageView({
     <div className="relative pb-36">
       <TransactionalPageShell title={title} subtitle={subtitle} className="!gap-3" embedded>
         <header className="px-0.5">
-          <h1 className="text-xl font-extrabold tracking-tight text-[#fff8f0]">{title}</h1>
-          <p className="mt-0.5 text-xs text-[#c4b5a5]">{subtitle}</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-[var(--ob-text-primary)]">{title}</h1>
+          <p className="mt-0.5 text-xs text-[var(--ob-text-secondary)]">{subtitle}</p>
         </header>
 
         {restaurant && onMenu ? (
-          <div className="rounded-2xl border border-white/[0.08] bg-[#120d0c] p-3 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+          <div className="rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)] p-3 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.65),0_1px_0_rgba(255,248,240,0.04)_inset]">
             <CartRestaurantBannerView restaurant={restaurant} onMenu={onMenu} />
           </div>
         ) : null}
 
-        <ul className="grid list-none gap-2 rounded-2xl border border-white/[0.08] bg-[#120d0c] p-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+        <ul className="grid list-none gap-2 rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)] p-2.5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.65),0_1px_0_rgba(255,248,240,0.04)_inset]">
           {lines.map((line) => (
             <CartLineView key={line.lineId} line={line} onQuantityChange={onQuantityChange} />
           ))}
@@ -64,7 +64,7 @@ export function CartPageView({
 
         {recommendationsContent}
 
-        <div className="rounded-2xl border border-white/[0.08] bg-[#120d0c] p-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
+        <div className="rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)] p-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
           <CartSummaryView summary={summary} />
         </div>
 
@@ -88,8 +88,8 @@ export function CartPageView({
       <div className="ob-fixed-cta-bar">
         <div className="mx-auto flex max-w-lg flex-col gap-2">
           <div className="flex items-center justify-between px-0.5 text-sm">
-            <span className="font-medium text-white/60">Subtotal</span>
-            <span className="font-extrabold text-[#fff8f0]">{summary.subtotalLabel}</span>
+            <span className="font-medium text-[var(--ob-text-secondary)]">Subtotal</span>
+            <span className="font-extrabold text-[var(--ob-text-primary)]">{summary.subtotalLabel}</span>
           </div>
           <SoftButton type="button" fullWidth disabled={checkoutBusy} onClick={onCheckout}>
             {checkoutLabel}
@@ -118,7 +118,7 @@ export function CartEmptyView({ onBrowse }: CartEmptyViewProps) {
       <MarketplaceUxStateView
         title="Your cart is empty"
         description="Add dishes from a restaurant menu to start an order."
-        icon={<ShoppingCart className="h-7 w-7 text-[#e85d04]" aria-hidden />}
+        icon={<ShoppingCart className="h-7 w-7 text-[#E8720C]" aria-hidden />}
         primaryLabel="Continue browsing"
         onPrimary={onBrowse}
       />

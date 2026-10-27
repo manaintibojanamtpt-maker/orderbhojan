@@ -10,8 +10,6 @@ import { OrderBhojanHomeHero, OrderBhojanHomeCategories } from '@/presentation/d
 import { preloadMarketplaceRouteChunks } from '@/lib/preloadRouteChunks';
 import { DEFAULT_LOCATION_DISCOVERY_CTA } from '@/lib/marketplaceDefaults';
 import { Skeleton } from '@bhojan/storefront-design-system/primitives/Skeleton';
-import { HomeVoiceHeroCard } from '@/features/assistant/ui/HomeVoiceHeroCard';
-import { useVoiceFirstFeature } from '@/features/assistant/hooks/useVoiceFirstFeature';
 
 const LOCATION_NUDGE_DISMISSED_KEY = 'ob-location-nudge-dismissed-v1';
 
@@ -34,18 +32,18 @@ function HomeLocationNudgeBanner({
 }) {
   return (
     <div
-      className="mx-4 mt-3 rounded-xl border border-[#e85d04]/25 bg-[#e85d04]/10 px-3.5 py-2.5 sm:mx-6"
+      className="mx-4 mt-3 rounded-xl border border-[#E8720C]/25 bg-[#E8720C]/10 px-3.5 py-2.5 sm:mx-6"
       role="region"
       aria-label="Set delivery location"
     >
       <div className="flex items-start gap-3">
-        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#e85d04]" aria-hidden />
+        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#E8720C]" aria-hidden />
         <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="text-sm font-semibold text-white">{DEFAULT_LOCATION_DISCOVERY_CTA}</p>
-          <p className="text-xs text-white/60">Choose your area to see kitchens that deliver to you.</p>
+          <p className="text-sm font-semibold text-[var(--ob-text-primary)]">{DEFAULT_LOCATION_DISCOVERY_CTA}</p>
+          <p className="text-xs text-[var(--ob-text-secondary)]">Choose your area to see kitchens that deliver to you.</p>
           <button
             type="button"
-            className="ob-press inline-flex min-h-9 items-center rounded-full bg-[#e85d04] px-3.5 text-xs font-bold uppercase tracking-wide text-[#fff8f0] touch-manipulation"
+            className="ob-press inline-flex min-h-9 items-center rounded-full bg-[#E8720C] px-3.5 text-xs font-bold uppercase tracking-wide text-white touch-manipulation"
             onClick={onSetLocation}
           >
             Set location
@@ -53,7 +51,7 @@ function HomeLocationNudgeBanner({
         </div>
         <button
           type="button"
-          className="ob-press ob-touch-target flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/60 touch-manipulation"
+          className="ob-press ob-touch-target flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ob-text-secondary)] touch-manipulation"
           aria-label="Dismiss location reminder"
           onClick={onDismiss}
         >
@@ -75,7 +73,6 @@ function readLocationNudgeDismissed(): boolean {
 export function HomeExperiencePage() {
   const discoveryEnabled = useDiscoveryFeatureEnabled();
   const locationEnabled = useLocationFeatureEnabled();
-  const voiceFirstEnabled = useVoiceFirstFeature();
   const activeLocation = useActiveLocation();
   const discoveryQuery = useDiscoveryHome();
   const { openSelector } = useLocationActions();
@@ -112,48 +109,44 @@ export function HomeExperiencePage() {
   };
 
   return (
-    <div className="bg-[#050403] pb-[calc(env(safe-area-inset-bottom)+5rem)] min-h-[100dvh] text-[#fff8f0]">
-      <OrderBhojanHomeHero />
+    <div className="bg-[var(--ob-bg,#0E0C0A)] pb-32 min-h-[100dvh] text-[var(--ob-text-primary,#FFF8F0)]">
+      <div className="mx-auto max-w-4xl">
+        <OrderBhojanHomeHero />
 
-      {locationEnabled && showLocationNudge ? (
-        <HomeLocationNudgeBanner
-          onSetLocation={() => openSelector()}
-          onDismiss={dismissLocationNudge}
-        />
-      ) : null}
+        {locationEnabled && showLocationNudge ? (
+          <HomeLocationNudgeBanner
+            onSetLocation={() => openSelector()}
+            onDismiss={dismissLocationNudge}
+          />
+        ) : null}
 
-      {voiceFirstEnabled ? (
-        <div className="px-4 pt-3.5 sm:px-6">
-          <HomeVoiceHeroCard />
-        </div>
-      ) : null}
-
-      {discoveryEnabled ? (
-        <div className="px-4 pt-3.5 sm:px-6">
-          <OrderBhojanHomeCategories compact />
-        </div>
-      ) : null}
-
-      <p
-        className="px-4 pt-2.5 text-xs font-medium leading-snug text-white/60 sm:px-6"
-        data-testid="home-pricing-trust-banner"
-      >
-        ₹0 platform fee · Kitchen prices · No hidden charges
-      </p>
-
-      <div className="px-4 pt-2.5 sm:px-6">
         {discoveryEnabled ? (
-          <DiscoveryHomeFeed />
-        ) : (
-          <MockRestaurantFeed categoryId={selectedId} />
-        )}
-      </div>
+          <div className="px-4 pt-3.5 sm:px-6">
+            <OrderBhojanHomeCategories compact />
+          </div>
+        ) : null}
 
-      <section className="mt-5 px-4 sm:px-6" aria-label="Why OrderBhojan">
-        <Suspense fallback={<TrustStripFallback />}>
-          <OrderBhojanHomeTrustStrip />
-        </Suspense>
-      </section>
+        <p
+          className="px-4 pt-2.5 text-xs font-medium leading-snug text-[var(--ob-text-secondary)] sm:px-6"
+          data-testid="home-pricing-trust-banner"
+        >
+          ₹0 platform fee · Kitchen prices · No hidden charges
+        </p>
+
+        <div className="px-4 pt-2.5 sm:px-6">
+          {discoveryEnabled ? (
+            <DiscoveryHomeFeed />
+          ) : (
+            <MockRestaurantFeed categoryId={selectedId} />
+          )}
+        </div>
+
+        <section className="mt-5 px-4 sm:px-6" aria-label="Why OrderBhojan">
+          <Suspense fallback={<TrustStripFallback />}>
+            <OrderBhojanHomeTrustStrip />
+          </Suspense>
+        </section>
+      </div>
     </div>
   );
 }

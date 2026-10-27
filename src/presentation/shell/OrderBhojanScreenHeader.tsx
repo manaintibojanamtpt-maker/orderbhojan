@@ -34,12 +34,15 @@ export function OrderBhojanScreenHeader({
 
   return (
     <header
-      className="sticky top-0 z-50 border-b border-white/5 bg-black/90 backdrop-blur-xl"
+      className="sticky top-0 z-50 border-b border-[var(--ob-border)] bg-[var(--ob-bg)]/95 backdrop-blur-xl"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), var(--ob-safe-top, 0px))',
+      }}
     >
       <div className="mx-auto flex min-h-12 max-w-7xl items-center gap-2 px-3 py-2">
         <button
           type="button"
-          className="ob-press ob-touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/90 touch-manipulation"
+          className="ob-press ob-touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--ob-text-primary)] touch-manipulation"
           aria-label="Go back"
           onClick={() => {
             if (window.history.length > 1) {
@@ -51,7 +54,7 @@ export function OrderBhojanScreenHeader({
         >
           <ChevronLeft className="h-5 w-5" aria-hidden />
         </button>
-        <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-white">{resolvedTitle}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-[var(--ob-text-primary)]">{resolvedTitle}</h1>
       </div>
     </header>
   );

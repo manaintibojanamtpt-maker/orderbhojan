@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Skeleton } from '../primitives/Skeleton';
 import { SoftButton } from '../primitives/SoftButton';
 import { CheckoutBillSummaryView } from './CheckoutBillSummaryView';
@@ -60,7 +60,7 @@ export interface CheckoutPageViewProps {
 function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-2xl border border-white/[0.08] bg-[#120d0c] p-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)] ${className}`.trim()}
+      className={`rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)] p-3.5 shadow-[0_8px_24px_rgba(0,0,0,0.28)] ${className}`.trim()}
     >
       {children}
     </div>
@@ -83,7 +83,7 @@ function PaymentMethodIcon({ id }: { readonly id: CheckoutPaymentMethodId }) {
     );
   }
   return (
-    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e85d04]/15 text-[10px] font-black text-[#f4a261]">
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8720C]/15 text-[10px] font-black text-[#f4a261]">
       COD
     </span>
   );
@@ -120,6 +120,16 @@ export function CheckoutPageView({
   hint,
   paymentMethodsLoading = false,
 }: CheckoutPageViewProps) {
+  useEffect(() => {
+    if (!contact.value) {
+      setTimeout(() => {
+        const telInput = document.querySelector('input[type="tel"]') as HTMLInputElement | null;
+        if (telInput && document.activeElement !== telInput) {
+          telInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 250);
+    }
+  }, []);
   return (
     <div className="relative">
       <TransactionalPageShell
@@ -129,8 +139,8 @@ export function CheckoutPageView({
         embedded
       >
         <header className="px-0.5">
-          <h1 className="text-xl font-extrabold tracking-tight text-[#fff8f0]">{title}</h1>
-          <p className="mt-0.5 text-xs text-[#c4b5a5]">{subtitle}</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-[#FFF8F0]">{title}</h1>
+          <p className="mt-0.5 text-xs text-[#A89B8C]">{subtitle}</p>
         </header>
 
         {address && onAddressAction ? (
@@ -157,7 +167,7 @@ export function CheckoutPageView({
             <div aria-busy="true" className="space-y-2">
               <Skeleton className="h-8 w-full rounded-xl ob-shimmer" />
               <Skeleton className="h-8 w-2/3 rounded-xl ob-shimmer" />
-              <p className="text-xs text-[#c4b5a5]">Updating taxes and delivery…</p>
+              <p className="text-xs text-[#A89B8C]">Updating taxes and delivery…</p>
             </div>
           ) : null}
 
@@ -165,7 +175,7 @@ export function CheckoutPageView({
             <div className={billRefreshing ? 'opacity-80 transition-opacity' : undefined}>
               <CheckoutBillSummaryView bill={bill} />
               {billRefreshing ? (
-                <p className="mt-2 text-xs text-[#c4b5a5]" aria-live="polite">
+                <p className="mt-2 text-xs text-[#A89B8C]" aria-live="polite">
                   Updating taxes and delivery…
                 </p>
               ) : null}
@@ -179,7 +189,7 @@ export function CheckoutPageView({
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f4a261]/90">
               Pay using
             </p>
-            <p className="mt-0.5 text-sm font-extrabold text-[#fff8f0]">Choose a payment method</p>
+            <p className="mt-0.5 text-sm font-extrabold text-[#FFF8F0]">Choose a payment method</p>
           </div>
 
           {paymentMethodsLoading && paymentOptions.length === 0 ? (
@@ -198,9 +208,9 @@ export function CheckoutPageView({
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    className={`flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left touch-manipulation transition-colors ${
+                    className={`flex w-full items-start gap-3 rounded-[1.25rem] border px-3 py-3 text-left touch-manipulation transition-colors ${
                       selected
-                        ? 'border-[#e85d04]/55 bg-[#e85d04]/10 shadow-[0_0_0_1px_rgba(232,93,4,0.25)]'
+                        ? 'border-[#E8720C]/55 bg-[#E8720C]/10 shadow-[0_0_0_1px_rgba(232,93,4,0.25)]'
                         : 'border-white/[0.1] bg-black/20 hover:border-white/20'
                     }`}
                     onClick={() => onSelectPaymentMethod(option.id)}
@@ -208,21 +218,21 @@ export function CheckoutPageView({
                     <PaymentMethodIcon id={option.id} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-[#fff8f0]">{option.title}</span>
+                        <span className="text-sm font-bold text-[#FFF8F0]">{option.title}</span>
                         {option.badge ? (
                           <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#f4a261]">
                             {option.badge}
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-0.5 block text-[11px] leading-snug text-[#c4b5a5]">
+                      <span className="mt-0.5 block text-[11px] leading-snug text-[#A89B8C]">
                         {option.subtitle}
                       </span>
                     </span>
                     <span
                       className={`mt-1 h-5 w-5 shrink-0 rounded-full border-2 ${
                         selected
-                          ? 'border-[#e85d04] bg-[#e85d04] shadow-[inset_0_0_0_3px_#120d0c]'
+                          ? 'border-[#E8720C] bg-[#E8720C] shadow-[inset_0_0_0_3px_#13100D]'
                           : 'border-white/25 bg-transparent'
                       }`}
                       aria-hidden
@@ -234,7 +244,7 @@ export function CheckoutPageView({
           )}
         </Card>
 
-        {hint ? <p className="px-0.5 text-xs leading-relaxed text-[#c4b5a5]">{hint}</p> : null}
+        {hint ? <p className="px-0.5 text-xs leading-relaxed text-[#A89B8C]">{hint}</p> : null}
 
         {promo && onPromoChange && onPromoApply && onPromoSelectChip ? (
           <Card>
@@ -248,7 +258,8 @@ export function CheckoutPageView({
           </Card>
         ) : null}
 
-        <Card>
+        {/* Always present contact card; highlighted if number is required */}
+        <Card className={!contact.value ? "border-[#E8720C]/50 bg-[#1C1712]" : ""}>
           <CheckoutContactView
             contact={contact}
             onChange={onContactChange}
@@ -275,7 +286,7 @@ export function CheckoutPageView({
           {bill?.totalLabel ? (
             <div className="flex items-center justify-between px-0.5 text-sm">
               <span className="font-medium text-white/60">Total</span>
-              <span className="font-extrabold text-[#fff8f0]">{bill.totalLabel}</span>
+              <span className="font-extrabold text-[#FFF8F0]">{bill.totalLabel}</span>
             </div>
           ) : null}
           <SoftButton

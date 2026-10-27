@@ -1,47 +1,40 @@
-@theme {
-  --font-sans: "Figtree", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", "Outfit", var(--font-sans);
-  --font-serif: "Fraunces", "Plus Jakarta Sans", serif;
+:root {
+  /* Premium Unified Color System — Warm Minimal Direction */
+  --color-primary: #E8720C;
+  --color-primary-light: #F4A05C;
+  --color-accent: #F4A05C;
+  --color-brand-bg: var(--ob-bg, #080706);
+  --color-card-bg: var(--ob-surface, #13100D);
+  --color-surface: var(--ob-surface-strong, #1C1712);
+  --color-text-main: var(--ob-text-primary, #FFF8F0);
+  --color-text-secondary: var(--ob-text-secondary, #A89B8C);
+  --color-divider: var(--ob-border, rgba(255, 248, 240, 0.06));
+  --color-accent-red: #E8720C;
+  --color-accent-red-light: #F4A05C;
 
-  /* Unified saffron / amber brand — food-first premium */
-  --color-primary: #e85d04;
-  --color-primary-light: #f4a261;
-  --color-accent: #ffb347;
-  --color-brand-bg: #050403;
-  --color-card-bg: #120d0c;
-  --color-surface: #0c0908;
-  --color-text-main: #fff8f0;
-  --color-text-secondary: #c4b5a5;
-  --color-divider: rgba(255, 220, 180, 0.08);
-  --color-accent-red: #e85d04;
-  --color-accent-red-light: #f4a261;
+  --color-dark-bg: #080706;
+  --color-dark-card: #13100D;
+  --color-dark-surface: #1C1712;
+  --color-dark-text: #FFF8F0;
+  --color-dark-text-secondary: #A89B8C;
 
-  --color-dark-bg: #050403;
-  --color-dark-card: #120d0c;
-  --color-dark-surface: #0c0908;
-  --color-dark-text: #fff8f0;
-  --color-dark-text-secondary: #c4b5a5;
-
-  --mib-orange: 24, 96%, 46%;
-  --mib-gold: 32, 97%, 56%;
-  --mib-dark: 20, 14%, 3%;
-  --mib-card: 18, 12%, 6%;
+  --mib-orange: 24, 82%, 48%;
+  --mib-gold: 30, 88%, 62%;
+  --mib-dark: 20, 16%, 4%;
+  --mib-card: 20, 14%, 7%;
 }
 
-:root {
-  --mib-bg: #050403;
-  --mib-surface: #120d0c;
-  --mib-surface-strong: #1a1412;
-  --mib-border: rgba(255, 220, 180, 0.07);
-  --mib-border-strong: rgba(232, 93, 4, 0.28);
-  --mib-text: #fff8f0;
-  --mib-muted: #c4b5a5;
-  --mib-primary: #e85d04;
-  --mib-primary-2: #f4a261;
-  --mib-success: #34d399;
-  --mib-radius-card: 1.25rem;
-  --mib-shadow-card:
-    0 16px 48px -12px rgba(0, 0, 0, 0.65),
-    0 1px 0 rgba(255, 220, 180, 0.05) inset;
-  --mib-shadow-glow: 0 0 40px -8px rgba(232, 93, 4, 0.35);
+[data-theme="light"] {
+  --color-brand-bg: #FAF7F2;
+  --color-card-bg: #FFFFFF;
+  --color-surface: #F3EDE5;
+  --color-text-main: #211A15;
+  --color-text-secondary: #70665D;
+  --color-divider: rgba(33, 26, 21, 0.08);
+
+  --color-dark-bg: #FAF7F2;
+  --color-dark-card: #FFFFFF;
+  --color-dark-surface: #F3EDE5;
+  --color-dark-text: #211A15;
+  --color-dark-text-secondary: #70665D;
 }

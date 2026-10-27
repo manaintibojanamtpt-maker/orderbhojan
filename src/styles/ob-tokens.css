@@ -1,0 +1,257 @@
+/**
+ * OrderBhojan Unified Premium Design Tokens
+ * Single source of truth — all components reference these CSS variables.
+ * Tokens align with "Warm Minimal" visual direction.
+ */
+
+/* ── Color Palette ─────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="dark"] {
+  /* Backgrounds — Warm Charcoal Culinary Atmosphere */
+  --ob-bg: #0E0C0A;
+  --ob-surface: #171310;
+  --ob-surface-strong: #201A15;
+  --ob-surface-elevated: #2A221C;
+
+  /* Borders */
+  --ob-border: rgba(255, 248, 240, 0.08);
+  --ob-border-subtle: rgba(255, 248, 240, 0.05);
+  --ob-border-strong: rgba(242, 122, 26, 0.30);
+  --ob-border-brand: rgba(242, 122, 26, 0.45);
+
+  /* Brand — Culinary Warm Amber */
+  --ob-brand: #F27A1A;
+  --ob-brand-light: #FF9E42;
+  --ob-brand-glow: rgba(242, 122, 26, 0.30);
+  --ob-brand-subtle: rgba(242, 122, 26, 0.12);
+
+  /* Text */
+  --ob-text-primary: #FFF9F2;
+  --ob-text-secondary: #B5A594;
+  --ob-text-tertiary: #7D6F60;
+  --ob-text-inverse: #0E0C0A;
+
+  /* Semantic */
+  --ob-success: #34D399;
+  --ob-success-subtle: rgba(52, 211, 153, 0.12);
+  --ob-warning: #FBBF24;
+  --ob-warning-subtle: rgba(251, 191, 36, 0.12);
+  --ob-error: #F87171;
+  --ob-error-subtle: rgba(248, 113, 113, 0.12);
+  --ob-info: #60A5FA;
+
+  /* Glass */
+  --ob-glass-bg: rgba(19, 16, 13, 0.82);
+  --ob-glass-blur: 20px;
+  --ob-glass-saturate: 180%;
+
+  /* HSL variants for dynamic layering */
+  --ob-hsl-brand: 24, 82%, 48%;
+  --ob-hsl-brand-light: 30, 88%, 62%;
+  --ob-hsl-dark: 20, 16%, 4%;
+  --ob-hsl-card: 20, 14%, 7%;
+}
+
+
+[data-theme="light"] {
+  /* Backgrounds — Warm Cream Light Atmosphere */
+  --ob-bg: #FAF7F2;
+  --ob-surface: #FFFFFF;
+  --ob-surface-strong: #F3EDE5;
+  --ob-surface-elevated: #EAE2D8;
+
+  /* Borders */
+  --ob-border: rgba(33, 26, 21, 0.08);
+  --ob-border-subtle: rgba(33, 26, 21, 0.05);
+  --ob-border-strong: rgba(233, 111, 18, 0.30);
+  --ob-border-brand: rgba(233, 111, 18, 0.45);
+
+  /* Brand — Saffron Orange */
+  --ob-brand: #E96F12;
+  --ob-brand-light: #FF8F3D;
+  --ob-brand-glow: rgba(233, 111, 18, 0.25);
+  --ob-brand-subtle: rgba(233, 111, 18, 0.10);
+
+  /* Text */
+  --ob-text-primary: #211A15;
+  --ob-text-secondary: #70665D;
+  --ob-text-tertiary: #9E9388;
+  --ob-text-inverse: #FFF9F2;
+
+  /* Semantic */
+  --ob-success: #10B981;
+  --ob-success-subtle: rgba(16, 185, 129, 0.12);
+  --ob-warning: #D97706;
+  --ob-warning-subtle: rgba(217, 119, 6, 0.12);
+  --ob-error: #EF4444;
+  --ob-error-subtle: rgba(239, 68, 68, 0.12);
+  --ob-info: #3B82F6;
+
+  /* Glass */
+  --ob-glass-bg: rgba(255, 255, 255, 0.88);
+  --ob-glass-blur: 20px;
+  --ob-glass-saturate: 180%;
+
+  /* HSL variants for dynamic layering */
+  --ob-hsl-brand: 27, 85%, 49%;
+  --ob-hsl-brand-light: 25, 100%, 62%;
+  --ob-hsl-dark: 26, 24%, 97%;
+  --ob-hsl-card: 0, 0%, 100%;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────────── */
+
+:root {
+  --ob-font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --ob-font-display: "Outfit", var(--ob-font-sans);
+  --ob-font-serif: "Fraunces", var(--ob-font-sans);
+}
+
+/* ── Radius Scale ──────────────────────────────────────────────────────────── */
+
+:root {
+  --ob-radius-sm: 0.5rem;     /* 8px — tags, small badges */
+  --ob-radius-md: 0.75rem;    /* 12px — inputs, small cards */
+  --ob-radius-lg: 1rem;       /* 16px — standard cards */
+  --ob-radius-xl: 1.25rem;    /* 20px — hero cards, sheets */
+  --ob-radius-2xl: 1.5rem;    /* 24px — modals, panels */
+  --ob-radius-3xl: 2rem;      /* 32px — floating elements */
+  --ob-radius-full: 9999px;   /* pills */
+}
+
+/* ── Elevation / Shadows ───────────────────────────────────────────────────── */
+
+:root {
+  --ob-shadow-card:
+    0 16px 48px -12px rgba(0, 0, 0, 0.65),
+    0 1px 0 rgba(255, 248, 240, 0.04) inset;
+  --ob-shadow-card-hover:
+    0 20px 56px -12px rgba(0, 0, 0, 0.72),
+    0 1px 0 rgba(255, 248, 240, 0.05) inset,
+    0 0 0 1px var(--ob-border-strong);
+  --ob-shadow-glow: 0 0 40px -8px var(--ob-brand-glow);
+  --ob-shadow-cta: 0 14px 28px -10px rgba(232, 114, 12, 0.45);
+  --ob-shadow-nav: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --ob-shadow-sheet: 0 -24px 64px -16px rgba(0, 0, 0, 0.80);
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ob-duration-fast: 150ms;
+  --ob-duration-normal: 250ms;
+  --ob-duration-slow: 400ms;
+  --ob-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ob-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ob-ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+}
+
+/* ── Spacing ───────────────────────────────────────────────────────────────── */
+
+:root {
+  --ob-space-1: 0.25rem;
+  --ob-space-2: 0.5rem;
+  --ob-space-3: 0.75rem;
+  --ob-space-4: 1rem;
+  --ob-space-5: 1.25rem;
+  --ob-space-6: 1.5rem;
+  --ob-space-8: 2rem;
+  --ob-space-10: 2.5rem;
+  --ob-space-12: 3rem;
+  --ob-space-16: 4rem;
+  --ob-space-safe-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+/* ── Premium Utilities ─────────────────────────────────────────────────────── */
+
+.ob-card {
+  background: var(--ob-surface);
+  border: 1px solid var(--ob-border);
+  border-radius: var(--ob-radius-xl);
+  box-shadow: var(--ob-shadow-card);
+  transition: border-color var(--ob-duration-normal) var(--ob-ease-standard),
+              box-shadow var(--ob-duration-normal) var(--ob-ease-standard);
+}
+
+.ob-card:hover {
+  border-color: var(--ob-border-strong);
+  box-shadow: var(--ob-shadow-card-hover);
+}
+
+.ob-glass {
+  background: var(--ob-glass-bg);
+  backdrop-filter: blur(var(--ob-glass-blur)) saturate(var(--ob-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--ob-glass-blur)) saturate(var(--ob-glass-saturate));
+  border: 1px solid rgba(255, 248, 240, 0.08);
+}
+
+.ob-brand-gradient {
+  background: linear-gradient(135deg, var(--ob-brand) 0%, var(--ob-brand-light) 100%);
+}
+
+.ob-text-gradient {
+  background: linear-gradient(135deg, var(--ob-brand-light) 0%, var(--ob-brand) 50%, var(--ob-brand-light) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ob-pressable {
+  transition: transform var(--ob-duration-fast) var(--ob-ease-spring),
+              opacity var(--ob-duration-fast) var(--ob-ease-standard);
+}
+.ob-pressable:active {
+  transform: scale(0.96);
+  opacity: 0.88;
+}
+
+.ob-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: ob-shimmer-anim 1.4s ease-in-out infinite;
+}
+
+@keyframes ob-shimmer-anim {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.ob-fade-in {
+  animation: ob-fade-in 0.35s var(--ob-ease-spring) both;
+}
+
+@keyframes ob-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .ob-card, .ob-pressable, .ob-shimmer, .ob-fade-in {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  .ob-shimmer {
+    animation: none !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+}
+
+/* Android performance: disable heavy compositing */
+html.ob-native-android .ob-glass {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--ob-surface) !important;
+}
+html.ob-native-android .ob-card:hover {
+  transform: none !important;
+  box-shadow: var(--ob-shadow-card) !important;
+  border-color: var(--ob-border-strong) !important;
+}

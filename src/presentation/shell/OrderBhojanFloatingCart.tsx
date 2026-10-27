@@ -38,7 +38,8 @@ export function OrderBhojanFloatingCart() {
       // users can see their bag while browsing (no double chrome — menu has its own stripe).
       hidden={
         pathname.startsWith('/checkout') ||
-        pathname.startsWith('/cart')
+        pathname.startsWith('/cart') ||
+        pathname.startsWith('/orders')
       }
       onUpdateQuantity={(lineId, quantity) => setQuantity(lineId, quantity)}
       onCheckout={() => navigate('/cart')}

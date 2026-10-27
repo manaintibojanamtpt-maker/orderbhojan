@@ -31,7 +31,7 @@ interface AddressFormSheetProps {
 
 const FIELD_CLASS = 'flex w-full flex-col gap-1.5';
 const SELECT_CLASS =
-  'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none focus:border-[#FF7A00]/50';
+  'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none focus:border-[#E8720C]/50';
 
 function resolveInitialCascade(displayLabel?: string): AddressCascadeSelection {
   if (displayLabel) {

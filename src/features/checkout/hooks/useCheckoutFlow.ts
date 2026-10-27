@@ -191,6 +191,31 @@ function persistGuestTrackingToken(orderId: string, token: string | undefined, e
   }
 }
 
+const ORDER_DELIVERY_KEY = 'ob_order_delivery';
+
+export function persistOrderDeliveryPreference(orderId: string, deliveryTimeSlot: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const raw = localStorage.getItem(ORDER_DELIVERY_KEY);
+    const stored: Record<string, string> = raw ? JSON.parse(raw) : {};
+    stored[orderId] = deliveryTimeSlot;
+    localStorage.setItem(ORDER_DELIVERY_KEY, JSON.stringify(stored));
+  } catch {
+    // ignore
+  }
+}
+
+export function readOrderDeliveryPreference(orderId: string): string | undefined {
+  if (typeof window === 'undefined' || !window.localStorage) return undefined;
+  try {
+    const raw = localStorage.getItem(ORDER_DELIVERY_KEY);
+    if (!raw) return undefined;
+    return (JSON.parse(raw) as Record<string, string>)[orderId];
+  } catch {
+    return undefined;
+  }
+}
+
 export function useCheckoutFlow(): CheckoutFlowState {
   const queryClient = useQueryClient();
   const lines = useCartStore((s) => s.lines);
@@ -735,6 +760,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         markPerf('pay_next_step', 'cod-success');
         useCartStore.getState().clear();
         persistGuestTrackingToken(placed.orderId, response.guestTrackingToken, response.expiresAt);
+        persistOrderDeliveryPreference(placed.orderId, deliveryTimeSlot);
         return placed;
       } catch (err) {
         setPlaceStatus('error');
@@ -830,6 +856,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         markPerf('pay_next_step', 'razorpay-success');
         useCartStore.getState().clear();
         persistGuestTrackingToken(confirmed.orderId, response.guestTrackingToken, response.expiresAt);
+        persistOrderDeliveryPreference(confirmed.orderId, deliveryTimeSlot);
         return {
           orderId: confirmed.orderId,
           orderNumber: confirmed.orderNumber,
@@ -1041,6 +1068,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         if (response.guestTrackingToken) {
           persistGuestTrackingToken(placed.orderId, response.guestTrackingToken, response.expiresAt);
         }
+        persistOrderDeliveryPreference(placed.orderId, deliveryTimeSlot);
 
         // Keep cart until UPI is verified or customer claims payment (avoids empty-cart trap on abandon).
         setOrderId(placed.orderId);

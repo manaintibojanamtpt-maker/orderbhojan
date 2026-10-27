@@ -2,7 +2,7 @@ import { RestaurantMenuPageSkeleton } from '@bhojan/storefront-design-system/ske
 
 export function OrderBhojanFoodMenuSkeleton() {
   return (
-    <div className="min-h-screen bg-[#030303] text-white">
+    <div className="min-h-screen bg-[var(--ob-bg,#080706)] text-white">
       <RestaurantMenuPageSkeleton />
     </div>
   );

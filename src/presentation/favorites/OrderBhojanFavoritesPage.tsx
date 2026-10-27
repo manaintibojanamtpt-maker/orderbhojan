@@ -32,7 +32,7 @@ export function OrderBhojanFavoritesPage() {
         <MarketplaceUxStateView
           title="Could not load favorites"
           description="Check your connection and try again."
-          icon={<Heart className="h-7 w-7 text-[#FF7A00]" aria-hidden />}
+          icon={<Heart className="h-7 w-7 text-[#E8720C]" aria-hidden />}
           primaryLabel="Retry"
           onPrimary={() => void favoritesQuery.refetch()}
           secondaryLabel="Explore restaurants"
