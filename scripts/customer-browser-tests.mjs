@@ -107,8 +107,8 @@ try {
   assert.equal(await page.locator('#sheet-cart-item-count').textContent(), '3');
   assert.equal(await page.locator('#sheet-cart-line-count').textContent(), '1');
 
-  // Verify real ConsumerAssistantSheet plan summary rendering
-  const planSummary = page.locator('[data-testid="consumer-assistant-plan-summary"]');
+  // Verify real ConsumerAssistantSheet transcript in the new top-docked voice UI
+  const planSummary = page.locator('[data-testid="voice-dock-transcript"]');
   await planSummary.waitFor();
   const summaryText = await planSummary.textContent();
   assert.ok(summaryText && summaryText.includes('Masala Dosa'));
@@ -116,7 +116,7 @@ try {
   // Step B: Account switching with pending proposal -> verify proposal rejected on new account
   await page.locator('#btn-sheet-switch-account').click();
   assert.equal(await page.locator('#sheet-session-user').textContent(), 'usr_test_customer_2');
-  const confirmBtn = page.locator('[data-testid="consumer-assistant-cart-confirm"] button:has-text("Confirm & add to cart")');
+  const confirmBtn = page.getByRole('button', { name: 'Confirm & add to cart' });
   await confirmBtn.click();
   assert.equal(await page.locator('#sheet-confirm-outcome').textContent(), 'SESSION_MISMATCH');
   assert.equal(await page.locator('#sheet-cart-item-count').textContent(), '3');
@@ -125,14 +125,14 @@ try {
   await page.goto('http://127.0.0.1:5187/__customer_test?mode=real_assistant_sheet');
   await page.locator('#btn-sheet-load-three-dosas').waitFor();
   await page.locator('#btn-sheet-load-three-dosas').click();
-  const realConfirmBtn = page.locator('[data-testid="consumer-assistant-cart-confirm"] button:has-text("Confirm & add to cart")');
+  const realConfirmBtn = page.getByRole('button', { name: 'Confirm & add to cart' });
   await realConfirmBtn.click();
   assert.equal(await page.locator('#sheet-confirm-outcome').textContent(), 'CONFIRMED_SUCCESS');
   assert.equal(await page.locator('#sheet-cart-item-count').textContent(), '3'); // exactly 3 units: 2 regular + 1 without onion
   assert.equal(await page.locator('#sheet-cart-line-count').textContent(), '2');
 
   // Step D: Replay rejection (pending validation consumed and confirm panel cleanly dismounted)
-  assert.equal(await page.locator('[data-testid="consumer-assistant-cart-confirm"]').count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Confirm & add to cart' }).count(), 0);
   passed++;
 
   console.log(`Browser checks: ${passed} passed. Mounted checkout/recovery, reliability harness, and actual ConsumerAssistantSheet UI in real browser.`);
