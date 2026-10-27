@@ -14,7 +14,15 @@ const config = () => {
     ...c,
     environment: 'production' as const,
     marketplaceApiBaseUrl: 'https://example.test',
-    firebase: { ...c.firebase, projectId: 'test-project' },
+    firebase: {
+      ...c.firebase,
+      apiKey: '',
+      authDomain: '',
+      projectId: 'test-project',
+      storageBucket: '',
+      messagingSenderId: '',
+      appId: '',
+    },
     features: { ...c.features, mswEnabled: false },
   };
 };
