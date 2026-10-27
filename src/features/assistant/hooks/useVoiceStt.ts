@@ -63,6 +63,12 @@ export function useVoiceStt() {
     [],
   );
 
+  const stopListening = useCallback(async () => {
+    if (activeRecorderRef.current) {
+      await activeRecorderRef.current.stop();
+    }
+  }, []);
+
   const cancelListening = useCallback(() => {
     voiceAbortRef.current?.abort();
     voiceAbortRef.current = null;
@@ -220,12 +226,13 @@ export function useVoiceStt() {
             if (sessionLive()) {
               const recorder = await startAudioRecording({
                 maxDurationMs: agentMode ? 7000 : 5000,
+                silenceTimeoutMs: agentMode ? 1800 : 1400,
                 signal: ac.signal,
               });
               activeRecorderRef.current = recorder;
 
-              // Record speech for duration
-              const audioBlob = await recorder.stop();
+              // Record speech while user speaks until finished (silence, timeout, or user stop)
+              const audioBlob = await recorder.completion;
               activeRecorderRef.current = null;
 
               if (audioBlob && sessionLive()) {
@@ -248,7 +255,9 @@ export function useVoiceStt() {
             activeRecorderRef.current = null;
             if (
               gatewayErr instanceof AssistantApiError &&
-              (gatewayErr.code === 'AI_VOICE_ABORTED' || gatewayErr.code === 'AI_VOICE_TIMEOUT')
+              (gatewayErr.code === 'AI_VOICE_ABORTED' ||
+                gatewayErr.code === 'AI_VOICE_TIMEOUT' ||
+                gatewayErr.code === 'AI_VOICE_PERMISSION_DENIED')
             ) {
               throw gatewayErr;
             }
@@ -336,6 +345,7 @@ export function useVoiceStt() {
     listening,
     setListening,
     startListening,
+    stopListening,
     cancelListening,
     voiceCaptureAvailable,
     voiceAbortRef,

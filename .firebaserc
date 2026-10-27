@@ -1,0 +1,24 @@
+{
+  "projects": {
+    "default": "orderbhojan",
+    "orderbhojan": "orderbhojan",
+    "bhojanos-prod": "bhojanos-prod"
+  },
+  "targets": {
+    "orderbhojan": {
+      "hosting": {
+        "orderbhojan": [
+          "orderbhojan"
+        ]
+      }
+    },
+    "bhojanos-prod": {
+      "hosting": {
+        "bhojanos-prod": [
+          "bhojanos-prod"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

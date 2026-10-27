@@ -22,24 +22,22 @@
       
       if (isCapacitor) {
         window.__SKIP_SPLASH__ = true;
-      }
 
-      // Force aggressive cleanup of all old PWA caches and service workers on native runtime
-      if ('caches' in window) {
-        caches.keys().then(function (keys) {
-          keys.forEach(function (key) {
-            caches.delete(key);
+        // Force aggressive cleanup of all old PWA caches and service workers ONLY on native runtime
+        if ('caches' in window) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (key) {
+              caches.delete(key);
+            });
           });
-        });
-      }
+        }
 
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          registrations.forEach(function (registration) {
-            registration.unregister();
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) {
+              registration.unregister();
+            });
           });
-        });
-        if (isCapacitor) {
           navigator.serviceWorker.register = function() { return Promise.reject(); };
         }
       }
