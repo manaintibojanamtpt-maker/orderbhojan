@@ -1088,7 +1088,7 @@ export function useCheckoutFlow(): CheckoutFlowState {
         setPlacingMethod(null);
       }
     },
-    [assertCanPlaceOrder, getPayload, quote?.grandTotal, runUpiVerification, sessionUser, attemptRecovery, prepareQuery.dataUpdatedAt],
+    [assertCanPlaceOrder, getPayload, quote?.grandTotal, deliveryTimeSlot, runUpiVerification, sessionUser, attemptRecovery, prepareQuery.dataUpdatedAt],
   );
 
   const checkUpiPayment = useCallback(async () => {
