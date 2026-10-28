@@ -50,13 +50,15 @@ export function parseQuantityToken(token: string | undefined): number | null {
   return null;
 }
 
-/** Normalize ASR homophones where "to" meant number 2 (e.g. "add to quantity", "to masala dosa"). */
+/** Normalize ASR homophones where "to" meant number 2 in genuine quantity contexts only. */
 export function normalizeQuantityAsr(raw: string): string {
   const expanded = expandIndicOrderingUtterance(raw);
   return expanded
-    .replace(/\b(?:to|too)\s+(quantity|qty)\b/gi, 'two $1')
-    .replace(/\badd\s+(?:to|too)\s+([a-zA-Z])/gi, 'add 2 $1')
-    .replace(/\bwant\s+(?:to|too)\s+([a-zA-Z])/gi, 'want 2 $1')
+    .replace(
+      /\b(?:to|too)\s+(quantity|qty|plates?|cups?|pieces?|nos?|number|portions?|servings?)\b/gi,
+      'two $1',
+    )
+    .replace(/\b(?:make|set|change|update)\s+it\s+(?:to|too)\b/gi, 'make it 2')
     .replace(/\bfor\s+(?:quantity|qty)\b/gi, '4')
     .replace(/\s+/g, ' ')
     .trim();

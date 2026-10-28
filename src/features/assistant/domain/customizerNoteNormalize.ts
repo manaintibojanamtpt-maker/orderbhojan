@@ -26,6 +26,21 @@ export function parseCustomizerNote(message: string): ParsedCustomizerIntent | n
     };
   }
 
+  // Pattern with explicit dish and optional quantity: "make one dosa without much spice" / "make the dosa without much spice"
+  const dishMatch = text.match(
+    /\b(?:make|keep|prepare)\s+(?:(?:(one|1)\s+)?(?:the\s+)?([a-zA-Z\s]+?)\s+)?(?:with\s+)?(without\s+much\s+spice|less\s+spic(?:e|y)|no\s+spic(?:e|y)|not\s+spicy|extra\s+spic(?:e|y)|extra\s+chutney|extra\s+sambar|no\s+onions?|no\s+garlic|mild|medium\s+spicy|jain\s+preparation)/i,
+  );
+  if (dishMatch && dishMatch[3]) {
+    const rawQty = dishMatch[1];
+    const rawDish = dishMatch[2]?.trim().replace(/\b(?:of\s+them)\b/i, '');
+    const customizer = dishMatch[3].trim();
+    return {
+      customizer,
+      ...(rawQty ? { quantity: 1 } : {}),
+      ...(rawDish && !/^(?:it|that|them|one)$/i.test(rawDish) ? { targetDish: rawDish } : {}),
+    };
+  }
+
   // General customizer request
   const directMatch = text.match(CUSTOMIZER_PATTERN);
   if (directMatch?.[1]) {

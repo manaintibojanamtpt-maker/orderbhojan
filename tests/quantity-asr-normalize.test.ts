@@ -26,6 +26,15 @@ describe('quantity ASR — two→to regressions', () => {
     assert.match(parsed!.itemName, /masala dosa/i);
   });
 
+  it('restricts spoken-number normalization so “I want to order a masala dosa” is quantity 1 and uncorrupted', () => {
+    const raw = 'I want to order a masala dosa';
+    assert.equal(normalizeQuantityAsr(raw), 'I want to order a masala dosa');
+    const parsed = parseCartAddUserMessage(raw);
+    assert.ok(parsed);
+    assert.equal(parsed!.quantity, 1, 'Quantity must be 1, not 2');
+    assert.equal(parsed!.itemName, 'masala dosa', 'Dish name must not be corrupted with order');
+  });
+
   it('parses “add to quantity Masala Dosa from Inti” as qty 2', () => {
     const parsed = parseCartAddUserMessage('add to quantity Masala Dosa from Inti bhojanam');
     assert.ok(parsed);

@@ -21,6 +21,9 @@ const FROM_SEP = String.raw`(?:from|feom|fom|form|fro|nundi|నుండి|న�
 const QTY_WORD =
   'one|won|two|three|tree|four|five|six|seven|eight|ate|nine|ten|a|an|rendu|moodu|nalugu|రెండు|మూడు|నాలుగు';
 
+const ORDER_INTENT_PREFIX =
+  String.raw`(?:i\s+want(?:\s+to)?(?:\s+(?:order|have|eat|get|add|buy))?|i'?d\s+like(?:\s+to)?(?:\s+(?:order|have|eat|get|add|buy))?|get\s+me|give\s+me|order)`;
+
 const ADD_PATTERNS: readonly RegExp[] = [
   // add 2 quantity Masala Dosa from Inti bhojanam
   new RegExp(
@@ -45,28 +48,28 @@ const ADD_PATTERNS: readonly RegExp[] = [
   /^(?:please\s+)?(?:put|include)\s+(\d+)\s+(.+?)\s+in\s+(?:my\s+)?cart\s*[.!]?$/i,
   // I want 2 Andhra Veg Thali from …
   new RegExp(
-    String.raw`^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order)\s+(\d+)\s+(.+?)\s+${FROM_SEP}(.+)$`,
+    String.raw`^(?:please\s+)?${ORDER_INTENT_PREFIX}\s+(\d+)\s+(.+?)\s+${FROM_SEP}(.+)$`,
     'i',
   ),
   new RegExp(
-    String.raw`^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order)\s+(\d+)\s+(.+)$`,
+    String.raw`^(?:please\s+)?${ORDER_INTENT_PREFIX}\s+(\d+)\s+(.+)$`,
     'i',
   ),
   new RegExp(
-    String.raw`^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order)\s+(${QTY_WORD})\s+(.+?)\s+${FROM_SEP}(.+)$`,
+    String.raw`^(?:please\s+)?${ORDER_INTENT_PREFIX}\s+(${QTY_WORD})\s+(.+?)\s+${FROM_SEP}(.+)$`,
     'i',
   ),
   new RegExp(
-    String.raw`^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order)\s+(${QTY_WORD})\s+(.+)$`,
+    String.raw`^(?:please\s+)?${ORDER_INTENT_PREFIX}\s+(${QTY_WORD})\s+(.+)$`,
     'i',
   ),
   // I want Andhra Veg Thali / order masala dosa from …
   new RegExp(
-    String.raw`^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order)\s+(.+?)\s+${FROM_SEP}(.+)$`,
+    String.raw`^(?:please\s+)?${ORDER_INTENT_PREFIX}\s+(.+?)\s+${FROM_SEP}(.+)$`,
     'i',
   ),
   new RegExp(
-    String.raw`^(?:please\s+)?(?:i\s+want|i'?d\s+like|get\s+me|give\s+me|order)\s+(.+)$`,
+    String.raw`^(?:please\s+)?${ORDER_INTENT_PREFIX}\s+(.+)$`,
     'i',
   ),
   // add Masala Dosa from Inti bhojanam
@@ -82,7 +85,7 @@ const ADD_PATTERNS: readonly RegExp[] = [
   /^(rendu|two|2|రెండు|moodu|three|3|మూడు)\s+(.+)$/iu,
 ];
 
-function cleanItemName(raw: string): string {
+export function cleanItemName(raw: string): string {
   return raw
     .replace(/\bto\s+(?:my\s+)?cart\b/gi, '')
     .replace(/\b(?:naa\s+cart\s*ki|naa\s*kaki|cart\s*ki|cart\s*lo|cart\s*mein|cart\s*me|kaki)\b/gi, '')
@@ -91,6 +94,8 @@ function cleanItemName(raw: string): string {
     // Normalize food plurals to singular menu forms
     .replace(/\b(dosas|rotis|biryanis|idlis|vadas|parathas|thalis|coffees|teas)\b/gi, (m) => m.slice(0, -1))
     .replace(/\bcurries\b/gi, 'curry')
+    // Strip leading verbs if residual
+    .replace(/^(?:to\s+)?(?:order|have|eat|get|add|buy)\s+/i, '')
     // ASR often prefixes dishes with articles: “An Andhra Veg Thali”.
     .replace(/^(?:a|an|the)\s+/i, '')
     .replace(/[.!?]+$/g, '')

@@ -331,6 +331,14 @@ export async function speakVoiceConfirmation(params: {
   readonly onTiming?: (timings: { readonly ttsStartMs: number; readonly ttsTotalMs: number }) => void;
   readonly onFirstAudio?: () => void;
 }): Promise<void> {
+  if (params.signal?.aborted) {
+    throw new AssistantApiError({
+      code: 'AI_TTS_ABORTED',
+      message: 'Speech confirmation was aborted.',
+      retryable: false,
+    });
+  }
+
   const text = params.text.trim();
   if (!text) {
     throw new AssistantApiError({
@@ -535,4 +543,21 @@ export async function speakVoiceConfirmation(params: {
       );
     }
   });
+}
+
+export function cancelAllVoiceSpeech(): void {
+  try {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  } catch {
+    /* ignore */
+  }
+  if (Capacitor.isNativePlatform()) {
+    try {
+      void getNativeTTS().then((tts) => tts?.stop().catch(() => {}));
+    } catch {
+      /* ignore */
+    }
+  }
 }

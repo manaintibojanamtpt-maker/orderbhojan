@@ -62,6 +62,7 @@ interface CartState {
   setQuantity: (lineId: string, quantity: number) => void;
   clear: () => void;
   _setHasHydrated: (value: boolean) => void;
+  updateInstructions?: (lineId: string, instructions: string) => boolean;
   commitAtomicBatchPlan: (params: AtomicPlanCommitParams) => AtomicPlanCommitResult;
 }
 
@@ -224,6 +225,20 @@ export const useCartStore = create<CartState>()(
           ],
           visible: true,
         });
+      },
+
+      updateInstructions: (lineId: string, instructions: string) => {
+        const nextRev = (get().revision || 1) + 1;
+        const exists = get().lines.some((l) => l.lineId === lineId);
+        if (!exists) return false;
+        set({
+          revision: nextRev,
+          lines: get().lines.map((l) =>
+            l.lineId === lineId ? { ...l, instructions: instructions.trim() } : l,
+          ),
+          visible: true,
+        });
+        return true;
       },
 
       setQuantity: (lineId, quantity) => {
