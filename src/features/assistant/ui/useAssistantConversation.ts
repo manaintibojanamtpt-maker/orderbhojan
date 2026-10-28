@@ -33,6 +33,7 @@ import {
 import {
   parseCartAddUserMessage,
   parseMultiCartAddUserMessage,
+  hydrateCartPlansFromUtterance,
   normalizeQuantityAsr,
   parseQuantityOnlyMessage,
 } from '../domain/isCartAddUserMessage';
@@ -1067,53 +1068,16 @@ const usePostOrderPath =
 
         const hints = result.suggestedHints.filter((h) => h.type !== 'none');
 
-        // Hydrate empty/broken LLM cart plans from the utterance (supports compound items "two masala dosas and one cold coffee").
+        // Hydrate empty/broken LLM cart plans from the utterance with per-item matching.
         const multiAdds = parseMultiCartAddUserMessage(groundedMessage);
-        const parsedAdd = multiAdds[0] ?? parseCartAddUserMessage(groundedMessage);
-        const hydratedPlans: CartPlanAction[] =
-          result.proposedCartActions.length > 0
-            ? result.proposedCartActions.map((plan) => {
-                if (plan.type !== 'cart_add_plan' && plan.type !== 'cart_update_plan') return plan;
-                const name =
-                  (typeof plan.payload?.name === 'string' && plan.payload.name.trim()) ||
-                  parsedAdd?.itemName ||
-                  '';
-                const qty =
-                  (parsedAdd?.quantity && parsedAdd.quantity > 1)
-                    ? parsedAdd.quantity
-                    : typeof plan.payload?.quantity === 'number' && plan.payload.quantity > 0
-                      ? plan.payload.quantity
-                      : (parsedAdd?.quantity ?? 1);
-                return {
-                  ...plan,
-                  payload: {
-                    ...(plan.payload ?? {}),
-                    ...(name ? { name } : {}),
-                    quantity: qty,
-                    ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
-                    ...(grounded.kitchen?.restaurantSlug
-                      ? { restaurantSlug: grounded.kitchen.restaurantSlug }
-                      : {}),
-                  },
-                };
-              })
-            : multiAdds.length > 0
-              ? multiAdds.map((item) => ({
-                  type: 'cart_add_plan' as const,
-                  requiresConfirmation: true,
-                  executable: false,
-                  payload: {
-                    name: item.itemName,
-                    quantity: item.quantity,
-                    instructions: item.instructions,
-                    ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
-                    ...(grounded.kitchen?.restaurantSlug
-                      ? { restaurantSlug: grounded.kitchen.restaurantSlug }
-                      : {}),
-                  },
-                  reason: 'client_hydrated_from_utterance',
-                }))
-              : [];
+        const singleFallback = multiAdds.length === 0 ? parseCartAddUserMessage(groundedMessage) : null;
+        const effectiveAdds = multiAdds.length > 0 ? multiAdds : (singleFallback ? [singleFallback] : []);
+        const hydratedPlans: CartPlanAction[] = hydrateCartPlansFromUtterance({
+          proposedCartActions: result.proposedCartActions,
+          multiAdds: effectiveAdds,
+          preferRestaurantId,
+          restaurantSlug: grounded.kitchen?.restaurantSlug,
+        });
 
         const cartActions = enrichCartPlansFromMenuCache(hydratedPlans, {
           activeRestaurantId: preferRestaurantId ?? restaurantId,

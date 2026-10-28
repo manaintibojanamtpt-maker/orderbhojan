@@ -251,6 +251,147 @@ describe('OrderBhojan Voice Commerce Overhaul: End-to-End Suite', () => {
       assert.equal(items[1]?.itemName, 'cold coffee');
     });
 
+    it('hydrates compound voice requests "2 dosas and 1 coffee" preserving explicit quantities per item', async () => {
+      const { parseMultiCartAddUserMessage, hydrateCartPlansFromUtterance } = await import(
+        '../src/features/assistant/domain/isCartAddUserMessage'
+      );
+      const multiAdds = parseMultiCartAddUserMessage('2 dosas and 1 coffee');
+      assert.equal(multiAdds.length, 2);
+      assert.equal(multiAdds[0]?.quantity, 2);
+      assert.equal(multiAdds[1]?.quantity, 1);
+
+      // Server returns plans in natural order [Dosa, Coffee]
+      const serverPlansInOrder = [
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Masala Dosa', quantity: 1, restaurantId: 'obr_1' },
+        },
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Cold Coffee', quantity: 1, restaurantId: 'obr_1' },
+        },
+      ];
+
+      const hydratedInOrder = hydrateCartPlansFromUtterance({
+        proposedCartActions: serverPlansInOrder,
+        multiAdds,
+      });
+
+      assert.equal(hydratedInOrder.length, 2);
+      assert.equal(hydratedInOrder[0]?.payload?.name, 'Masala Dosa');
+      assert.equal(hydratedInOrder[0]?.payload?.quantity, 2, 'Dosa must receive parsed quantity 2');
+      assert.equal(hydratedInOrder[1]?.payload?.name, 'Cold Coffee');
+      assert.equal(hydratedInOrder[1]?.payload?.quantity, 1, 'Coffee must receive parsed quantity 1');
+    });
+
+    it('hydrates compound voice requests when server plans are returned in reversed/different order', async () => {
+      const { parseMultiCartAddUserMessage, hydrateCartPlansFromUtterance } = await import(
+        '../src/features/assistant/domain/isCartAddUserMessage'
+      );
+      const multiAdds = parseMultiCartAddUserMessage('2 dosas and 1 coffee');
+
+      // Server returns plans in reversed order [Cold Coffee, Masala Dosa]
+      const serverPlansReversed = [
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Cold Coffee', quantity: 1, restaurantId: 'obr_1' },
+        },
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Masala Dosa', quantity: 1, restaurantId: 'obr_1' },
+        },
+      ];
+
+      const hydratedReversed = hydrateCartPlansFromUtterance({
+        proposedCartActions: serverPlansReversed,
+        multiAdds,
+      });
+
+      assert.equal(hydratedReversed.length, 2);
+      assert.equal(hydratedReversed[0]?.payload?.name, 'Cold Coffee');
+      assert.equal(hydratedReversed[0]?.payload?.quantity, 1, 'Reversed first plan (Coffee) must be quantity 1, NOT 2');
+      assert.equal(hydratedReversed[1]?.payload?.name, 'Masala Dosa');
+      assert.equal(hydratedReversed[1]?.payload?.quantity, 2, 'Reversed second plan (Dosa) must be quantity 2');
+    });
+
+    it('preserves valid quantity for unmatched plans without applying the first parsed item quantity indiscriminately', async () => {
+      const { parseMultiCartAddUserMessage, hydrateCartPlansFromUtterance } = await import(
+        '../src/features/assistant/domain/isCartAddUserMessage'
+      );
+      const multiAdds = parseMultiCartAddUserMessage('2 dosas and 1 coffee');
+
+      // Server returns [Masala Dosa, Cold Coffee, Gulab Jamun (qty: 4)]
+      const serverPlansWithExtra = [
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Masala Dosa', quantity: 1, restaurantId: 'obr_1' },
+        },
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Cold Coffee', quantity: 1, restaurantId: 'obr_1' },
+        },
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Gulab Jamun', quantity: 4, restaurantId: 'obr_1' },
+        },
+      ];
+
+      const hydrated = hydrateCartPlansFromUtterance({
+        proposedCartActions: serverPlansWithExtra,
+        multiAdds,
+      });
+
+      assert.equal(hydrated.length, 3);
+      assert.equal(hydrated[0]?.payload?.quantity, 2);
+      assert.equal(hydrated[1]?.payload?.quantity, 1);
+      assert.equal(hydrated[2]?.payload?.name, 'Gulab Jamun');
+      assert.equal(hydrated[2]?.payload?.quantity, 4, 'Unmatched item must preserve its valid plan quantity (4) and not receive 2');
+    });
+
+    it('preserves explicit quantity 1 when utterance begins with quantity 1 ("1 dosa and 2 coffees")', async () => {
+      const { parseMultiCartAddUserMessage, hydrateCartPlansFromUtterance } = await import(
+        '../src/features/assistant/domain/isCartAddUserMessage'
+      );
+      const multiAdds = parseMultiCartAddUserMessage('1 dosa and 2 coffees');
+
+      const serverPlans = [
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Masala Dosa', quantity: 5, restaurantId: 'obr_1' },
+        },
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Cold Coffee', quantity: 1, restaurantId: 'obr_1' },
+        },
+      ];
+
+      const hydrated = hydrateCartPlansFromUtterance({
+        proposedCartActions: serverPlans,
+        multiAdds,
+      });
+
+      assert.equal(hydrated[0]?.payload?.quantity, 1, 'Explicit quantity 1 must override plan quantity 5');
+      assert.equal(hydrated[1]?.payload?.quantity, 2, 'Coffee must receive parsed quantity 2');
+    });
+
     it('parses natural spice and customizer notes', async () => {
       const { parseCustomizerNote } = await import('../src/features/assistant/domain/customizerNoteNormalize');
       const res1 = parseCustomizerNote('Make one of them without much spice');

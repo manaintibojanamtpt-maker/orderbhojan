@@ -1,6 +1,7 @@
 /** Free-form cart-add intent — builds non-executable plans for validate + confirm. */
 
-import { expandIndicOrderingUtterance } from './orderingTextNormalize';
+import { expandIndicOrderingUtterance, canonicalizeOrderingText } from './orderingTextNormalize';
+import type { CartPlanAction } from './cartPlanContract';
 import { normalizeKitchenAsr } from './kitchenAsrNormalize';
 import {
   normalizeQuantityAsr,
@@ -285,6 +286,136 @@ export function parseDishClarificationMessage(message: string): string | null {
   const cleaned = cleanItemName(text.replace(/\bfrom\s+.+$/i, ''));
   if (cleaned.length < 2 || cleaned.split(/\s+/).length > 6) return null;
   return cleaned;
+}
+
+
+/**
+ * Match a proposed cart plan's dish name against parsed utterance items.
+ * Uses canonicalization, substring containment, and token overlap.
+ */
+export function matchParsedCartIntentForPlan(
+  planName: string | undefined,
+  parsedItems: readonly ParsedCartAddIntent[],
+): ParsedCartAddIntent | undefined {
+  if (!planName || parsedItems.length === 0) return undefined;
+  const canonicalPlan = canonicalizeOrderingText(planName);
+  if (!canonicalPlan) return undefined;
+  const planTokens = canonicalPlan.split(' ').filter(Boolean);
+
+  // 1. Exact canonical match
+  const exact = parsedItems.find(
+    (item) => canonicalizeOrderingText(item.itemName) === canonicalPlan,
+  );
+  if (exact) return exact;
+
+  // 2. Substring containment match (e.g. "dosa" in "masala dosa" or "coffee" in "cold coffee")
+  const substringMatch = parsedItems.find((item) => {
+    const itemCanonical = canonicalizeOrderingText(item.itemName);
+    if (!itemCanonical) return false;
+    return canonicalPlan.includes(itemCanonical) || itemCanonical.includes(canonicalPlan);
+  });
+  if (substringMatch) return substringMatch;
+
+  // 3. Token overlap match (e.g. token "dosa" in ["masala", "dosa"])
+  const tokenMatch = parsedItems.find((item) => {
+    const itemTokens = canonicalizeOrderingText(item.itemName).split(' ').filter(Boolean);
+    return itemTokens.some((tok) => planTokens.includes(tok));
+  });
+  if (tokenMatch) return tokenMatch;
+
+  return undefined;
+}
+
+/**
+ * Hydrates cart plans from parsed voice utterances with precise 1-to-1 name matching.
+ * Preserves explicit quantities (including 1) for matched items, preserves valid
+ * existing plan quantities for unmatched items, and avoids indiscriminate quantity propagation.
+ */
+export function hydrateCartPlansFromUtterance(params: {
+  readonly proposedCartActions: readonly CartPlanAction[];
+  readonly multiAdds: readonly ParsedCartAddIntent[];
+  readonly preferRestaurantId?: string | null;
+  readonly restaurantSlug?: string | null;
+}): CartPlanAction[] {
+  const { proposedCartActions, multiAdds, preferRestaurantId, restaurantSlug } = params;
+
+  if (proposedCartActions.length > 0) {
+    const matchedIndices = new Set<number>();
+
+    return proposedCartActions.map((plan, planIdx) => {
+      if (plan.type !== 'cart_add_plan' && plan.type !== 'cart_update_plan') {
+        return plan;
+      }
+
+      const rawPlanName =
+        typeof plan.payload?.name === 'string' && plan.payload.name.trim()
+          ? plan.payload.name.trim()
+          : undefined;
+
+      let matchedItem: ParsedCartAddIntent | undefined;
+      if (rawPlanName) {
+        matchedItem = matchParsedCartIntentForPlan(rawPlanName, multiAdds);
+        if (matchedItem) {
+          const idx = multiAdds.indexOf(matchedItem);
+          if (idx !== -1) matchedIndices.add(idx);
+        }
+      } else {
+        const unusedIdx = multiAdds.findIndex((_, i) => !matchedIndices.has(i));
+        const targetIdx = unusedIdx !== -1 ? unusedIdx : planIdx;
+        matchedItem = multiAdds[targetIdx];
+        if (matchedItem) matchedIndices.add(targetIdx);
+      }
+
+      const name = rawPlanName || matchedItem?.itemName || '';
+
+      // Quantity resolution:
+      // 1. If an item matches by normalized name, use that item's parsed quantity (including 1).
+      // 2. If no item matches, preserve the plan's valid quantity or use safe default 1.
+      // Never apply the first parsed item's quantity indiscriminately.
+      let qty: number;
+      if (matchedItem && typeof matchedItem.quantity === 'number' && matchedItem.quantity > 0) {
+        qty = matchedItem.quantity;
+      } else if (typeof plan.payload?.quantity === 'number' && plan.payload.quantity > 0) {
+        qty = plan.payload.quantity;
+      } else {
+        qty = 1;
+      }
+
+      const instructions =
+        matchedItem?.instructions ||
+        (typeof plan.payload?.instructions === 'string' ? plan.payload.instructions : undefined);
+
+      return {
+        ...plan,
+        payload: {
+          ...(plan.payload ?? {}),
+          ...(name ? { name } : {}),
+          quantity: qty,
+          ...(instructions ? { instructions } : {}),
+          ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
+          ...(restaurantSlug ? { restaurantSlug } : {}),
+        },
+      };
+    });
+  }
+
+  if (multiAdds.length > 0) {
+    return multiAdds.map((item) => ({
+      type: 'cart_add_plan' as const,
+      requiresConfirmation: true,
+      executable: false,
+      payload: {
+        name: item.itemName,
+        quantity: item.quantity,
+        ...(item.instructions ? { instructions: item.instructions } : {}),
+        ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
+        ...(restaurantSlug ? { restaurantSlug } : {}),
+      },
+      reason: 'client_hydrated_from_utterance',
+    }));
+  }
+
+  return [];
 }
 
 export function isCartAddUserMessage(message: string): boolean {
