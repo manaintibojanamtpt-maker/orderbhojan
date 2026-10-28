@@ -42,6 +42,22 @@ describe('quantity ASR — two→to regressions', () => {
     assert.match(parsed!.itemName, /masala dosa/i);
   });
 
+  it('preserves explicit quantity corrections without converting genuine connector "to" into 2', () => {
+    assert.equal(parseQuantityOnlyMessage('set it to three'), 3);
+    assert.equal(parseQuantityOnlyMessage('Set it to three'), 3);
+    assert.equal(parseQuantityOnlyMessage('change it to five'), 5);
+    assert.equal(parseQuantityOnlyMessage('make it 3'), 3);
+    assert.equal(parseQuantityOnlyMessage('set it to 3'), 3);
+    assert.equal(parseQuantityOnlyMessage('actually set it to 4'), 4);
+    assert.equal(parseQuantityOnlyMessage('update it to 2'), 2);
+    assert.equal(parseQuantityOnlyMessage('make that 5 dosas'), 5);
+
+    // Genuine ASR homophones where "to" means 2
+    assert.equal(parseQuantityOnlyMessage('make it to'), 2);
+    assert.equal(parseQuantityOnlyMessage('set it too'), 2);
+    assert.equal(parseQuantityOnlyMessage('change it to'), 2);
+  });
+
   it('patches pending plan quantity without wiping dish', () => {
     const pending = {
       schemaVersion: '5.0',

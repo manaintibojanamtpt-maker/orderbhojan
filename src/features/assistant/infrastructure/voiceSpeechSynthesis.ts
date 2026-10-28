@@ -371,6 +371,14 @@ export async function speakVoiceConfirmation(params: {
     typeof window !== 'undefined' &&
     flags.FF_OB_AI_CLOUD_TTS !== false;
 
+  if (params.signal?.aborted) {
+    throw new AssistantApiError({
+      code: 'AI_TTS_ABORTED',
+      message: 'Speech confirmation was aborted.',
+      retryable: false,
+    });
+  }
+
   // On native Android/Capacitor, local on-device TTS (@capacitor-community/text-to-speech)
   // executes in < 80ms without cloud network latency or data transfer overhead.
   const isNative = Capacitor.isNativePlatform();
@@ -379,20 +387,74 @@ export async function speakVoiceConfirmation(params: {
       const nativeSynth = (params.createSynthesis ?? getDefaultSynthesisFactory())();
       if (nativeSynth) {
         await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = (fn: () => void) => {
+            if (settled) return;
+            settled = true;
+            params.signal?.removeEventListener('abort', onAbort);
+            fn();
+          };
+
+          const onAbort = () => {
+            try {
+              nativeSynth.cancel();
+            } catch {
+              // ignore
+            }
+            finish(() =>
+              reject(
+                new AssistantApiError({
+                  code: 'AI_TTS_ABORTED',
+                  message: 'Speech confirmation was aborted.',
+                  retryable: false,
+                }),
+              ),
+            );
+          };
+
+          if (params.signal?.aborted) {
+            onAbort();
+            return;
+          }
+
+          params.signal?.addEventListener('abort', onAbort, { once: true });
+
           const createUtt = params.createUtterance ?? getDefaultUtteranceFactory(targetLang);
           const utt = createUtt(text.slice(0, 500));
           utt.lang = targetLang;
           utt.onend = () => {
             params.onTiming?.({ ttsStartMs, ttsTotalMs: Date.now() - ttsStartMs });
-            resolve();
+            finish(() => resolve());
           };
-          utt.onerror = (e) => reject(e);
+          utt.onerror = (e) =>
+            finish(() =>
+              reject(
+                e instanceof Error
+                  ? e
+                  : new AssistantApiError({
+                      code: 'AI_TTS_ERROR',
+                      message: 'Native speech synthesis failed.',
+                      retryable: true,
+                    }),
+              ),
+            );
           params.onFirstAudio?.();
+          try {
+            if (nativeSynth.speaking) nativeSynth.cancel();
+          } catch {
+            // ignore
+          }
           nativeSynth.speak(utt);
         });
         return;
       }
     } catch (nativeErr) {
+      if (
+        params.signal?.aborted ||
+        (nativeErr instanceof AssistantApiError && nativeErr.code === 'AI_TTS_ABORTED')
+      ) {
+        throw nativeErr;
+      }
       console.warn('[Voice TTS] Native device TTS failed, falling back to cloud:', nativeErr);
     }
   }

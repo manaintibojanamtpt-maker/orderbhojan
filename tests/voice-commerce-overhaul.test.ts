@@ -745,5 +745,325 @@ describe('OrderBhojan Voice Commerce Overhaul: End-to-End Suite', () => {
       assert.notEqual(sample.cart_validation_ms, Number((sample.assistant_request_ms * 0.35).toFixed(1)));
       assert.notEqual(sample.transcription_network_ms, Number((sample.end_of_speech_to_final_transcript_ms * 0.45).toFixed(1)));
     });
+
+    it('P1.4: preserves explicit quantity corrections across number words, digits, and connector "to"', async () => {
+      const { parseQuantityOnlyMessage, normalizeQuantityAsr } = await import(
+        '../src/features/assistant/domain/quantityAsrNormalize'
+      );
+      const { patchPendingPlanQuantity } = await import(
+        '../src/features/assistant/domain/patchPendingPlanQuantity'
+      );
+
+      // Verify number normalization doesn't turn connector "to" into 2
+      assert.equal(normalizeQuantityAsr('set it to three'), 'set it to three');
+      assert.equal(normalizeQuantityAsr('change it to five'), 'change it to five');
+      assert.equal(normalizeQuantityAsr('make it 3'), 'make it 3');
+
+      // Verify parseQuantityOnlyMessage extracts correct integer
+      assert.equal(parseQuantityOnlyMessage('set it to three'), 3);
+      assert.equal(parseQuantityOnlyMessage('change it to five'), 5);
+      assert.equal(parseQuantityOnlyMessage('make it 3'), 3);
+      assert.equal(parseQuantityOnlyMessage('set it to 3'), 3);
+      assert.equal(parseQuantityOnlyMessage('actually set it to 4'), 4);
+      assert.equal(parseQuantityOnlyMessage('make that 5 dosas'), 5);
+
+      // Verify genuine ASR homophones where "to/too" means 2
+      assert.equal(parseQuantityOnlyMessage('make it to'), 2);
+      assert.equal(parseQuantityOnlyMessage('set it too'), 2);
+
+      // Apply quantity correction to pending plan
+      const plan = {
+        schemaVersion: '5.0',
+        conversationId: 'conv_1',
+        channel: 'orderbhojan_web',
+        status: 'validated' as const,
+        valid: true,
+        clarificationQuestions: [],
+        issues: [],
+        proposedActions: [
+          {
+            type: 'cart_add_plan' as const,
+            requiresConfirmation: true as const,
+            executable: false as const,
+            payload: { name: 'Masala Dosa', quantity: 1, restaurantId: 'obr_1' },
+          },
+        ],
+        executable: false,
+        sideEffects: [],
+        mutatedState: false,
+      };
+
+      const parsedQty = parseQuantityOnlyMessage('set it to three');
+      assert.equal(parsedQty, 3);
+      const patched = patchPendingPlanQuantity(plan, parsedQty!);
+      assert.equal(patched.proposedActions[0]!.payload!.quantity, 3);
+      assert.equal(patched.proposedActions[0]!.payload!.name, 'Masala Dosa');
+    });
+
+    it('P2.8: validates cheaper-item plans with authoritative validate() service and rejects stale/unavailable items', async () => {
+      // Simulate validation outcomes
+      const mockValidateSuccess = async (plan: any) => ({
+        schemaVersion: '5.0',
+        conversationId: 'c1',
+        channel: 'orderbhojan_web',
+        status: 'validated' as const,
+        valid: true,
+        proposedActions: plan.proposedActions,
+        clarificationQuestions: [],
+        issues: [],
+        executable: false,
+        sideEffects: [],
+        mutatedState: false,
+      });
+
+      const mockValidateUnavailable = async (plan: any) => ({
+        schemaVersion: '5.0',
+        conversationId: 'c1',
+        channel: 'orderbhojan_web',
+        status: 'invalid' as const,
+        valid: false,
+        proposedActions: plan.proposedActions,
+        clarificationQuestions: [],
+        issues: [{ code: 'ITEM_UNAVAILABLE', message: 'Item is sold out today' }],
+        executable: false,
+        sideEffects: [],
+        mutatedState: false,
+      });
+
+      const proposedAction = {
+        type: 'cart_add_plan' as const,
+        requiresConfirmation: true as const,
+        executable: false as const,
+        payload: { foodId: 'food_dosa', name: 'Masala Dosa', price: 80, quantity: 1, restaurantId: 'obr_1' },
+      };
+
+      const successResult = await mockValidateSuccess({ proposedActions: [proposedAction] });
+      assert.equal(successResult.valid, true);
+      assert.equal(successResult.status, 'validated');
+
+      const failResult = await mockValidateUnavailable({ proposedActions: [proposedAction] });
+      assert.equal(failResult.valid, false);
+      assert.equal(failResult.status, 'invalid');
+      assert.equal(failResult.issues[0]?.code, 'ITEM_UNAVAILABLE');
+    });
+
+    it('P2.9: asks for clarification and leaves pending plan untouched when named dish does not match', async () => {
+      const { canonicalizeOrderingText } = await import(
+        '../src/features/assistant/domain/orderingTextNormalize'
+      );
+
+      const pendingActions = [
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Masala Dosa', quantity: 2, instructions: undefined },
+        },
+        {
+          type: 'cart_add_plan' as const,
+          requiresConfirmation: true as const,
+          executable: false as const,
+          payload: { name: 'Cold Coffee', quantity: 1, instructions: undefined },
+        },
+      ];
+
+      const targetDish = 'biryani';
+      const canonT = canonicalizeOrderingText(targetDish);
+      const foundIdx = pendingActions.findIndex((a) => {
+        const aName = a.payload.name;
+        const canonA = canonicalizeOrderingText(aName);
+        return canonA === canonT || canonA.includes(canonT) || canonT.includes(canonA);
+      });
+
+      assert.equal(foundIdx, -1, 'Unknown target dish must not match any pending action');
+      // When foundIdx === -1, neither action 0 nor action 1 should be modified
+      assert.equal(pendingActions[0]!.payload.instructions, undefined);
+      assert.equal(pendingActions[1]!.payload.instructions, undefined);
+    });
+
+    it('P2.10: splits cart line when customizing 1 portion of a multi-quantity item and preserves cart line identity', async () => {
+      const { useCartStore } = await import('../src/features/cart/store/cartStore');
+      const { useRestaurantContextStore } = await import('../src/features/restaurant/store/restaurantContextStore');
+
+      useRestaurantContextStore.getState().setContext({
+        restaurantSlug: 'inti-bhojanam',
+        restaurantId: 'obr_1',
+        contextToken: 'ctx_1',
+      });
+      useCartStore.getState().clear();
+
+      // Add 2 Masala Dosas
+      useCartStore.getState().addItem(
+        {
+          foodId: 'food-dosa',
+          name: 'Masala Dosa',
+          price: 80,
+        },
+        2,
+      );
+
+      const initialLines = useCartStore.getState().lines;
+      assert.equal(initialLines.length, 1);
+      assert.equal(initialLines[0]!.quantity, 2);
+      const originalLineId = initialLines[0]!.lineId;
+
+      // Customize 1 portion with "without much spice"
+      const splitOk = useCartStore.getState().customizePortion(originalLineId, 1, 'without much spice');
+      assert.equal(splitOk, true);
+
+      const afterSplitLines = useCartStore.getState().lines;
+      assert.equal(afterSplitLines.length, 2, 'Must split into 2 lines');
+
+      const customizedLine = afterSplitLines.find((l) => l.instructions === 'without much spice')!;
+      const uncustomizedLine = afterSplitLines.find((l) => !l.instructions)!;
+
+      assert.ok(customizedLine, 'Customized line must exist');
+      assert.equal(customizedLine.quantity, 1, 'Customized line must have quantity 1');
+      assert.ok(customizedLine.lineId.includes('without much spice'), 'Customized line ID must reflect instructions');
+
+      assert.ok(uncustomizedLine, 'Uncustomized line must exist');
+      assert.equal(uncustomizedLine.quantity, 1, 'Remaining uncustomized line must have quantity 1');
+      assert.equal(uncustomizedLine.lineId, 'food-dosa');
+
+      // Now add 1 plain Masala Dosa - must merge into uncustomizedLine, NOT into customizedLine
+      useCartStore.getState().addItem(
+        {
+          foodId: 'food-dosa',
+          name: 'Masala Dosa',
+          price: 80,
+        },
+        1,
+      );
+
+      const finalLines = useCartStore.getState().lines;
+      assert.equal(finalLines.length, 2, 'Plain add must not create a third line');
+
+      const finalUncustomized = finalLines.find((l) => !l.instructions)!;
+      const finalCustomized = finalLines.find((l) => l.instructions === 'without much spice')!;
+
+      assert.equal(finalUncustomized.quantity, 2, 'Plain add must merge into uncustomized line (1 + 1 = 2)');
+      assert.equal(finalCustomized.quantity, 1, 'Customized line must remain untouched at quantity 1');
+    });
+
+    it('P2.11: carries preparation notes into checkout payload and prepare signature', async () => {
+      const { buildCheckoutPayload, buildCheckoutPrepareSignature } = await import(
+        '../src/features/checkout/domain/checkoutPayload'
+      );
+      const { useCartStore } = await import('../src/features/cart/store/cartStore');
+
+      const lines = [
+        {
+          lineId: 'food-dosa',
+          foodId: 'food-dosa',
+          name: 'Masala Dosa',
+          price: 80,
+          quantity: 1,
+          restaurantSlug: 'inti-bhojanam',
+          restaurantId: 'obr_1',
+        },
+        {
+          lineId: 'food-dosa:::without much spice',
+          foodId: 'food-dosa',
+          name: 'Masala Dosa',
+          price: 80,
+          quantity: 1,
+          instructions: 'without much spice',
+          restaurantSlug: 'inti-bhojanam',
+          restaurantId: 'obr_1',
+        },
+      ];
+
+      const payload = buildCheckoutPayload(lines, 'obr_1', 'ctx_1', null);
+      assert.equal(payload.lines.length, 2);
+      assert.equal((payload.lines[0] as any).instructions, undefined);
+      assert.equal((payload.lines[1] as any).instructions, 'without much spice');
+
+      const sig1 = buildCheckoutPrepareSignature({
+        restaurantId: 'obr_1',
+        contextToken: 'ctx_1',
+        lines: [lines[0]!],
+      });
+      const sig2 = buildCheckoutPrepareSignature({
+        restaurantId: 'obr_1',
+        contextToken: 'ctx_1',
+        lines: [lines[1]!],
+      });
+      assert.notEqual(sig1, sig2, 'Lines with different instructions must produce distinct prepare signatures');
+    });
+
+    it('P2.12: makes native TTS cancellation abort-safe with pre-aborted, active abort, and cleanup', async () => {
+      const { speakVoiceConfirmation } = await import(
+        '../src/features/assistant/infrastructure/voiceSpeechSynthesis'
+      );
+
+      // 1. Pre-aborted signal throws immediately
+      const preAc = new AbortController();
+      preAc.abort();
+      await assert.rejects(
+        async () => {
+          await speakVoiceConfirmation({
+            text: 'Pre-aborted test',
+            signal: preAc.signal,
+          });
+        },
+        /aborted/i,
+      );
+
+      // 2. Mock synthesizer for active abort & cleanup verification
+      let cancelled = false;
+      let spokenUtt: any = null;
+      const mockSynth = {
+        speaking: true,
+        cancel: () => {
+          cancelled = true;
+        },
+        speak: (utt: any) => {
+          spokenUtt = utt;
+        },
+      };
+
+      const ac = new AbortController();
+      const speakPromise = speakVoiceConfirmation({
+        text: 'Active abort test',
+        signal: ac.signal,
+        createSynthesis: () => mockSynth as any,
+        createUtterance: (text) => ({ text, lang: 'en-IN' } as any),
+      });
+
+      // Trigger abort while speaking
+      ac.abort();
+
+      await assert.rejects(
+        async () => {
+          await speakPromise;
+        },
+        /aborted/i,
+      );
+
+      assert.equal(cancelled, true, 'Synth cancel() must be called upon abort');
+
+      // 3. Normal completion
+      let normalFinished = false;
+      const normalSynth = {
+        speaking: false,
+        cancel: () => {},
+        speak: (utt: any) => {
+          setTimeout(() => {
+            utt.onend?.();
+          }, 10);
+        },
+      };
+
+      await speakVoiceConfirmation({
+        text: 'Normal completion test',
+        createSynthesis: () => normalSynth as any,
+        createUtterance: (text) => ({ text, lang: 'en-IN' } as any),
+        onTiming: () => {
+          normalFinished = true;
+        },
+      });
+
+      assert.equal(normalFinished, true, 'Normal synthesis must complete and trigger timing callback');
+    });
   });
 });

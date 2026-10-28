@@ -66,6 +66,7 @@ export function useCartValidation(options?: { enabled?: boolean; autoApply?: boo
           quantity: line.quantity,
           unitPrice: line.price,
           name: line.name,
+          ...(line.instructions?.trim() ? { instructions: line.instructions.trim() } : {}),
         })),
         deliveryAddress: { lat: coords.lat, lng: coords.lng },
       });

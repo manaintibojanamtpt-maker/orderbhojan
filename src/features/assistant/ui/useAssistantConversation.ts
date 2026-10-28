@@ -238,6 +238,7 @@ export function useAssistantConversation() {
   const addItem = useCartStore((s) => s.addItem);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const updateInstructions = useCartStore((s) => s.updateInstructions);
+  const customizePortion = useCartStore((s) => s.customizePortion);
   const commitAtomicBatchPlan = useCartStore((s) => s.commitAtomicBatchPlan);
   const activeLocation = useActiveLocation();
 
@@ -536,7 +537,26 @@ export function useAssistantConversation() {
               const canonT = canonicalizeOrderingText(customizerIntent.targetDish!);
               return canonA === canonT || canonA.includes(canonT) || canonT.includes(canonA);
             });
-            if (foundIdx !== -1) targetIndex = foundIdx;
+            if (foundIdx === -1) {
+              const pendingDishNames = pending.proposedActions
+                .map((a) => (typeof a.payload?.name === 'string' ? a.payload.name : ''))
+                .filter(Boolean)
+                .join(' or ');
+              const reply = `I didn't find ${customizerIntent.targetDish} in your pending order. Did you mean ${pendingDishNames || 'one of the items'}?`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                {
+                  id: nextId(),
+                  role: 'assistant',
+                  text: reply,
+                  cartActions: pending.proposedActions,
+                  validation: pending,
+                },
+              ]);
+              return reply;
+            }
+            targetIndex = foundIdx;
           }
 
           const targetAction = pending.proposedActions[targetIndex];
@@ -613,16 +633,34 @@ export function useAssistantConversation() {
               const canonT = canonicalizeOrderingText(customizerIntent.targetDish!);
               return canonL === canonT || canonL.includes(canonT) || canonT.includes(canonL);
             });
-            if (matched) targetLine = matched;
+            if (!matched) {
+              const cartDishNames = cartLines.map((l) => l.name).filter(Boolean).join(' or ');
+              const reply = `I didn't find ${customizerIntent.targetDish} in your cart. Did you mean ${cartDishNames || 'one of your cart items'}?`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                { id: nextId(), role: 'assistant', text: reply },
+              ]);
+              return reply;
+            }
+            targetLine = matched;
           }
 
-          const persisted =
-            targetLine && updateInstructions
-              ? updateInstructions(targetLine.lineId, customizerIntent.customizer)
-              : false;
+          let persisted = false;
+          if (targetLine) {
+            if (customizerIntent.quantity === 1 && targetLine.quantity > 1) {
+              persisted = customizePortion
+                ? customizePortion(targetLine.lineId, 1, customizerIntent.customizer)
+                : false;
+            } else if (updateInstructions) {
+              persisted = updateInstructions(targetLine.lineId, customizerIntent.customizer);
+            }
+          }
 
           if (persisted && targetLine) {
-            const reply = `Got it! Saved '${customizerIntent.customizer}' for ${targetLine.name}. Say "Go to checkout" when you're ready!`;
+            const portionPrefix =
+              customizerIntent.quantity === 1 && targetLine.quantity > 1 ? '1× ' : '';
+            const reply = `Got it! Saved '${customizerIntent.customizer}' for ${portionPrefix}${targetLine.name}. Say "Go to checkout" when you're ready!`;
             setMessages((prev) => [
               ...prev,
               { id: nextId(), role: 'user', text: message },
@@ -766,7 +804,7 @@ export function useAssistantConversation() {
         const effectiveSlug = item.restaurantSlug || restaurantSlug;
         const isGrounded = Boolean(item.isGrounded && item.foodId && item.price > 0 && effectiveRestaurantId);
 
-        if (isGrounded) {
+        if (isGrounded && effectiveRestaurantId) {
           const actions: readonly CartPlanAction[] = [
             {
               type: 'cart_add_plan' as const,
@@ -784,61 +822,65 @@ export function useAssistantConversation() {
               reason: 'add_cheaper_followup',
             },
           ];
-          const validation: CartPlanValidationResult = {
-            schemaVersion: '5.0',
-            conversationId: conversationId || 'conv-local',
-            channel: 'orderbhojan_web',
-            status: 'validated' as const,
-            valid: true,
-            proposedActions: actions,
-            clarificationQuestions: [],
-            issues: [],
-            executable: false,
-            sideEffects: [],
-            mutatedState: false,
-          };
-          syncPendingValidation(validation);
-          const reply = `I've planned 1× ${item.name} (₹${item.price}). Say confirm or tap Confirm & add to cart.`;
-          setMessages((prev) => [
-            ...prev,
-            { id: nextId(), role: 'user', text: message },
-            {
-              id: nextId(),
-              role: 'assistant',
-              text: reply,
-              cartActions: actions,
-              validation,
-            },
-          ]);
-          return reply;
+
+          setValidating(true);
+          try {
+            const validation = await validate({
+              restaurantId: effectiveRestaurantId,
+              proposedActions: actions,
+              ...(conversationId ? { conversationId } : {}),
+            });
+
+            if (validation.status === 'validated' && validation.valid) {
+              syncPendingValidation(validation);
+              const reply = `I've planned 1× ${item.name} (₹${item.price}). Say confirm or tap Confirm & add to cart.`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                {
+                  id: nextId(),
+                  role: 'assistant',
+                  text: reply,
+                  cartActions: actions,
+                  validation,
+                },
+              ]);
+              return reply;
+            } else {
+              syncPendingValidation(null);
+              const issueMsg =
+                validation.issues?.[0]?.message ||
+                validation.clarificationQuestions?.[0] ||
+                `${item.name} is currently unavailable or cannot be ordered right now.`;
+              const reply = `Sorry, I couldn't add ${item.name} to your cart: ${issueMsg}`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                {
+                  id: nextId(),
+                  role: 'assistant',
+                  text: reply,
+                  cartActions: [],
+                },
+              ]);
+              return reply;
+            }
+          } catch (err) {
+            syncPendingValidation(null);
+            const msg = err instanceof Error ? err.message : 'Validation failed';
+            const reply = `Sorry, I couldn't validate ${item.name}: ${msg}`;
+            setMessages((prev) => [
+              ...prev,
+              { id: nextId(), role: 'user', text: message },
+              { id: nextId(), role: 'assistant', text: reply },
+            ]);
+            return reply;
+          } finally {
+            setValidating(false);
+          }
         } else {
-          // Do not mark an ungrounded plan valid
-          const actions: readonly CartPlanAction[] = [
-            {
-              type: 'cart_add_plan' as const,
-              requiresConfirmation: true as const,
-              executable: false as const,
-              payload: {
-                name: item.name,
-                quantity: 1,
-              },
-              reason: 'add_cheaper_followup',
-            },
-          ];
-          const validation: CartPlanValidationResult = {
-            schemaVersion: '5.0',
-            conversationId: conversationId || 'conv-local',
-            channel: 'orderbhojan_web',
-            status: 'invalid' as const,
-            valid: false,
-            proposedActions: actions,
-            clarificationQuestions: ['Which restaurant menu should I add this item from?'],
-            issues: [{ code: 'UNGROUNDED_ITEM', message: 'Item could not be grounded against an authoritative live menu item.' }],
-            executable: false,
-            sideEffects: [],
-            mutatedState: false,
-          };
-          syncPendingValidation(validation);
+          // Do not mark an ungrounded plan valid, do not expose a valid confirmation state
+          syncPendingValidation(null);
           const reply = `I cannot add ${item.name} yet because it is not grounded on today's live menu. Please open a kitchen menu first.`;
           setMessages((prev) => [
             ...prev,
@@ -847,8 +889,7 @@ export function useAssistantConversation() {
               id: nextId(),
               role: 'assistant',
               text: reply,
-              cartActions: actions,
-              validation,
+              cartActions: [],
             },
           ]);
           return reply;

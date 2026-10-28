@@ -50,6 +50,16 @@ export function parseQuantityToken(token: string | undefined): number | null {
   return null;
 }
 
+const NON_CONNECTOR_NUMBER_WORDS = Object.keys(NUMBER_WORDS)
+  .filter((w) => !['to', 'too', 'tu', 'tow', 'for', 'fore'].includes(w))
+  .sort((a, b) => b.length - a.length)
+  .join('|');
+
+const QUANTITY_FOLLOWING_PATTERN = new RegExp(
+  String.raw`\b(?:make|set|change|update)\s+it\s+(?:to|too)\b(?!\s+(?:\d+|${NON_CONNECTOR_NUMBER_WORDS})\b)`,
+  'gi',
+);
+
 /** Normalize ASR homophones where "to" meant number 2 in genuine quantity contexts only. */
 export function normalizeQuantityAsr(raw: string): string {
   const expanded = expandIndicOrderingUtterance(raw);
@@ -58,7 +68,7 @@ export function normalizeQuantityAsr(raw: string): string {
       /\b(?:to|too)\s+(quantity|qty|plates?|cups?|pieces?|nos?|number|portions?|servings?)\b/gi,
       'two $1',
     )
-    .replace(/\b(?:make|set|change|update)\s+it\s+(?:to|too)\b/gi, 'make it 2')
+    .replace(QUANTITY_FOLLOWING_PATTERN, 'make it 2')
     .replace(/\bfor\s+(?:quantity|qty)\b/gi, '4')
     .replace(/\s+/g, ' ')
     .trim();
@@ -70,7 +80,7 @@ const WORD_ALT = Object.keys(NUMBER_WORDS)
 
 /**
  * True when the utterance is only (or mainly) setting or correcting a quantity —
- * e.g. “two”, “2 quantity”, “make it 2”, “actually make that three”, “make that 3 dosas”.
+ * e.g. “two”, “2 quantity”, “make it 2”, “actually make that three”, “make that 3 dosas”, “set it to three”.
  */
 export function parseQuantityOnlyMessage(message: string): number | null {
   const trimmed = message.replace(/\s+/g, ' ').trim();
@@ -82,13 +92,13 @@ export function parseQuantityOnlyMessage(message: string): number | null {
   if (!text || text.length > 60) return null;
 
   const patterns: RegExp[] = [
-    // actually make that 3 / make that 3 dosas / change it to 3
+    // actually make that 3 / make that 3 dosas / change it to 3 / set it to three
     new RegExp(
-      String.raw`^(?:actually,?\s*)?(?:make\s+that|make\s+it|set\s+it|change\s+it|update(?:\s+it)?)\s+(\d+|${WORD_ALT})(?:\s+(?:dosas?|rotis?|items?|biryanis?|plates?|cups?|[a-zA-Z]+))?\.?$`,
+      String.raw`^(?:actually,?\s*)?(?:make\s+that|make\s+it|set\s+it|change\s+it|update(?:\s+it)?)\s+(?:to\s+)?(\d+|${WORD_ALT})(?:\s+(?:dosas?|rotis?|items?|biryanis?|plates?|cups?|[a-zA-Z]+))?\.?$`,
       'i',
     ),
     new RegExp(
-      String.raw`^(?:actually,?\s*)?(?:set|change|update)\s+(?:to\s+)?(\d+|${WORD_ALT})\s*(?:x|×|times|quantity|qty)?\.?$`,
+      String.raw`^(?:actually,?\s*)?(?:set|change|update)(?:\s+it)?\s+(?:to\s+)?(\d+|${WORD_ALT})\s*(?:x|×|times|quantity|qty)?\.?$`,
       'i',
     ),
     new RegExp(
