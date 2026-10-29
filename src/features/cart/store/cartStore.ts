@@ -27,17 +27,44 @@ export interface CartLine extends CartLineInput {
   readonly restaurantId: string;
 }
 
+export interface AtomicPlanCommitParams {
+  readonly proposalId: string;
+  readonly restaurantId: string;
+  readonly restaurantSlug?: string;
+  readonly userSessionId?: string | null;
+  readonly expectedCartRevision?: number;
+  readonly expiresAt?: number;
+  readonly actions: readonly {
+    readonly type: string;
+    readonly payload?: Readonly<Record<string, unknown>>;
+  }[];
+}
+
+export interface AtomicPlanCommitResult {
+  readonly success: boolean;
+  readonly appliedCount: number;
+  readonly reason?: string;
+  readonly newRevision?: number;
+  readonly error?: string;
+}
+
 interface CartState {
   readonly lines: readonly CartLine[];
   readonly restaurantSlug: string | null;
   readonly visible: boolean;
+  readonly revision: number;
+  readonly userSessionId: string | null;
   /** True once zustand persist has finished rehydrating from storage. */
   _hasHydrated: boolean;
   setRestaurant: (slug: string) => void;
+  setUserSessionId: (id: string | null) => void;
   addItem: (line: CartLineInput, quantity?: number) => void;
   setQuantity: (lineId: string, quantity: number) => void;
   clear: () => void;
   _setHasHydrated: (value: boolean) => void;
+  updateInstructions: (lineId: string, instructions: string) => boolean;
+  customizePortion: (lineId: string, portionQty: number, instructions: string) => boolean;
+  commitAtomicBatchPlan: (params: AtomicPlanCommitParams) => AtomicPlanCommitResult;
 }
 
 const CROSS_RESTAURANT_TOAST =
@@ -92,19 +119,21 @@ function canClearForRestaurantMismatch(
   hasItems: boolean
 ): boolean {
   // Check hydration state
-  // UNKNOWN hydration (persist middleware not initialized OR hasHydrated returns false)
-  // MUST NOT trigger a destructive clear.
-  // If persist middleware is unavailable (Node tests without localStorage), infer
-  // hydration from CONFIRMED state: non-null restaurantSlug/contextToken for context,
-  // and non-null restaurantSlug or non-empty lines for cart.
-  // Use || not ?? because hasHydrated() can return FALSE (boolean), not just null/undefined.
+  // useRestaurantContextStore.persist.hasHydrated
+  // useCartStore.persist.hasHydrated
+  // Don't clear during hydration race
+  const contextPersist = (useRestaurantContextStore as unknown as { persist?: { hasHydrated?: () => boolean } }).persist;
+  const cartPersist = (useCartStore as unknown as { persist?: { hasHydrated?: () => boolean } }).persist;
+
   const contextHydrated =
-    useRestaurantContextStore.persist?.hasHydrated?.() ||
-    (useRestaurantContextStore.getState().restaurantSlug !== null &&
-      useRestaurantContextStore.getState().contextToken !== null);
+    typeof contextPersist?.hasHydrated === 'function'
+      ? contextPersist.hasHydrated()
+      : Boolean(useRestaurantContextStore.getState().restaurantSlug && useRestaurantContextStore.getState().contextToken);
+
   const cartHydrated =
-    useCartStore.persist?.hasHydrated?.() ||
-    (useCartStore.getState().restaurantSlug !== null || useCartStore.getState().lines.length > 0);
+    typeof cartPersist?.hasHydrated === 'function'
+      ? cartPersist.hasHydrated()
+      : Boolean(useCartStore.getState().restaurantSlug || useCartStore.getState().lines.length > 0);
 
   if (!contextHydrated || !cartHydrated) {
     return false; // Don't clear during hydration race / unknown state
@@ -114,15 +143,24 @@ function canClearForRestaurantMismatch(
   return hasItems && Boolean(currentSlug && currentSlug !== newSlug);
 }
 
+const appliedProposalIds = new Set<string>();
+
+export function _resetAppliedProposalIdsForTesting(): void {
+  appliedProposalIds.clear();
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       lines: [],
       restaurantSlug: null,
       visible: false,
+      revision: 1,
+      userSessionId: null,
       _hasHydrated: false,
 
       _setHasHydrated: (value) => set({ _hasHydrated: value }),
+      setUserSessionId: (id) => set({ userSessionId: id }),
 
       setRestaurant: (slug) => {
         const prev = get();
@@ -130,7 +168,7 @@ export const useCartStore = create<CartState>()(
           // Only clear cart if BOTH stores are hydrated AND there's a confirmed mismatch
           if (canClearForRestaurantMismatch(prev.restaurantSlug, slug, prev.lines.length > 0)) {
             notifyCrossRestaurantSwitch();
-            set({ restaurantSlug: slug, lines: [], visible: false });
+            set({ restaurantSlug: slug, lines: [], revision: (prev.revision || 1) + 1, visible: false });
           } else {
             // Just update the slug, keep existing cart items
             set({ restaurantSlug: slug });
@@ -156,11 +194,13 @@ export const useCartStore = create<CartState>()(
           current = [];
         }
 
+        const nextRev = (get().revision || 1) + 1;
         const lineId = buildCartLineId(line);
         const existing = current.find((l) => l.lineId === lineId);
         if (existing) {
           set({
             restaurantSlug: ctx.restaurantSlug,
+            revision: nextRev,
             lines: current.map((l) =>
               l.lineId === lineId
                 ? { ...l, quantity: l.quantity + quantity }
@@ -173,6 +213,7 @@ export const useCartStore = create<CartState>()(
 
         set({
           restaurantSlug: ctx.restaurantSlug,
+          revision: nextRev,
           lines: [
             ...current,
             {
@@ -187,13 +228,123 @@ export const useCartStore = create<CartState>()(
         });
       },
 
+      updateInstructions: (lineId: string, instructions: string) => {
+        const nextRev = (get().revision || 1) + 1;
+        const currentLines = get().lines;
+        const target = currentLines.find((l) => l.lineId === lineId);
+        if (!target) return false;
+
+        const trimmed = instructions.trim();
+        const newLineId = buildCartLineId({
+          foodId: target.foodId,
+          variantId: target.variantId,
+          addons: target.addons,
+          instructions: trimmed,
+        });
+
+        if (newLineId === lineId) {
+          set({
+            revision: nextRev,
+            lines: currentLines.map((l) =>
+              l.lineId === lineId ? { ...l, instructions: trimmed } : l,
+            ),
+            visible: true,
+          });
+          return true;
+        }
+
+        const existingCollision = currentLines.find((l) => l.lineId === newLineId);
+        if (existingCollision) {
+          set({
+            revision: nextRev,
+            lines: currentLines
+              .filter((l) => l.lineId !== lineId)
+              .map((l) =>
+                l.lineId === newLineId
+                  ? { ...l, quantity: l.quantity + target.quantity }
+                  : l,
+              ),
+            visible: true,
+          });
+        } else {
+          set({
+            revision: nextRev,
+            lines: currentLines.map((l) =>
+              l.lineId === lineId
+                ? { ...l, lineId: newLineId, instructions: trimmed }
+                : l,
+            ),
+            visible: true,
+          });
+        }
+        return true;
+      },
+
+      customizePortion: (lineId: string, portionQty: number, instructions: string) => {
+        const currentLines = get().lines;
+        const target = currentLines.find((l) => l.lineId === lineId);
+        if (!target || portionQty <= 0) return false;
+
+        if (portionQty >= target.quantity) {
+          return get().updateInstructions(lineId, instructions);
+        }
+
+        const nextRev = (get().revision || 1) + 1;
+        const trimmed = instructions.trim();
+        const remainingQty = target.quantity - portionQty;
+        const customizedLineId = buildCartLineId({
+          foodId: target.foodId,
+          variantId: target.variantId,
+          addons: target.addons,
+          instructions: trimmed,
+        });
+
+        const customizedLine: CartLine = {
+          ...target,
+          lineId: customizedLineId,
+          quantity: portionQty,
+          instructions: trimmed,
+        };
+
+        const existingCustomized = currentLines.find((l) => l.lineId === customizedLineId);
+        if (existingCustomized) {
+          set({
+            revision: nextRev,
+            lines: currentLines.map((l) => {
+              if (l.lineId === lineId) {
+                return { ...l, quantity: remainingQty };
+              }
+              if (l.lineId === customizedLineId) {
+                return { ...l, quantity: l.quantity + portionQty };
+              }
+              return l;
+            }),
+            visible: true,
+          });
+        } else {
+          const targetIndex = currentLines.findIndex((l) => l.lineId === lineId);
+          const nextLines = [...currentLines];
+          nextLines[targetIndex] = { ...target, quantity: remainingQty };
+          nextLines.splice(targetIndex + 1, 0, customizedLine);
+
+          set({
+            revision: nextRev,
+            lines: nextLines,
+            visible: true,
+          });
+        }
+        return true;
+      },
+
       setQuantity: (lineId, quantity) => {
+        const nextRev = (get().revision || 1) + 1;
         if (quantity <= 0) {
           const next = get().lines.filter((l) => l.lineId !== lineId);
-          set({ lines: next, visible: next.length > 0 });
+          set({ lines: next, revision: nextRev, visible: next.length > 0 });
           return;
         }
         set({
+          revision: nextRev,
           lines: get().lines.map((l) =>
             l.lineId === lineId ? { ...l, quantity } : l,
           ),
@@ -201,7 +352,217 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      clear: () => set({ lines: [], visible: false }),
+      clear: () => set({ lines: [], revision: (get().revision || 1) + 1, visible: false }),
+
+      commitAtomicBatchPlan: (params) => {
+        const current = get();
+
+        // 1. Replay protection
+        if (appliedProposalIds.has(params.proposalId)) {
+          return {
+            success: false,
+            appliedCount: 0,
+            reason: 'PROPOSAL_REPLAYED',
+            error: 'This proposed change has already been confirmed and applied.',
+          };
+        }
+
+        // 2. Expiry protection
+        if (params.expiresAt && Date.now() > params.expiresAt) {
+          return {
+            success: false,
+            appliedCount: 0,
+            reason: 'PROPOSAL_EXPIRED',
+            error: 'This proposed plan has expired. Please review and reconfirm.',
+          };
+        }
+
+        // 3. Stale revision protection
+        const currentRev = current.revision || 1;
+        if (params.expectedCartRevision !== undefined && params.expectedCartRevision !== currentRev) {
+          return {
+            success: false,
+            appliedCount: 0,
+            reason: 'CART_REVISION_MISMATCH',
+            error: 'Cart contents were modified since proposal was created. Please reconfirm.',
+          };
+        }
+
+        // 4. Restaurant context binding:
+        // If cart already has items, they must belong to the same restaurant
+        if (current.lines.length > 0) {
+          const cartRestId = current.lines[0].restaurantId;
+          const cartRestSlug = current.lines[0].restaurantSlug;
+          if (
+            (params.restaurantId && cartRestId && cartRestId !== params.restaurantId) ||
+            (params.restaurantSlug && cartRestSlug && cartRestSlug !== params.restaurantSlug)
+          ) {
+            return {
+              success: false,
+              appliedCount: 0,
+              reason: 'RESTAURANT_MISMATCH',
+              error: 'Proposal restaurant does not match active restaurant cart.',
+            };
+          }
+        }
+
+        // 5. User or guest session identity binding
+        if (
+          params.userSessionId &&
+          current.userSessionId &&
+          params.userSessionId !== current.userSessionId
+        ) {
+          return {
+            success: false,
+            appliedCount: 0,
+            reason: 'SESSION_MISMATCH',
+            error: 'Account or session has changed. Proposal cannot be applied across sessions.',
+          };
+        }
+
+        // 6. Atomically compute candidate next state in memory with deep isolation
+        // If ANY action cannot be computed, NOT A SINGLE LINE or nested addon is mutated!
+        const deepCloneCartLines = (lines: readonly CartLine[]): CartLine[] =>
+          lines.map((l) => ({
+            ...l,
+            addons: l.addons ? l.addons.map((a) => ({ ...a })) : undefined,
+          }));
+
+        let candidate: CartLine[] = deepCloneCartLines(current.lines);
+        const targetSlug =
+          params.restaurantSlug ||
+          current.restaurantSlug ||
+          readRestaurantContext()?.restaurantSlug ||
+          (current.lines.length > 0 ? current.lines[0].restaurantSlug : 'default');
+        const targetRestId =
+          params.restaurantId ||
+          (current.lines.length > 0 ? current.lines[0].restaurantId : 'default');
+
+        for (const action of params.actions) {
+          if (action.type === 'cart_add_plan') {
+            const p = action.payload || {};
+            const foodId = String(p.foodId || p.itemId || p.menuItemId || '').trim();
+            const name = String(p.name || p.title || '').trim();
+            const rawPrice = p.price !== undefined ? p.price : p.unitPrice;
+            const price = typeof rawPrice === 'number' && Number.isFinite(rawPrice) ? rawPrice : Number(rawPrice);
+            const rawQty = p.quantity !== undefined ? p.quantity : 1;
+            const quantity = Math.max(1, Math.round(Number(rawQty) || 1));
+
+            if (!foodId || !name || isNaN(price) || price < 0) {
+              return {
+                success: false,
+                appliedCount: 0,
+                reason: 'VALIDATION_FAILED',
+                error: 'Invalid cart_add_plan payload: missing foodId, name, or valid price',
+              };
+            }
+
+            const lineInput: CartLineInput = {
+              foodId,
+              name,
+              price,
+              ...(typeof p.variantId === 'string' && p.variantId ? { variantId: p.variantId } : {}),
+              ...(typeof p.variantLabel === 'string' && p.variantLabel ? { variantLabel: p.variantLabel } : {}),
+              ...(typeof p.instructions === 'string' && p.instructions ? { instructions: p.instructions } : {}),
+            };
+            const lineId = buildCartLineId(lineInput);
+            const existingIdx = candidate.findIndex((l) => l.lineId === lineId);
+            if (existingIdx >= 0) {
+              candidate[existingIdx] = {
+                ...candidate[existingIdx],
+                quantity: candidate[existingIdx].quantity + quantity,
+              };
+            } else {
+              candidate.push({
+                ...lineInput,
+                lineId,
+                quantity,
+                restaurantSlug: targetSlug,
+                restaurantId: targetRestId,
+              });
+            }
+          } else if (action.type === 'cart_update_plan') {
+            const p = action.payload || {};
+            const lineId = String(p.lineId || p.foodId || p.itemId || '').trim();
+            const rawQty = p.quantity !== undefined ? p.quantity : NaN;
+            const quantity = typeof rawQty === 'number' ? rawQty : Number(rawQty);
+            if (!lineId || isNaN(quantity)) {
+              return {
+                success: false,
+                appliedCount: 0,
+                reason: 'VALIDATION_FAILED',
+                error: 'Invalid cart_update_plan payload: missing lineId or quantity',
+              };
+            }
+            const existingIdx = candidate.findIndex(
+              (l) => l.lineId === lineId || l.foodId === lineId,
+            );
+            if (existingIdx === -1) {
+              return {
+                success: false,
+                appliedCount: 0,
+                reason: 'TARGET_LINE_NOT_FOUND',
+                error: `Line ${lineId} not found in cart for update`,
+              };
+            }
+            const newQty = Math.max(0, Math.round(quantity));
+            if (newQty === 0) {
+              candidate = candidate.filter((_, idx) => idx !== existingIdx);
+            } else {
+              candidate[existingIdx] = {
+                ...candidate[existingIdx],
+                quantity: newQty,
+              };
+            }
+          } else if (action.type === 'cart_remove_plan') {
+            const p = action.payload || {};
+            const lineId = String(p.lineId || p.foodId || p.itemId || '').trim();
+            if (!lineId) {
+              return {
+                success: false,
+                appliedCount: 0,
+                reason: 'VALIDATION_FAILED',
+                error: 'Invalid cart_remove_plan payload: missing lineId',
+              };
+            }
+            const existingIdx = candidate.findIndex(
+              (l) => l.lineId === lineId || l.foodId === lineId,
+            );
+            if (existingIdx === -1) {
+              return {
+                success: false,
+                appliedCount: 0,
+                reason: 'TARGET_LINE_NOT_FOUND',
+                error: `Line ${lineId} not found in cart for removal`,
+              };
+            }
+            candidate = candidate.filter((_, idx) => idx !== existingIdx);
+          } else {
+            return {
+              success: false,
+              appliedCount: 0,
+              reason: 'UNSUPPORTED_ACTION',
+              error: `Unsupported action type: ${action.type}`,
+            };
+          }
+        }
+
+        // 7. Success: All actions validated, single atomic state transition committed!
+        appliedProposalIds.add(params.proposalId);
+        const nextRevision = (current.revision || 1) + 1;
+        set({
+          lines: candidate,
+          revision: nextRevision,
+          restaurantSlug: candidate.length > 0 ? candidate[0].restaurantSlug : current.restaurantSlug,
+          visible: candidate.length > 0,
+        });
+
+        return {
+          success: true,
+          appliedCount: params.actions.length,
+          newRevision: nextRevision,
+        };
+      },
     }),
     { name: 'ob-cart-m7',
       onRehydrateStorage: () => (state) => {

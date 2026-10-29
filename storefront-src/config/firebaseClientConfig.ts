@@ -98,3 +98,21 @@ export function getFirestoreDatabaseId(): string {
 export function getResolvedFirebaseProjectId(): string {
   return getFirebaseClientConfig().projectId;
 }
+
+export function getFirestoreEmulatorHost(): string | undefined {
+  const fromEnv = pickEnv('VITE_FIRESTORE_EMULATOR_HOST');
+  if (fromEnv) return fromEnv;
+  if (!import.meta.env?.PROD && getResolvedFirebaseProjectId().startsWith('demo-')) {
+    return '127.0.0.1:8185';
+  }
+  return undefined;
+}
+
+export function getAuthEmulatorHost(): string | undefined {
+  const fromEnv = pickEnv('VITE_AUTH_EMULATOR_HOST');
+  if (fromEnv) return fromEnv;
+  if (!import.meta.env?.PROD && getResolvedFirebaseProjectId().startsWith('demo-')) {
+    return '127.0.0.1:9099';
+  }
+  return undefined;
+}

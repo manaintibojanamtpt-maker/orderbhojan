@@ -1,6 +1,7 @@
 import {
   getFirestore,
   initializeFirestore,
+  connectFirestoreEmulator,
   Firestore,
   enableNetwork,
   getDoc as firebaseGetDoc,
@@ -13,7 +14,7 @@ import {
 import { defaultFirestoreRetryPolicy, isFirestoreQuotaError } from './firestoreRetryPolicy';
 import { useState, useCallback } from 'react';
 import { app } from '../firebase';
-import { getFirestoreDatabaseId, getResolvedFirebaseProjectId } from '../config/firebaseClientConfig';
+import { getFirestoreDatabaseId, getResolvedFirebaseProjectId, getFirestoreEmulatorHost } from '../config/firebaseClientConfig';
 
 const databaseId = getFirestoreDatabaseId();
 
@@ -27,6 +28,7 @@ declare global {
 
 /** Single Firestore instance — never call initializeFirestore twice (causes SDK assertion crashes). */
 let _dbInstance: Firestore | null = null;
+let _emulatorConnected = false;
 
 function isFirestoreAlreadyInitializedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -36,26 +38,40 @@ function isFirestoreAlreadyInitializedError(error: unknown): boolean {
 function createDbInstance(): Firestore {
   const settings = { ignoreUndefinedProperties: true };
   const useNamedDb = Boolean(databaseId && databaseId !== '(default)');
+  let db: Firestore;
 
   if (useNamedDb) {
     try {
-      return initializeFirestore(app, settings, databaseId);
+      db = initializeFirestore(app, settings, databaseId);
     } catch (error: unknown) {
       if (isFirestoreAlreadyInitializedError(error)) {
-        return getFirestore(app, databaseId);
+        db = getFirestore(app, databaseId);
+      } else {
+        throw error;
       }
-      throw error;
+    }
+  } else {
+    try {
+      db = initializeFirestore(app, settings);
+    } catch (error: unknown) {
+      if (isFirestoreAlreadyInitializedError(error)) {
+        db = getFirestore(app);
+      } else {
+        throw error;
+      }
     }
   }
 
-  try {
-    return initializeFirestore(app, settings);
-  } catch (error: unknown) {
-    if (isFirestoreAlreadyInitializedError(error)) {
-      return getFirestore(app);
-    }
-    throw error;
+  const emulatorHost = getFirestoreEmulatorHost();
+  if (emulatorHost && !_emulatorConnected && !import.meta.env?.PROD) {
+    const [host, portStr] = emulatorHost.split(':');
+    const port = Number(portStr) || 8185;
+    connectFirestoreEmulator(db, host || '127.0.0.1', port);
+    _emulatorConnected = true;
+    console.info(`[Firestore Client] Connected to Firestore emulator at ${host || '127.0.0.1'}:${port}`);
   }
+
+  return db;
 }
 
 export function getDb(): Firestore {

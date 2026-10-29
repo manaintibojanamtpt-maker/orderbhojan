@@ -4,7 +4,7 @@ import {
   computeInvoiceGrandTotal,
   resolveInvoiceGstAmount,
   resolveInvoicePaymentPresentation,
-} from '../../src/design-system/orders/tracking/invoicePresentation.ts';
+} from '../storefront-src/design-system/orders/tracking/invoicePresentation.ts';
 import { mapTrackingInvoice } from '../src/presentation/tracking/mapTrackingViews.ts';
 
 describe('invoice presentation', () => {

@@ -1,4 +1,5 @@
 import { Outlet } from 'react-router-dom';
+import { ConsumerAssistantEntry } from '@/features/assistant/ui';
 
 /** Full-screen layout without marketplace chrome — restaurant menu, tracking, etc. */
 export function FullScreenLayout() {
@@ -9,6 +10,7 @@ export function FullScreenLayout() {
       data-bds-layout="fullscreen"
     >
       <Outlet />
+      <ConsumerAssistantEntry />
     </div>
   );
 }

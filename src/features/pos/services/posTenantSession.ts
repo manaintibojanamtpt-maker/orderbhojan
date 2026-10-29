@@ -24,7 +24,8 @@
  *    this module holds no hardcoded id to fall back on.
  */
 
-import { getFirebaseIdToken } from '@/firebase/init';
+import { getFirebaseAuth, getFirebaseIdToken } from '@/firebase/init';
+import { getAppConfig } from '@/config';
 
 export interface AuthorizedPosTenant {
   tenantId: string;
@@ -42,9 +43,13 @@ export type PosTenantState =
       activeRole: string;
     };
 
-const TENANTS_ENDPOINT = '/api/v1/pos/tenants';
-const AUTHORIZED_ENDPOINT = (tenantId: string) =>
-  `/api/v1/pos/tenants/${encodeURIComponent(tenantId)}/authorized`;
+export const resolvePosEndpoint = (path: string, apiBaseUrl?: string): string => {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const base = (apiBaseUrl ?? getAppConfig().marketplaceApiBaseUrl ?? '').replace(/\/$/, '');
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+};
 
 /**
  * Remember the last authorized tenant per account.
@@ -87,10 +92,28 @@ export interface PosTenantSessionDeps {
   getToken: () => Promise<string | null>;
   /** Performs the authorized request. Injected so tests can drive it directly. */
   request: (url: string, init: RequestInit) => Promise<Response | null>;
+  /** Optional requested tenant id, e.g. from ?tenantId= query param */
+  requestedTenantId?: string | null;
+  /** Base URL of the backend API. Defaults to getAppConfig().marketplaceApiBaseUrl */
+  apiBaseUrl?: string;
 }
 
 const defaultDeps: PosTenantSessionDeps = {
-  getToken: () => getFirebaseIdToken(),
+  getToken: async () => {
+    if (typeof window !== 'undefined' && (window as any).__mockPosToken) {
+      return (window as any).__mockPosToken;
+    }
+    const auth = getFirebaseAuth();
+    if (!auth) return null;
+    if (!auth.currentUser && typeof (auth as any).authStateReady === 'function') {
+      try {
+        await (auth as any).authStateReady();
+      } catch {
+        // Fall back to getFirebaseIdToken() if authStateReady rejects
+      }
+    }
+    return getFirebaseIdToken();
+  },
   request: async (url, init) => {
     try {
       return await fetch(url, init);
@@ -98,6 +121,10 @@ const defaultDeps: PosTenantSessionDeps = {
       return null;
     }
   },
+  requestedTenantId:
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('tenantId')
+      : null,
 };
 
 export interface LoadPosTenantsResult {
@@ -105,11 +132,13 @@ export interface LoadPosTenantsResult {
   uid?: string;
   tenants?: AuthorizedPosTenant[];
   /** Present when locked out, so the UI can say something specific. */
-  reason?: 'unauthenticated' | 'no_tenants' | 'error';
+  reason?: 'unauthenticated' | 'no_tenants' | 'error' | 'unauthorized_tenant';
   message?: string;
   /** The tenant to bind, or null when there is nothing to bind. */
   tenantId: string | null;
   role: string | null;
+  /** Rejected requested tenant id if explicit launch was unauthorized */
+  requestedTenantId?: string | null;
 }
 
 const fetchJson = async <T>(
@@ -119,17 +148,27 @@ const fetchJson = async <T>(
 ): Promise<T | null> => {
   const token = await deps.getToken();
   if (!token) return null;
-  const response = await deps.request(url, {
+  const targetUrl = resolvePosEndpoint(url, deps.apiBaseUrl);
+  const response = await deps.request(targetUrl, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       Authorization: `Bearer ${token}`,
       ...(init.headers ?? {}),
     },
   });
   if (!response || !response.ok) return null;
+  const contentType = response.headers?.get?.('content-type') ?? '';
+  if (contentType && !contentType.includes('application/json')) {
+    return null;
+  }
   return (await response.json().catch(() => null)) as T | null;
 };
+
+const TENANTS_PATH = '/api/v1/pos/tenants';
+const AUTHORIZED_PATH = (tenantId: string) =>
+  `/api/v1/pos/tenants/${encodeURIComponent(tenantId)}/authorized`;
 
 /**
  * Load the authorized tenant list and choose which one to bind.
@@ -147,7 +186,7 @@ export const loadAuthorizedPosTenantsWith = async (
   } | null;
 
   try {
-    body = await fetchJson<typeof body>(deps, TENANTS_ENDPOINT, { method: 'GET' });
+    body = await fetchJson<typeof body>(deps, TENANTS_PATH, { method: 'GET' });
   } catch {
     return {
       status: 'locked_out',
@@ -189,9 +228,58 @@ export const loadAuthorizedPosTenantsWith = async (
     };
   }
 
-  // Prefer the remembered tenant, but only if the server still authorizes it.
+  // Determine requested tenant from dependency or window.location.search
+  const requested = typeof deps.requestedTenantId === 'string' && deps.requestedTenantId.trim()
+    ? deps.requestedTenantId.trim()
+    : (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('tenantId')?.trim() ?? null
+        : null);
+
+  // If a specific tenant was requested explicitly:
+  // Match either by tenantId or by tenant display name.
+  // If NOT authorized, do NOT silently open another restaurant!
+  // Return clear locked_out state with unauthorized_tenant reason so user can select an authorized restaurant or contact admin.
+  if (requested) {
+    const requestedNormalized = requested.toLowerCase();
+    const requestedMatch = tenants.find(
+      (entry) =>
+        entry.tenantId === requested ||
+        (entry.name && entry.name.trim().toLowerCase() === requestedNormalized)
+    );
+    if (!requestedMatch) {
+      return {
+        status: 'locked_out',
+        reason: 'unauthorized_tenant',
+        message: `You do not have permission to open the register for restaurant "${requested}".`,
+        uid,
+        tenants,
+        tenantId: null,
+        role: null,
+        requestedTenantId: requested,
+      };
+    }
+    // Remember the authorized requested tenant
+    if (uid && requestedMatch.tenantId) {
+      rememberTenant(uid, requestedMatch.tenantId);
+    }
+    return {
+      status: 'ready',
+      uid,
+      tenants,
+      tenantId: requestedMatch.tenantId,
+      role: requestedMatch.role,
+    };
+  }
+
+  // When no explicit tenant was requested in the URL:
+  // Prefer remembered tenant (if server still authorizes it), otherwise first tenant.
   const remembered = uid ? readRememberedTenant(uid) : null;
   const preferred = tenants.find((entry) => entry.tenantId === remembered) ?? tenants[0];
+
+  // Remember the bound tenant so offline / subsequent loads stay pinned to it
+  if (uid && preferred?.tenantId) {
+    rememberTenant(uid, preferred.tenantId);
+  }
 
   return {
     status: 'ready',
@@ -222,7 +310,7 @@ export const confirmTenantAuthorizedWith = async (
   try {
     const body = await fetchJson<{ authorized?: boolean }>(
       deps,
-      AUTHORIZED_ENDPOINT(trimmed),
+      AUTHORIZED_PATH(trimmed),
       { method: 'GET' }
     );
     return body?.authorized === true;

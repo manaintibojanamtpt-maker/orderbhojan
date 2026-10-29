@@ -1,18 +1,38 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules/firebase/auth') || id.includes('node_modules/@firebase/auth')) return 'firebase-auth';
-          if (id.includes('node_modules/firebase/firestore') || id.includes('node_modules/@firebase/firestore')) return 'firebase-firestore';
-          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase-core';
-          if (id.includes('node_modules/@capacitor')) return 'capacitor-bridge';
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const isProd = mode === 'production';
+
+  if (isProd) {
+    const projectId = env.VITE_FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+    const firestoreEmulator = env.VITE_FIRESTORE_EMULATOR_HOST || process.env.VITE_FIRESTORE_EMULATOR_HOST;
+    const authEmulator = env.VITE_AUTH_EMULATOR_HOST || process.env.VITE_AUTH_EMULATOR_HOST;
+
+    if (projectId && projectId.startsWith('demo-')) {
+      throw new Error(`[Production Safety] Production build cannot target demo project: ${projectId}. Remove demo config or build with production environment.`);
+    }
+    if (firestoreEmulator) {
+      throw new Error(`[Production Safety] Production build cannot configure VITE_FIRESTORE_EMULATOR_HOST: ${firestoreEmulator}`);
+    }
+    if (authEmulator) {
+      throw new Error(`[Production Safety] Production build cannot configure VITE_AUTH_EMULATOR_HOST: ${authEmulator}`);
+    }
+  }
+
+  return {
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/firebase/auth') || id.includes('node_modules/@firebase/auth')) return 'firebase-auth';
+            if (id.includes('node_modules/firebase/firestore') || id.includes('node_modules/@firebase/firestore')) return 'firebase-firestore';
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase-core';
+            if (id.includes('node_modules/@capacitor')) return 'capacitor-bridge';
           if (id.includes('node_modules/zustand')) return 'state-vendor';
           if (id.includes('node_modules/framer-motion')) return 'motion';
           if (id.includes('node_modules/@tanstack/react-query')) return 'query';
@@ -66,7 +86,7 @@ export default defineConfig({
       },
     },
     VitePWA({
-      injectRegister: false,
+      injectRegister: 'auto',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon-180x180.png'],
       manifest: {
@@ -157,6 +177,7 @@ export default defineConfig({
   ],
   server: {
     port: 5174,
+    strictPort: true,
     host: true,
     fs: {
       allow: ['..'],
@@ -190,6 +211,12 @@ export default defineConfig({
         target: process.env.VITE_MARKETPLACE_API_PROXY ?? 'http://localhost:8080',
         changeOrigin: true,
       },
+      '/api/voice': {
+        target: process.env.VITE_MARKETPLACE_API_PROXY ?? 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
+};
 });

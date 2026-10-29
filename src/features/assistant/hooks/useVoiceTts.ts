@@ -10,7 +10,13 @@ export function useVoiceTts() {
   const [voiceLanguage, setVoiceLanguage] = useState('en-IN');
 
   const speakReply = useCallback(
-    async (reply: string | undefined, signal: AbortSignal, forceSpeak: boolean, lang?: string) => {
+    async (
+      reply: string | undefined,
+      signal: AbortSignal,
+      forceSpeak: boolean,
+      lang?: string,
+      onFirstAudio?: () => void,
+    ) => {
       const spoken = toSpokenAssistantReply(reply ?? '');
       if (!spoken) return;
       if (!forceSpeak && !ttsEnabled) return;
@@ -25,7 +31,12 @@ export function useVoiceTts() {
 
       setSpeaking(true);
       try {
-        await speakVoiceConfirmation({ text: spoken, signal, lang: targetLang });
+        await speakVoiceConfirmation({
+          text: spoken,
+          signal,
+          lang: targetLang,
+          onFirstAudio,
+        });
       } catch (ttsErr) {
         if (
           ttsErr instanceof AssistantApiError &&

@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-marketing
 .env
 .env.local
 .env.*.local
@@ -12,4 +13,5 @@ packages/node_modules
 *-proof/
 *-proof-report.json
 validation-screenshots/
+docs/customer-milestone-evidence/
 _prod-*.js

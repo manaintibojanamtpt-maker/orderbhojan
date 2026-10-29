@@ -61,5 +61,79 @@ try {
   assert.equal(await page.evaluate(()=>visualViewport.scale),2);
   const viewport=readFileSync('index.html','utf8').match(/<meta name="viewport"[^>]+>/)?.[0];
   assert.ok(viewport&&!/user-scalable=no|maximum-scale=1/.test(viewport));passed++;
-  console.log(`Browser checks: ${passed} passed. Mounted checkout/recovery components, simulated network/provider; no real payment or Android process kill.`);
+
+  // 5. Browser Integration: Assistant Real Confirm Button Scenarios
+  await page.goto('http://127.0.0.1:5187/__customer_test?mode=assistant_confirm');
+  await page.locator('#btn-load-three-dosas').waitFor();
+
+  // Step 1: Load 3 initial dosas
+  await page.locator('#btn-load-three-dosas').click();
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3');
+  assert.equal(await page.locator('#cart-line-count').textContent(), '1');
+  assert.equal(await page.locator('#cart-revision').textContent(), '1');
+
+  // Step 2: Real Confirm button click -> executes split plan atomically
+  await page.locator('#btn-confirm-split').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'SUCCESS');
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3'); // 2 regular + 1 without onion = 3 total units
+  assert.equal(await page.locator('#cart-line-count').textContent(), '2');
+  assert.equal(await page.locator('#cart-revision').textContent(), '2');
+
+  // Step 3: Repeated confirmation (replay protection)
+  await page.locator('#btn-confirm-split').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'PROPOSAL_REPLAYED');
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3'); // Cart untouched
+
+  // Step 4: Validation failure leaves cart unchanged
+  await page.locator('#btn-confirm-bad').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'VALIDATION_FAILED');
+  assert.equal(await page.locator('#cart-item-count').textContent(), '3'); // Cart untouched
+
+  // Step 5: Expired proposal rejected
+  await page.locator('#btn-confirm-expired').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'PROPOSAL_EXPIRED');
+
+  // Step 6: Restaurant mismatch rejected
+  await page.locator('#btn-confirm-wrong-rest').click();
+  assert.equal(await page.locator('#last-confirm-result').textContent(), 'RESTAURANT_MISMATCH');
+  passed++;
+
+  // 6. Actual Assistant UI: ConsumerAssistantSheet component and real Confirm control
+  await page.goto('http://127.0.0.1:5187/__customer_test?mode=real_assistant_sheet');
+  await page.locator('#btn-sheet-load-three-dosas').waitFor();
+
+  // Step A: Load 3 initial dosas in active customer cart
+  await page.locator('#btn-sheet-load-three-dosas').click();
+  assert.equal(await page.locator('#sheet-cart-item-count').textContent(), '3');
+  assert.equal(await page.locator('#sheet-cart-line-count').textContent(), '1');
+
+  // Verify real ConsumerAssistantSheet transcript in the new top-docked voice UI
+  const planSummary = page.locator('[data-testid="voice-dock-transcript"]');
+  await planSummary.waitFor();
+  const summaryText = await planSummary.textContent();
+  assert.ok(summaryText && summaryText.includes('Customized'));
+
+  // Step B: Account switching with pending proposal -> verify proposal rejected on new account
+  await page.locator('#btn-sheet-switch-account').click();
+  assert.equal(await page.locator('#sheet-session-user').textContent(), 'usr_test_customer_2');
+  const confirmBtn = page.getByRole('button', { name: 'Confirm & add to cart' });
+  await confirmBtn.click();
+  assert.equal(await page.locator('#sheet-confirm-outcome').textContent(), 'SESSION_MISMATCH');
+  assert.equal(await page.locator('#sheet-cart-item-count').textContent(), '3');
+
+  // Step C: Reset session and execute single-unit customization via real sheet confirm button
+  await page.goto('http://127.0.0.1:5187/__customer_test?mode=real_assistant_sheet');
+  await page.locator('#btn-sheet-load-three-dosas').waitFor();
+  await page.locator('#btn-sheet-load-three-dosas').click();
+  const realConfirmBtn = page.getByRole('button', { name: 'Confirm & add to cart' });
+  await realConfirmBtn.click();
+  assert.equal(await page.locator('#sheet-confirm-outcome').textContent(), 'CONFIRMED_SUCCESS');
+  assert.equal(await page.locator('#sheet-cart-item-count').textContent(), '3'); // exactly 3 units: 2 regular + 1 without onion
+  assert.equal(await page.locator('#sheet-cart-line-count').textContent(), '2');
+
+  // Step D: Replay rejection (pending validation consumed and confirm panel cleanly dismounted)
+  assert.equal(await page.getByRole('button', { name: 'Confirm & add to cart' }).count(), 0);
+  passed++;
+
+  console.log(`Browser checks: ${passed} passed. Mounted checkout/recovery, reliability harness, and actual ConsumerAssistantSheet UI in real browser.`);
 } finally {await browser?.close();await server.close();}

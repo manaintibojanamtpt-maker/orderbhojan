@@ -20,11 +20,19 @@ export type SpeechSynthesisFactory = () => SpeechSynthesisLike | null;
 export type UtteranceFactory = (text: string) => SpeechSynthesisUtteranceLike;
 
 import { Capacitor } from '@capacitor/core';
-import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { loadFeatureFlags } from '../../../featureFlags/flags';
 import { getAppConfig } from '@/config';
 import { getMarketplaceAuthTokenProvider } from '@/marketplace-api';
 import { trackEvent } from '@/telemetry';
+
+async function getNativeTTS() {
+  try {
+    const mod = await import('@capacitor-community/text-to-speech');
+    return mod.TextToSpeech;
+  } catch {
+    return null;
+  }
+}
 
 function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
   return () => {
@@ -34,14 +42,20 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
           return false;
         },
         cancel: () => {
-          TextToSpeech.stop().catch(console.error);
+          void getNativeTTS().then((tts) => tts?.stop().catch(console.error));
         },
         speak: async (utterance) => {
           try {
+            const tts = await getNativeTTS();
+            if (!tts) {
+              console.warn('Native TextToSpeech plugin not found');
+              return;
+            }
+
             // Find female voice index if available
             let selectedVoiceIndex: number | undefined;
             try {
-              const supported = await TextToSpeech.getSupportedVoices();
+              const supported = await tts.getSupportedVoices();
               const voices = supported.voices || [];
               const femaleIdx = voices.findIndex((v) =>
                 (v.lang.toLowerCase().startsWith(utterance.lang.slice(0, 2).toLowerCase()) || v.lang.toLowerCase().startsWith('en')) &&
@@ -54,7 +68,7 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
 
             // Primary attempt with requested language and pleasant pitch
             try {
-              await TextToSpeech.speak({
+              await tts.speak({
                 text: utterance.text,
                 lang: utterance.lang,
                 rate: utterance.rate,
@@ -66,7 +80,7 @@ function getDefaultSynthesisFactory(): SpeechSynthesisFactory {
             } catch (langErr) {
               console.warn('[Native TTS] Target language failed, falling back to en-IN for audible delivery:', langErr);
               // Fallback to en-IN so speech is NEVER silently dropped
-              await TextToSpeech.speak({
+              await tts.speak({
                 text: utterance.text,
                 lang: 'en-IN',
                 rate: utterance.rate,
@@ -190,7 +204,7 @@ export function unlockAudioContext(): void {
   }
 }
 
-async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal): Promise<void> {
+async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal, onFirstAudio?: () => void): Promise<void> {
   const t0 = performance.now();
   const apiUrl = getAppConfig().marketplaceApiBaseUrl.replace(/\/$/, '');
   const tokenProvider = getMarketplaceAuthTokenProvider();
@@ -275,6 +289,7 @@ async function speakCloudTts(text: string, lang?: string, signal?: AbortSignal):
       const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      audio.onplay = () => onFirstAudio?.();
 
       const onAbort = () => {
         audio.pause();
@@ -314,7 +329,16 @@ export async function speakVoiceConfirmation(params: {
   readonly createUtterance?: UtteranceFactory;
   readonly signal?: AbortSignal;
   readonly onTiming?: (timings: { readonly ttsStartMs: number; readonly ttsTotalMs: number }) => void;
+  readonly onFirstAudio?: () => void;
 }): Promise<void> {
+  if (params.signal?.aborted) {
+    throw new AssistantApiError({
+      code: 'AI_TTS_ABORTED',
+      message: 'Speech confirmation was aborted.',
+      retryable: false,
+    });
+  }
+
   const text = params.text.trim();
   if (!text) {
     throw new AssistantApiError({
@@ -347,9 +371,97 @@ export async function speakVoiceConfirmation(params: {
     typeof window !== 'undefined' &&
     flags.FF_OB_AI_CLOUD_TTS !== false;
 
+  if (params.signal?.aborted) {
+    throw new AssistantApiError({
+      code: 'AI_TTS_ABORTED',
+      message: 'Speech confirmation was aborted.',
+      retryable: false,
+    });
+  }
+
+  // On native Android/Capacitor, local on-device TTS (@capacitor-community/text-to-speech)
+  // executes in < 80ms without cloud network latency or data transfer overhead.
+  const isNative = Capacitor.isNativePlatform();
+  if (isNative && !isTestMock) {
+    try {
+      const nativeSynth = (params.createSynthesis ?? getDefaultSynthesisFactory())();
+      if (nativeSynth) {
+        await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const finish = (fn: () => void) => {
+            if (settled) return;
+            settled = true;
+            params.signal?.removeEventListener('abort', onAbort);
+            fn();
+          };
+
+          const onAbort = () => {
+            try {
+              nativeSynth.cancel();
+            } catch {
+              // ignore
+            }
+            finish(() =>
+              reject(
+                new AssistantApiError({
+                  code: 'AI_TTS_ABORTED',
+                  message: 'Speech confirmation was aborted.',
+                  retryable: false,
+                }),
+              ),
+            );
+          };
+
+          if (params.signal?.aborted) {
+            onAbort();
+            return;
+          }
+
+          params.signal?.addEventListener('abort', onAbort, { once: true });
+
+          const createUtt = params.createUtterance ?? getDefaultUtteranceFactory(targetLang);
+          const utt = createUtt(text.slice(0, 500));
+          utt.lang = targetLang;
+          utt.onend = () => {
+            params.onTiming?.({ ttsStartMs, ttsTotalMs: Date.now() - ttsStartMs });
+            finish(() => resolve());
+          };
+          utt.onerror = (e) =>
+            finish(() =>
+              reject(
+                e instanceof Error
+                  ? e
+                  : new AssistantApiError({
+                      code: 'AI_TTS_ERROR',
+                      message: 'Native speech synthesis failed.',
+                      retryable: true,
+                    }),
+              ),
+            );
+          params.onFirstAudio?.();
+          try {
+            if (nativeSynth.speaking) nativeSynth.cancel();
+          } catch {
+            // ignore
+          }
+          nativeSynth.speak(utt);
+        });
+        return;
+      }
+    } catch (nativeErr) {
+      if (
+        params.signal?.aborted ||
+        (nativeErr instanceof AssistantApiError && nativeErr.code === 'AI_TTS_ABORTED')
+      ) {
+        throw nativeErr;
+      }
+      console.warn('[Voice TTS] Native device TTS failed, falling back to cloud:', nativeErr);
+    }
+  }
+
   if (cloudTtsEnabled) {
     try {
-      await speakCloudTts(text, targetLang, params.signal);
+      await speakCloudTts(text, targetLang, params.signal, params.onFirstAudio);
       params.onTiming?.({ ttsStartMs, ttsTotalMs: Date.now() - ttsStartMs });
       return;
     } catch (err) {
@@ -493,4 +605,21 @@ export async function speakVoiceConfirmation(params: {
       );
     }
   });
+}
+
+export function cancelAllVoiceSpeech(): void {
+  try {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  } catch {
+    /* ignore */
+  }
+  if (Capacitor.isNativePlatform()) {
+    try {
+      void getNativeTTS().then((tts) => tts?.stop().catch(() => {}));
+    } catch {
+      /* ignore */
+    }
+  }
 }

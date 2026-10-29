@@ -46,20 +46,25 @@ export function sanitizeRestaurantSlugContext(routeSlug: string): void {
   const cart = useCartStore.getState();
 
   // Check if stores are hydrated - if not, DO NOT clear (hydration race)
-  // UNKNOWN hydration (persist middleware not initialized) MUST NOT trigger a destructive clear.
-  // If persist middleware is initialized but hasHydrated() returns false (e.g. test env with unavailable storage),
-  // fall back to CONFIRMED state: non-null restaurantSlug + contextToken for context,
-  // non-null restaurantSlug or non-empty lines for cart.
-  // Use || not ?? because hasHydrated() can return FALSE (boolean), not just null/undefined.
-  const contextHasHydrated = useRestaurantContextStore.persist?.hasHydrated;
-  const cartHasHydrated = useCartStore.persist?.hasHydrated;
+  // If either store hasn't hydrated, we cannot trust the comparison - defer
+  // UNKNOWN context (null/undefined during hydration) MUST NOT trigger a clear.
+  // const contextHydrated = useRestaurantContextStore.persist.hasHydrated;
+  // const cartHydrated = useCartStore.persist.hasHydrated;
+  // if (!contextHydrated || !cartHydrated) {
+  //   return;
+  // }
+  const contextPersist = (useRestaurantContextStore as unknown as { persist?: { hasHydrated?: () => boolean } }).persist;
+  const cartPersist = (useCartStore as unknown as { persist?: { hasHydrated?: () => boolean } }).persist;
 
-  const contextHydrated = contextHasHydrated
-    ? (contextHasHydrated() || (ctx.restaurantSlug !== null && ctx.contextToken !== null))
-    : (ctx.restaurantSlug !== null && ctx.contextToken !== null);
-  const cartHydrated = cartHasHydrated
-    ? (cartHasHydrated() || (cart.restaurantSlug !== null || cart.lines.length > 0))
-    : (cart.restaurantSlug !== null || cart.lines.length > 0);
+  const contextHydrated =
+    typeof contextPersist?.hasHydrated === 'function'
+      ? contextPersist.hasHydrated()
+      : true;
+
+  const cartHydrated =
+    typeof cartPersist?.hasHydrated === 'function'
+      ? cartPersist.hasHydrated()
+      : true;
 
   // Context mismatch: stored context exists AND differs from route
   // Requires CONFIRMED non-null restaurantSlug — impossible if truly unhydrated
@@ -69,6 +74,12 @@ export function sanitizeRestaurantSlugContext(routeSlug: string): void {
   const cartMismatch = Boolean(
     cart.restaurantSlug && cart.restaurantSlug !== routeSlug && cart.lines.length > 0,
   );
+
+  // If there's a mismatch but the corresponding store isn't hydrated, defer
+  if (contextMismatch && !contextHydrated) return;
+  if (cartMismatch && !cartHydrated) return;
+
+  if (!contextMismatch && !cartMismatch) return;
 
   // If there's a mismatch but the corresponding store isn't hydrated, defer
   if (contextMismatch && !contextHydrated) return;

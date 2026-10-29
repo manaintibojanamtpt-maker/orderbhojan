@@ -6,6 +6,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/firebase/init';
+import { getAppConfig } from '@/config';
 import { posDb, type QueueScope } from '../db/posDatabase';
 import type { PosOrder, PosOrderStatus, SyncQueueItem } from '../domain/pos.types';
 import {
@@ -412,7 +413,7 @@ export class OrderSyncService {
       return 'blocked';
     }
 
-    const base = this.options.apiBaseUrl ?? '';
+    const base = (this.options.apiBaseUrl ?? getAppConfig().marketplaceApiBaseUrl ?? '').replace(/\/$/, '');
     const url = `${base}/api/v1/tenants/${encodeURIComponent(plan.command.tenantId)}/orders/${encodeURIComponent(
       plan.command.orderId
     )}/commands`;

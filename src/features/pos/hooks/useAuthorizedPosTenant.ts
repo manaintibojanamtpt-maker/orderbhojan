@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { subscribeToAuthState } from '@/firebase/init';
 import {
   confirmTenantAuthorized,
   loadAuthorizedPosTenants,
@@ -90,10 +91,10 @@ export const useAuthorizedPosTenant = (): PosTenantSession => {
         return;
       }
       setStatus('locked_out');
-      setTenants([]);
+      setTenants(result.tenants ?? []);
       setTenantId(null);
       setRole(null);
-      setUid('');
+      setUid(result.uid ?? '');
       setMessage(result.message ?? 'Sign in to use the POS.');
       return;
     }
@@ -111,8 +112,12 @@ export const useAuthorizedPosTenant = (): PosTenantSession => {
 
   useEffect(() => {
     void load();
-    // Intentionally runs once on mount: `load` is re-created when the bound
-    // tenant changes, and re-running on that would fight a deliberate switch.
+    const unsubscribe = subscribeToAuthState(() => {
+      void load();
+    });
+    return () => {
+      unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

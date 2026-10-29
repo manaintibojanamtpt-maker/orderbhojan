@@ -21,13 +21,23 @@ import 'fake-indexeddb/auto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { posDb } from '../src/features/pos/db/posDatabase';
 import { planQueuedCommand } from '../src/features/pos/services/posCommandPlanner';
 import { ORDER_COMMAND_TYPES } from '../src/features/pos/services/posCommandContract';
 import type { PosOrder } from '../src/features/pos/domain/pos.types';
 
-const SERVER_CONTRACT_PATH =
-  'F:/Manaintibojanam_final2/manaintibojanam-backend/backend-lib/orders/orderCommandContract.ts';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const root = resolve(__dirname, '..');
+const SERVER_CONTRACT_PATH = resolve(
+  root,
+  '..',
+  'manaintibojanam-backend',
+  'backend-lib',
+  'orders',
+  'orderCommandContract.ts',
+);
 
 const walkInOrder = (over: Partial<PosOrder> = {}): PosOrder => {
   const id = over.id ?? `pos_walkin_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
