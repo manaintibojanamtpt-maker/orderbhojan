@@ -211,6 +211,16 @@ describe('PR #7 Review Findings Regression Suite', () => {
       const content = readFileSync(storefrontConfigPath, 'utf8');
       assert.match(content, /outDir:\s*['"]\.\.\/dist-marketing['"]/, 'Marketing build must target dist-marketing');
       assert.match(content, /root:\s*path\.resolve\(__dirname,\s*['"]storefront-src['"]\)/);
+      assert.match(
+        content,
+        /input:\s*path\.resolve\(__dirname,\s*['"]storefront-src\/index\.html['"]\)/,
+        'Marketing build must process storefront-src/index.html as input to generate dist-marketing/index.html',
+      );
+
+      const htmlEntry = resolve(root, 'storefront-src/index.html');
+      assert.ok(existsSync(htmlEntry), 'storefront-src/index.html must exist');
+      const htmlContent = readFileSync(htmlEntry, 'utf8');
+      assert.match(htmlContent, /src=['"]\/marketing-main\.tsx['"]/, 'HTML entry must reference marketing-main.tsx');
     });
 
     it('verifies customer app deploy script deploys dist only to orderbhojan target', () => {

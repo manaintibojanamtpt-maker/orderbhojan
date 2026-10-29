@@ -11,7 +11,7 @@ export default defineConfig({
     outDir: '../dist-marketing',
     emptyOutDir: true,
     rollupOptions: {
-      input: path.resolve(__dirname, 'storefront-src/marketing-main.tsx'),
+      input: path.resolve(__dirname, 'storefront-src/index.html'),
       output: {
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',

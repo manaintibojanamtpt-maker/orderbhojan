@@ -30,7 +30,7 @@ export const HowItWorksTimeline = memo(function HowItWorksTimeline() {
               transition={{ delay: i * 0.08, duration: 0.45 }}
               className="relative text-center"
             >
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0A0A0A] border border-[#FF7A00]/25 text-[#FF7A00] font-black text-lg mb-4 mx-auto shadow-[0_0_24px_-8px_rgba(255,122,0,0.4)]">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF7A00]/20 to-[#FF7A00]/5 border border-[#FF7A00]/25 text-[#FF7A00] font-black text-lg mb-4 mx-auto shadow-[0_0_24px_-8px_rgba(255,122,0,0.4)]">
                 {step.step}
               </div>
               <h3 className="text-base font-bold text-white mb-2">{step.title}</h3>

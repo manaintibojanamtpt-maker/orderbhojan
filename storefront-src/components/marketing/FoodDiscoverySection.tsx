@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Star, Plus, Check, ArrowRight } from 'lucide-react';
-import { CINEMATIC_FOOD_CARDS, CINEMATIC_ENV_IMAGES } from '../../config/marketingFoodImages';
+import { CINEMATIC_FOOD_CARDS } from '../../config/marketingFoodImages';
 import { useScrollReveal } from '../../hooks/useScrollReveal';
 
 /**
@@ -8,8 +8,6 @@ import { useScrollReveal } from '../../hooks/useScrollReveal';
  * Cards overlap slightly; mouse position drives subtle perspective tilt.
  * Copy reduced; imagery dominant.
  */
-
-const IMG = CINEMATIC_ENV_IMAGES;
 
 function FoodCard({ item, index }: { item: (typeof CINEMATIC_FOOD_CARDS)[number]; index: number }) {
   const [added, setAdded] = useState(false);
@@ -104,14 +102,9 @@ function MiniPhone() {
     <div className="cine-float cine-glass cine-glass-accent cine-phone-hover w-full max-w-[150px] rounded-[20px] p-1.5">
       <div className="rounded-[14px] bg-[#0A0A0A] p-2 text-center">
         <div className="mb-2 text-[10px] font-bold text-white">OrderBhojan</div>
-        <img
-          src={IMG.foodTable.url}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          decoding="async"
-          className="cine-food-img mb-2 h-24 w-full rounded-lg object-cover"
-        />
+        <div className="h-24 rounded-lg bg-gradient-to-br from-[#FF7A00]/20 to-[#FF7A00]/5 flex items-center justify-center mb-2 border border-white/[0.05]">
+          <span className="text-[10px] text-white/60">Browse Menu</span>
+        </div>
         <div className="text-[9px] text-white/45">Direct to kitchen</div>
       </div>
     </div>
