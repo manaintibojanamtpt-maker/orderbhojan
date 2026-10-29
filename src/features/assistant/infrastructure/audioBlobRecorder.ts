@@ -4,6 +4,15 @@
  * Captures microphone audio using MediaRecorder API with Voice Activity
  * Detection (VAD) / silence detection, bounded duration timeouts, clean track
  * disposal, and protection against empty or startup-only recordings.
+ *
+ * Implements OrderBhojan Voice Commerce Overhaul audio capture specification:
+ * - Minimum speech-arming grace window (800–1200ms, default 1000ms) to guard
+ *   against premature stop during initial mic warmup or user pause.
+ * - RMS-based Voice Activity Detection using Web Audio AnalyserNode.
+ * - Consecutive frame confirmation to filter out clicks/pops.
+ * - Post-speech silence window (900–1200ms, default 1100ms).
+ * - Bounded maximum duration timeout (12–15s, default 12000ms).
+ * - Immediate AbortController cancellation and clean resource disposal.
  */
 
 import { AssistantApiError } from '../types';
@@ -20,10 +29,20 @@ export interface AudioRecordingSession {
 }
 
 export interface AudioRecordingOptions {
+  /** Maximum duration before auto-stop in milliseconds (12000–15000ms). */
   maxDurationMs?: number;
+  /** Post-speech silence window before auto-stop in milliseconds (900–1200ms). */
   silenceTimeoutMs?: number;
+  /** Initial grace period in milliseconds where silence auto-stop is inhibited (800–1200ms). */
+  speechArmingWindowMs?: number;
+  /** RMS amplitude threshold for voice activity detection (e.g. 0.02 - 0.03). */
+  rmsThreshold?: number;
+  /** Minimum bytes required for a valid recording. */
   minAudioBytes?: number;
+  /** AbortSignal for immediate cancellation. */
   signal?: AbortSignal;
+  /** Optional callback receiving normalized RMS amplitude (0.0 to 1.0) for visualizers. */
+  onAudioLevel?: (rms: number) => void;
 }
 
 export function isMediaRecorderSupported(): boolean {
@@ -33,6 +52,20 @@ export function isMediaRecorderSupported(): boolean {
     Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
   const hasMediaRecorder = typeof window.MediaRecorder !== 'undefined';
   return hasMediaDevices && hasMediaRecorder;
+}
+
+/**
+ * Calculates true Root Mean Square (RMS) volume from byte time-domain data.
+ * Time domain values range from 0 to 255 with 128 representing silence.
+ */
+export function calculateTimeDomainRms(buffer: Uint8Array): number {
+  if (buffer.length === 0) return 0;
+  let sumSquares = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const normalized = (buffer[i] - 128) / 128;
+    sumSquares += normalized * normalized;
+  }
+  return Math.sqrt(sumSquares / buffer.length);
 }
 
 export async function startAudioRecording(
@@ -117,12 +150,16 @@ export async function startAudioRecording(
   let vadInterval: any = null;
   let audioCtx: any = null;
   let speechDetected = false;
+  let consecutiveSpeechFrames = 0;
   let isCleanedUp = false;
   let isStoppedOrCancelled = false;
 
   const startTime = Date.now();
-  const maxDurationMs = options.maxDurationMs ?? 7000;
-  const silenceTimeoutMs = options.silenceTimeoutMs ?? 1500;
+  // Bounded defaults per voice commerce overhaul specification
+  const maxDurationMs = options.maxDurationMs ?? 12000;
+  const silenceTimeoutMs = options.silenceTimeoutMs ?? 1100;
+  const speechArmingWindowMs = options.speechArmingWindowMs ?? 1000;
+  const rmsThreshold = options.rmsThreshold ?? 0.025;
   const minAudioBytes = options.minAudioBytes ?? 256;
 
   let resolveCompletion: (blob: Blob | null) => void;
@@ -162,7 +199,7 @@ export async function startAudioRecording(
     });
   };
 
-  // Optional Voice Activity Detection (silence detection) via AudioContext
+  // Robust Voice Activity Detection (silence detection) via AudioContext Time-Domain RMS
   try {
     const AudioContextClass =
       typeof window !== 'undefined'
@@ -171,34 +208,46 @@ export async function startAudioRecording(
 
     if (AudioContextClass) {
       audioCtx = new AudioContextClass();
-      const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
+      if (typeof audioCtx.createMediaStreamSource === 'function') {
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
 
-      const buffer = new Uint8Array(analyser.frequencyBinCount);
-      vadInterval = setInterval(() => {
-        if (mediaRecorder.state !== 'recording') return;
-        analyser.getByteFrequencyData(buffer);
-        let sum = 0;
-        for (let i = 0; i < buffer.length; i++) {
-          sum += buffer[i];
-        }
-        const avg = sum / buffer.length;
-        // Speech threshold
-        if (avg > 15) {
-          speechDetected = true;
-          if (silenceTimer) {
-            clearTimeout(silenceTimer);
-            silenceTimer = null;
+        const timeData = new Uint8Array(analyser.frequencyBinCount);
+        vadInterval = setInterval(() => {
+          if (mediaRecorder.state !== 'recording') return;
+          if (typeof analyser.getByteTimeDomainData === 'function') {
+            analyser.getByteTimeDomainData(timeData);
+            const rms = calculateTimeDomainRms(timeData);
+            options.onAudioLevel?.(rms);
+
+            const elapsed = Date.now() - startTime;
+
+            if (rms >= rmsThreshold) {
+              consecutiveSpeechFrames++;
+              // Require 2 consecutive frames (~160ms) to confirm genuine speech vs audio clicks
+              if (consecutiveSpeechFrames >= 2) {
+                speechDetected = true;
+              }
+              if (silenceTimer) {
+                clearTimeout(silenceTimer);
+                silenceTimer = null;
+              }
+            } else {
+              consecutiveSpeechFrames = 0;
+              // Guard against premature stop:
+              // Only trigger silence auto-stop if speech was genuinely detected
+              // AND the minimum speech-arming grace window has passed.
+              if (speechDetected && elapsed >= speechArmingWindowMs && !silenceTimer) {
+                silenceTimer = setTimeout(() => {
+                  void stop();
+                }, silenceTimeoutMs);
+              }
+            }
           }
-        } else if (speechDetected && !silenceTimer) {
-          // Detected speech previously, now observing silence
-          silenceTimer = setTimeout(() => {
-            void stop();
-          }, silenceTimeoutMs);
-        }
-      }, 100);
+        }, 80);
+      }
     }
   } catch {
     // VAD optional; gracefully falls back to maxDurationMs / user stop

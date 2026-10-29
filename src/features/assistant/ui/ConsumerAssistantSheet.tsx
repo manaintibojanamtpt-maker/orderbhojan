@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { Mic, Square, Globe } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Mic, Square, X, AlertCircle, Edit2, Check } from 'lucide-react';
 import type { CartPlanValidationResult } from '../domain/cartPlanContract';
-import { summarizePendingCartPlan } from '../domain/summarizePendingCartPlan';
 import type { AssistantThreadMessage } from './useAssistantConversation';
 import type { ConsumerAssistHint } from '../types';
-import { AudioReactiveWaveform } from './AudioReactiveWaveform';
 
 function triggerHaptic(type: 'light' | 'medium' | 'success' | 'error' = 'light') {
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
@@ -17,19 +15,19 @@ function triggerHaptic(type: 'light' | 'medium' | 'success' | 'error' = 'light')
   }
 }
 
-const ORDERING_STARTERS = [
+export const ORDERING_STARTERS = [
   'What vegetarian options look good?',
   'Help me pick something mild',
   'Explain delivery fees',
 ] as const;
 
-const PERSONALIZATION_STARTERS = [
+export const PERSONALIZATION_STARTERS = [
   'Reorder my last order',
   'Order my usual',
   'Show my favorite kitchens',
 ] as const;
 
-const POST_ORDER_STARTERS = [
+export const POST_ORDER_STARTERS = [
   'Where is my order?',
   'Why is delivery taking long?',
   'How do I reorder the same items?',
@@ -38,6 +36,24 @@ const POST_ORDER_STARTERS = [
   'I need a refund for this order',
   'How do I cancel this order?',
 ] as const;
+
+/**
+ * 4-dot voice sparkle icon matching Zomato reference Screenshots 4 & 7,
+ * styled in OrderBhojan's Warm Charcoal / Amber / Cream tokens.
+ */
+export function VoiceSparkleDots({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-[3px] align-middle mr-2 shrink-0 ${className}`}
+      aria-hidden="true"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-[#E8720C] animate-pulse" />
+      <span className="h-2 w-2 rounded-full bg-[#f4a261] animate-pulse [animation-delay:120ms]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-[#E8720C] animate-pulse [animation-delay:240ms]" />
+      <span className="h-1 w-1 rounded-full bg-[#F5EBE1] animate-pulse [animation-delay:360ms]" />
+    </span>
+  );
+}
 
 interface ConsumerAssistantSheetProps {
   readonly messages: readonly AssistantThreadMessage[];
@@ -67,8 +83,17 @@ interface ConsumerAssistantSheetProps {
   readonly onConfirmPlan: () => void;
   readonly onDismissPlan: () => void;
   readonly onClearError: () => void;
+  readonly cartItemCount?: number;
+  readonly cartSubtotal?: number;
+  readonly onGoToCheckout?: () => void;
 }
 
+/**
+ * Non-Blocking Top Voice Dock (~140–170px height)
+ * Replaces any blocking full-screen or bottom modal per Zomato reference screenshots.
+ * Anchored at the top of the viewport with a subtle warm ambient glow,
+ * leaving the underlying menu and cart 100% visible, interactive, and scrollable.
+ */
 export function ConsumerAssistantSheet({
   messages,
   loading,
@@ -83,7 +108,6 @@ export function ConsumerAssistantSheet({
   pendingValidation,
   voiceEnabled = false,
   voiceAvailable = false,
-  personalizationEnabled = false,
   assistMode = 'ordering',
   voiceLanguage = 'en-IN',
   onVoiceLanguageChange,
@@ -93,29 +117,41 @@ export function ConsumerAssistantSheet({
   onVoiceCancel,
   onStartVoiceAgent,
   onStopVoiceAgent,
-  onFollowHint,
   onConfirmPlan,
   onDismissPlan,
   onClearError,
+  cartItemCount = 0,
+  cartSubtotal = 0,
+  onGoToCheckout,
 }: ConsumerAssistantSheetProps) {
-  const [draft, setDraft] = useState('');
-  const listRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false);
+  const [editDraft, setEditDraft] = useState('');
+  // Sync CSS dock height variable for underlying screen padding
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, loading, validating]);
-
-  useEffect(() => {
-    inputRef.current?.focus();
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--ob-voice-dock-height', '155px');
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.documentElement.style.removeProperty('--ob-voice-dock-height');
+      }
+    };
   }, []);
 
-  const submit = () => {
-    const text = draft.trim();
-    if (!text || loading) return;
-    setDraft('');
-    void onSend(text);
-  };
+  const lastUserMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'user')?.text,
+    [messages],
+  );
+
+  const lastAssistantMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'assistant')?.text,
+    [messages],
+  );
+
+  const isThinking =
+    voiceTurnPhase === 'thinking' || loading || validating || applying;
+  const isSpeaking = voiceTurnPhase === 'speaking' || speaking;
+  const isListening = voiceTurnPhase === 'listening' || listening;
 
   const canConfirm =
     pendingValidation?.status === 'validated' &&
@@ -124,449 +160,322 @@ export function ConsumerAssistantSheet({
     !loading &&
     !listening;
 
-  const showMic = voiceEnabled && voiceAvailable && Boolean(onVoiceStart);
-  const micBusy =
-    loading ||
-    validating ||
-    applying ||
-    listening ||
-    voiceTurnPhase === 'thinking' ||
-    voiceTurnPhase === 'speaking';
-  const statusPhase =
-    voiceTurnPhase !== 'idle'
-      ? voiceTurnPhase
-      : listening
-        ? 'listening'
-        : speaking
-          ? 'speaking'
-          : validating
-            ? 'validating'
-            : loading
-              ? 'thinking'
-              : null;
-  const starters =
-    assistMode === 'post_order'
-      ? POST_ORDER_STARTERS
-      : personalizationEnabled
-        ? [...PERSONALIZATION_STARTERS, ...ORDERING_STARTERS]
-        : ORDERING_STARTERS;
-  const isPostOrder = assistMode === 'post_order';
+  // Active status label
+  const statusLabel = isThinking
+    ? 'Processing...'
+    : isSpeaking
+      ? 'Speaking'
+      : isListening
+        ? 'Listening...'
+        : 'Voice Ready';
+
+  // Primary text to display in top dock (max 2–3 lines)
+  let displayText = '';
+  let showSparkle = false;
+
+  if (interimTranscript) {
+    displayText = interimTranscript;
+    showSparkle = true;
+  } else if (isThinking && lastUserMessage) {
+    displayText = lastUserMessage;
+    showSparkle = true;
+  } else if (lastAssistantMessage) {
+    displayText = lastAssistantMessage;
+    showSparkle = false;
+  } else if (assistMode === 'post_order') {
+    displayText =
+      'Where is my order? This chat is for triage only — it never cancels, refunds, or promises outcomes.';
+  } else {
+    displayText = 'Speak or type in Telugu, Hindi, or English';
+  }
+
+  const showStopPill = isThinking || isSpeaking;
+
+  const handleStop = () => {
+    triggerHaptic('medium');
+    if (onVoiceCancel) onVoiceCancel();
+    else if (onStopVoiceAgent) onStopVoiceAgent();
+  };
+
+  const handleMicToggle = () => {
+    triggerHaptic('light');
+    if (isListening || voiceAgentActive) {
+      if (onStopVoiceAgent) onStopVoiceAgent();
+      else if (onVoiceCancel) onVoiceCancel();
+    } else {
+      if (onStartVoiceAgent) onStartVoiceAgent();
+      else if (onVoiceStart) onVoiceStart();
+    }
+  };
 
   return (
-    <div
-      className="fixed inset-x-3 z-[88] mx-auto flex max-h-[min(68dvh,540px)] w-full max-w-md flex-col overflow-hidden rounded-[1.25rem] border border-[var(--ob-border)] bg-[var(--ob-surface)]/96 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.85)] backdrop-blur-md"
-      style={{ bottom: 'calc(118px + var(--ob-safe-bottom, 0px))' }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="consumer-assistant-title"
+    <header
+      className="fixed inset-x-0 top-0 z-[88] flex flex-col justify-between overflow-hidden border-b border-[var(--ob-border)] bg-[var(--ob-surface)]/98 px-4 py-3 shadow-[0_12px_36px_rgba(232,114,12,0.18)] backdrop-blur-md rounded-b-2xl transition-all"
+      style={{
+        height: '155px',
+        maxHeight: '170px',
+        minHeight: '140px',
+      }}
+      role="region"
+      aria-live="polite"
+      aria-label="OrderBhojan Voice Assistant"
       data-testid="consumer-assistant-sheet"
     >
-      <header className="flex shrink-0 items-start justify-between border-b border-[var(--ob-border)] px-4 py-3">
-        <div className="flex items-center gap-3 w-full max-w-[80%]">
-          {speaking ? (
-            <div className="flex h-10 w-10 animate-pulse items-center justify-center rounded-full bg-[#E8720C]/20 text-[#E8720C]">
-              <Mic className="h-5 w-5" />
-            </div>
-          ) : listening ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E8720C] text-white shadow-[0_0_12px_rgba(255,122,0,0.5)]">
-              <Mic className="h-5 w-5" />
+      {/* Top Ambient Glow Edge */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-[#E8720C]/60 to-transparent"
+        aria-hidden="true"
+      />
+
+      {/* Main Transcript / Spoken Reply Typography Region (Screenshots 1, 2, 4, 6, 7) */}
+      <div className="flex-1 overflow-hidden pt-1">
+        <div className="flex items-start justify-between gap-2">
+          {isEditingTranscript ? (
+            <div className="flex items-center gap-2 w-full">
+              <input
+                type="text"
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && editDraft.trim()) {
+                    onSend(editDraft.trim());
+                    setIsEditingTranscript(false);
+                  }
+                }}
+                className="flex-1 bg-white/10 border border-[#E8720C]/60 rounded-lg px-2.5 py-1 text-sm text-[var(--ob-text-primary)] focus:outline-none focus:ring-1 focus:ring-[#E8720C]"
+                autoFocus
+                placeholder="Type your correction..."
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (editDraft.trim()) {
+                    onSend(editDraft.trim());
+                    setIsEditingTranscript(false);
+                  }
+                }}
+                className="p-1 rounded bg-[#E8720C] text-black hover:bg-[#E8720C]/80"
+                title="Send corrected text"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingTranscript(false)}
+                className="p-1 rounded bg-white/10 text-[var(--ob-text-secondary)] hover:text-white"
+                title="Cancel edit"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-[#d0c4b5]">
-              <Mic className="h-5 w-5" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 id="consumer-assistant-title" className="text-sm font-semibold text-[var(--ob-text-primary)] whitespace-nowrap">
-                {isPostOrder ? 'Support Assistant' : 'OrderBhojan Voice Agent'}
-              </h2>
-              {voiceEnabled && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300 shrink-0">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Auto-detecting (తెలుగు / हिंदी / English)
-                </span>
+            <div
+              className="flex items-start group cursor-pointer flex-1"
+              onClick={() => {
+                if (displayText && displayText !== 'Speak or type in Telugu, Hindi, or English') {
+                  setEditDraft(displayText);
+                  setIsEditingTranscript(true);
+                }
+              }}
+              title="Tap to correct text"
+            >
+              <p
+                className="text-base font-medium leading-snug text-[var(--ob-text-primary)] line-clamp-3 md:text-lg"
+                data-testid="voice-dock-transcript"
+              >
+                {showSparkle && <VoiceSparkleDots />}
+                {displayText}
+              </p>
+              {displayText && displayText !== 'Speak or type in Telugu, Hindi, or English' && (
+                <Edit2 className="h-3.5 w-3.5 ml-2 text-[var(--ob-text-secondary)] opacity-0 group-hover:opacity-70 transition shrink-0 mt-1" />
               )}
             </div>
-            <p className="text-xs text-[var(--ob-text-secondary)] truncate mt-0.5">
-              {isPostOrder
-                ? 'Order support & help'
-                : voiceAgentActive
-                  ? 'Realtime voice active · Speak in Telugu, Hindi, or English'
-                  : 'Realtime Voice · Speak in Telugu, Hindi, or English'}
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg px-2 py-1 text-xs text-[var(--ob-text-secondary)] hover:bg-white/5 hover:text-[var(--ob-text-primary)] shrink-0 ml-2"
-        >
-          Close
-        </button>
-      </header>
+          )}
 
-      {voiceEnabled ? (
-        <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-4 py-1.5 text-xs">
-          <div className="flex items-center gap-1.5 text-[#d0c4b5]">
-            <Globe className="h-3.5 w-3.5 text-[#FF7A00]" />
-            <span className="text-[11px] font-medium">Language:</span>
+          {/* Live Floating Cart Indicator (Zomato-inspired) */}
+          {cartItemCount > 0 && !isEditingTranscript && (
+            <button
+              type="button"
+              onClick={onGoToCheckout}
+              className="flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25 active:scale-95 shrink-0"
+              aria-label={`View cart with ${cartItemCount} items, total ₹${cartSubtotal}`}
+              data-testid="voice-dock-cart-pill"
+            >
+              <span>🛒</span>
+              <span>{cartItemCount} • ₹{cartSubtotal}</span>
+              <span className="text-[10px] text-emerald-300 font-bold ml-0.5">Checkout →</span>
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-rose-400">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{error}</span>
+            <button
+              type="button"
+              onClick={onClearError}
+              className="ml-1 text-[11px] underline opacity-80 hover:opacity-100"
+            >
+              dismiss
+            </button>
           </div>
-          <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Speech language selection">
-            {[
-              { id: 'en-IN', label: 'English' },
-              { id: 'te-IN', label: 'తెలుగు' },
-              { id: 'hi-IN', label: 'हिंदी' },
-            ].map((l) => {
-              const isSelected = voiceLanguage === l.id;
-              return (
+        )}
+
+        {/* Validation clarification questions */}
+        {pendingValidation && pendingValidation.clarificationQuestions?.length > 0 && (
+          <ul
+            className="mt-1 text-xs text-[#f4a261]"
+            data-testid="consumer-assistant-clarifications"
+          >
+            {pendingValidation.clarificationQuestions.map((q, i) => (
+              <li key={i} className="truncate">
+                {q}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Hidden cues for continuous multilingual listening */}
+        <span className="sr-only">
+          Listening continuously in Telugu, Hindi, or English. Listening for "Confirm" or next item.
+        </span>
+      </div>
+
+      {/* Controls & Status Row */}
+      <div className="flex shrink-0 items-center justify-between pt-2">
+        {/* Left Side: Status label & Inline [■ Stop] Pill Button (Screenshots 4 & 7) */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {isListening && (
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#E8720C] opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#E8720C]" />
+              </span>
+            )}
+            {isSpeaking && (
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </span>
+            )}
+            {isThinking && (
+              <span className="h-2.5 w-2.5 rounded-full bg-[#f4a261] animate-pulse" />
+            )}
+            <span
+              className={`text-xs font-semibold tracking-wide ${
+                isListening
+                  ? 'text-[#f4a261]'
+                  : isSpeaking
+                    ? 'text-emerald-400'
+                    : isThinking
+                      ? 'text-[#f4a261]'
+                      : 'text-[var(--ob-text-secondary)]'
+              }`}
+              data-testid="voice-dock-status"
+            >
+              {statusLabel}
+            </span>
+          </div>
+
+          {showStopPill && (
+            <button
+              type="button"
+              onClick={handleStop}
+              className="flex items-center gap-1.5 rounded-full border border-[#E8720C]/50 bg-[#E8720C]/15 px-3 py-1 text-xs font-semibold text-[#f4a261] transition hover:bg-[#E8720C]/25 active:scale-95 touch-manipulation"
+              aria-label="Stop current speech or processing"
+              data-testid="voice-dock-stop-pill"
+            >
+              <Square className="h-3 w-3 fill-current" />
+              <span>Stop</span>
+            </button>
+          )}
+
+          {/* Validation Confirm Chip when plan awaiting confirmation */}
+          {pendingValidation && pendingValidation.proposedActions?.length > 0 && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={!canConfirm}
+                onClick={() => void onConfirmPlan()}
+                title={
+                  canConfirm
+                    ? 'Confirm & add to cart'
+                    : 'Confirm stays disabled until the plan is validated'
+                }
+                className="flex items-center gap-1 rounded-full bg-[#E8720C] px-2.5 py-0.5 text-[11px] font-semibold text-black transition disabled:opacity-40"
+              >
+                {applying ? 'Applying…' : 'Confirm & add to cart'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void onDismissPlan()}
+                title="Dismiss proposed changes"
+                className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-[var(--ob-text-secondary)] hover:text-white"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Compact language pills (EN, TE, HI) */}
+          {voiceEnabled && (
+            <div className="hidden items-center gap-1 sm:flex" role="radiogroup" aria-label="Voice Language">
+              {[
+                { id: 'en-IN', label: 'EN' },
+                { id: 'te-IN', label: 'తెలుగు' },
+                { id: 'hi-IN', label: 'हिंदी' },
+              ].map((l) => (
                 <button
                   key={l.id}
                   type="button"
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => {
-                    triggerHaptic('light');
-                    onVoiceLanguageChange?.(l.id);
-                  }}
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition ${
-                    isSelected
-                      ? 'bg-[#FF7A00] text-black font-semibold shadow-sm'
-                      : 'bg-white/5 text-[#d0c4b5] hover:bg-white/10 hover:text-white'
+                  onClick={() => onVoiceLanguageChange?.(l.id)}
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition ${
+                    voiceLanguage === l.id
+                      ? 'bg-[#E8720C] text-black font-semibold'
+                      : 'bg-white/5 text-[var(--ob-text-secondary)] hover:text-white'
                   }`}
                 >
                   {l.label}
                 </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
-      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        {messages.length === 0 && !loading && (
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--ob-text-secondary)]">
-              {isPostOrder
-                ? 'Ask about tracking, delivery, reorder shortcuts, or cancel/refund/payment issues. This chat guides and escalates — it never cancels, refunds, or promises outcomes.'
-                : 'Tell me what you would like to eat in Telugu, Hindi, or English — I will find it and prepare your cart.'}
-            </p>
-            {showMic && onStartVoiceAgent ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (voiceAgentActive) onStopVoiceAgent?.();
-                  else onStartVoiceAgent();
-                }}
-                className="w-full rounded-xl bg-gradient-to-r from-[#FA7A1E] to-[#E8720C] px-3.5 py-3 text-sm font-semibold text-white shadow-sm hover:brightness-105 active:scale-[0.99] transition touch-manipulation flex items-center justify-center gap-2"
-                data-testid="consumer-assistant-live-voice"
-              >
-                {voiceAgentActive ? 'Stop live voice' : 'Tap to speak & order'}
-              </button>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              {starters.map((starter) => (
-                <button
-                  key={starter}
-                  type="button"
-                  className="rounded-full border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 py-1.5 text-left text-xs text-[var(--ob-text-primary)] transition hover:border-[#E8720C]/40"
-                  onClick={() => void onSend(starter)}
-                >
-                  {starter}
-                </button>
               ))}
             </div>
-          </div>
-        )}
-
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={
-              msg.role === 'user'
-                ? 'flex justify-end'
-                : msg.role === 'system'
-                  ? 'flex justify-center'
-                  : 'flex justify-start'
-            }
-          >
-            <div
-              className={
-                msg.role === 'user'
-                  ? 'max-w-[85%] rounded-2xl rounded-br-md bg-[#E8720C] px-3 py-2 text-sm text-black'
-                  : msg.role === 'system'
-                    ? 'max-w-[95%] rounded-xl border border-[#E8720C]/25 bg-[#E8720C]/10 px-3 py-2 text-xs text-[#F4A05C]'
-                    : 'max-w-[90%] rounded-2xl rounded-bl-md border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 py-2 text-sm text-[var(--ob-text-primary)]'
-              }
-            >
-              <p className="whitespace-pre-wrap">{msg.text}</p>
-
-              {msg.cartActions && msg.cartActions.length > 0 ? (
-                <ul className="mt-2 space-y-1 border-t border-[var(--ob-border)] pt-2 text-[11px] text-[var(--ob-text-secondary)]">
-                  {msg.cartActions.map((action, idx) => (
-                    <li key={`${action.type}-${idx}`}>
-                      {action.type.replace(/_/g, ' ')}
-                      {typeof action.payload?.name === 'string' ? ` · ${action.payload.name}` : ''}
-                      {typeof action.payload?.quantity === 'number' && action.payload.quantity > 1
-                        ? ` (${action.payload.quantity}x)`
-                        : ''}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
-              {msg.hints && msg.hints.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {msg.hints.map((hint, idx) => (
-                    <button
-                      key={`${hint.type}-${hint.target ?? ''}-${idx}`}
-                      type="button"
-                      className="rounded-full border border-[#E8720C]/40 bg-[#E8720C]/15 px-2.5 py-1 text-[11px] text-[#F4A05C]"
-                      onClick={() => onFollowHint(hint)}
-                    >
-                      {hint.type === 'navigate' && hint.target === '/profile'
-                        ? 'Help & support'
-                        : hint.type === 'navigate' && hint.target?.includes('/track')
-                          ? 'Open tracking'
-                          : hint.type === 'navigate' && hint.target === '/orders'
-                            ? 'My Orders'
-                            : hint.type === 'open_url' && hint.target?.startsWith('mailto:')
-                              ? 'Email support'
-                              : hint.type === 'navigate'
-                                ? hint.target || 'Go'
-                                : hint.type === 'open_url'
-                                  ? 'Open link'
-                                  : 'Continue'}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ))}
-
-        {interimTranscript && (
-          <div className="flex items-center gap-2 rounded-xl border border-[#E8720C]/30 bg-[#E8720C]/10 px-3 py-2 text-xs text-[#F4A05C] animate-pulse">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#E8720C]" />
-            <span className="italic truncate">“{interimTranscript}”</span>
-          </div>
-        )}
-
-        {(statusPhase || applying) && (
-          <div className="flex items-center gap-2 text-xs text-[#d0c4b5]" aria-live="polite">
-            {statusPhase === 'listening' ? (
-              <div className="flex items-center gap-2">
-                <span className="flex h-3 items-center gap-0.5" aria-hidden>
-                  <span className="h-2 w-0.5 animate-pulse rounded-full bg-[#E8720C]" />
-                  <span className="h-4 w-0.5 animate-bounce rounded-full bg-[#E8720C]" />
-                  <span className="h-3 w-0.5 animate-pulse rounded-full bg-[#E8720C]" />
-                </span>
-                <span className="font-medium text-[#FFA043]">
-                  {pendingValidation?.status === 'validated' && pendingValidation.valid
-                    ? 'Listening for "Confirm" or next item…'
-                    : 'Listening… speak in Telugu, Hindi, or English'}
-                </span>
-              </div>
-            ) : statusPhase === 'speaking' ? (
-              <div className="flex items-center gap-2">
-                <span className="flex h-3 items-center gap-0.5" aria-hidden>
-                  <span className="h-3 w-0.5 animate-pulse rounded-full bg-emerald-400" />
-                  <span className="h-4 w-0.5 animate-pulse rounded-full bg-emerald-400" />
-                  <span className="h-2 w-0.5 animate-pulse rounded-full bg-emerald-400" />
-                </span>
-                <span className="font-medium text-emerald-300">Speaking…</span>
-              </div>
-            ) : statusPhase === 'validating' || validating ? (
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 animate-ping rounded-full bg-emerald-400" />
-                <span className="text-emerald-200">Validating order plan…</span>
-              </div>
-            ) : statusPhase === 'thinking' || loading ? (
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 animate-ping rounded-full bg-amber-400" />
-                <span className="text-amber-200">Finding dishes & kitchens…</span>
-              </div>
-            ) : applying ? (
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                <span className="text-emerald-200">Adding to cart…</span>
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200" role="alert">
-            <p>{error}</p>
-            <button type="button" className="mt-1 text-[#E8720C] underline" onClick={onClearError}>
-              Dismiss
-            </button>
-          </div>
-        )}
-      </div>
-
-      {pendingValidation ? (
-        <div
-          className="border-t border-[var(--ob-border)] px-4 py-3"
-          data-testid="consumer-assistant-cart-confirm"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {pendingValidation.status === 'validated' && pendingValidation.valid
-                ? 'Order plan ready for confirmation'
-                : 'Validating cart plan…'}
-            </span>
-            <span className="text-[10px] text-[var(--ob-text-secondary)]">Say “confirm” or tap below</span>
-          </div>
-          {(() => {
-            const lines = summarizePendingCartPlan(pendingValidation);
-            if (lines.length === 0) return null;
-            return (
-              <div
-                className="mb-2 rounded-lg border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-3 py-2 text-[12px] text-[var(--ob-text-primary)]"
-                data-testid="consumer-assistant-plan-summary"
-              >
-                {lines.map((line, idx) => (
-                  <p key={`${line.dish}-${idx}`}>
-                    <span className="font-semibold">
-                      {line.quantity}× {line.dish}
-                    </span>
-                    {line.kitchen ? (
-                      <span className="text-[var(--ob-text-secondary)]"> · {line.kitchen}</span>
-                    ) : null}
-                    {line.modifiers ? (
-                      <span className="text-[var(--ob-text-secondary)]"> · {line.modifiers}</span>
-                    ) : null}
-                  </p>
-                ))}
-              </div>
-            );
-          })()}
-          {pendingValidation.status !== 'validated'
-            ? (() => {
-                const uniqueDetail = [
-                  ...new Set(
-                    [
-                      ...pendingValidation.clarificationQuestions,
-                      pendingValidation.issues[0]?.message,
-                    ]
-                      .map((q) => q?.trim())
-                      .filter((q): q is string => Boolean(q)),
-                  ),
-                ];
-                if (uniqueDetail.length === 0) return null;
-                return (
-                  <ul
-                    className="mb-2 list-disc space-y-1 pl-4 text-[11px] text-[#F4A05C]"
-                    data-testid="consumer-assistant-clarifications"
-                  >
-                    <li>{uniqueDetail[0]}</li>
-                  </ul>
-                );
-              })()
-            : null}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={!canConfirm}
-              onClick={() => void onConfirmPlan()}
-              className="flex-1 rounded-xl bg-gradient-to-r from-[#f4a05c] to-[#E8720C] px-3 py-2.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {applying ? 'Applying…' : 'Confirm & add to cart'}
-            </button>
-            <button
-              type="button"
-              onClick={onDismissPlan}
-              className="rounded-xl border border-[var(--ob-border)] px-3 py-2.5 text-sm text-[var(--ob-text-secondary)]"
-            >
-              Discard
-            </button>
-          </div>
-          {!canConfirm && pendingValidation.status !== 'validated' ? (
-            <p className="mt-2 text-[11px] text-[var(--ob-text-secondary)]">
-              Confirm stays disabled until the plan is validated. Reply with the exact item if asked.
-            </p>
-          ) : null}
+          )}
         </div>
-      ) : null}
 
-<footer className="border-t border-[var(--ob-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
-        {listening || speaking ? (
-          <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-3 py-1">
-            <span className="text-[11px] font-medium text-[var(--ob-text-muted)]">
-              {listening ? 'Listening to speech…' : 'OrderBhojan speaking…'}
-            </span>
-            <AudioReactiveWaveform isActive={true} mode={listening ? 'listening' : 'speaking'} />
-          </div>
-        ) : null}
-        <div className="flex items-end gap-2">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder={
-              listening
-                ? pendingValidation?.status === 'validated' && pendingValidation.valid
-                  ? 'Say "confirm" or next dish…'
-                  : 'Listening…'
-                : 'Ask OrderBhojan…'
-            }
-            disabled={loading || listening}
-className="max-h-28 min-h-[48px] flex-1 resize-none rounded-xl border border-[var(--ob-border)] bg-[var(--ob-surface-strong)] px-3 py-2.5 text-sm text-[var(--ob-text-primary)] placeholder:text-[var(--ob-text-muted)] focus:border-[#E8720C]/50 focus:outline-none"
-          />
-          {showMic ? (
+        {/* Right Side: Circular 44x44px Mic Toggle & Circular 44x44px Close (✕) Buttons */}
+        <div className="flex items-center gap-2">
+          {voiceEnabled && voiceAvailable && (
             <button
               type="button"
-              onClick={() => {
-                if (listening) {
-                  triggerHaptic('light');
-                  onVoiceCancel?.();
-                  return;
-                }
-                triggerHaptic('medium');
-                onVoiceStart?.();
-              }}
-              disabled={micBusy && !listening}
-              aria-label={listening ? 'Stop listening' : 'Speak your question'}
-              aria-pressed={listening}
+              onClick={handleMicToggle}
+              title="Speak your question"
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8720C] ${
+                isListening
+                  ? 'bg-[#E8720C] text-white shadow-[0_0_16px_rgba(232,114,12,0.6)] animate-pulse'
+                  : 'border border-[var(--ob-border)] bg-white/5 text-[var(--ob-text-primary)] hover:border-[#E8720C]/50 hover:bg-white/10'
+              }`}
+              aria-label={isListening ? 'Stop listening' : 'Start live voice'}
               data-testid="consumer-assistant-mic"
-              className={
-                listening
-? 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-red-400/40 bg-red-500/20 px-3 text-red-200'
-                  : 'shrink-0 flex items-center justify-center min-h-[48px] min-w-[48px] rounded-xl border border-[var(--ob-border)] bg-[var(--ob-surface)] px-3 text-[#E8720C] disabled:opacity-40 hover:bg-[var(--ob-surface-strong)] transition'
-              }
             >
-              {listening ? <Square size={18} fill="currentColor" /> : <Mic size={18} />}
+              <Mic className="h-5 w-5" />
             </button>
-          ) : null}
+          )}
+
           <button
             type="button"
             onClick={() => {
               triggerHaptic('light');
-              submit();
+              onClose();
             }}
-            disabled={loading || listening || !draft.trim()}
-className="shrink-0 flex items-center justify-center min-h-[48px] rounded-xl bg-[#E8720C] px-4 text-sm font-semibold text-white disabled:opacity-40 hover:opacity-95 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--ob-border)] bg-white/5 text-[var(--ob-text-secondary)] transition hover:border-white/20 hover:text-[var(--ob-text-primary)] active:scale-95 touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            aria-label="Close voice assistant"
+            data-testid="voice-dock-close"
           >
-            Send
+            <X className="h-5 w-5" />
           </button>
         </div>
-        {showMic ? (
-          <p className="mt-2 text-[11px] text-[var(--ob-text-muted)]">
-            {voiceAgentActive
-              ? 'Listening continuously in Telugu, Hindi, or English. Say “confirm” anytime to add to cart, or “stop” to pause.'
-              : 'Speak or type in Telugu, Hindi, or English. Confirm anytime to add items to your cart.'}
-          </p>
-        ) : null}
-      </footer>
-    </div>
+      </div>
+    </header>
   );
 }

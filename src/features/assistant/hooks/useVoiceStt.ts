@@ -127,6 +127,35 @@ export function useVoiceStt() {
       try {
         let transcript: string | undefined;
 
+        // 1. Android Native Path: On-device speech recognition with live partials
+        if (!transcript && canUseNative) {
+          try {
+            const native = await captureNativeAndroidStt({
+              enabled: canUseNative,
+              signal: ac.signal,
+              lang,
+              onPartial: onInterim,
+            });
+            if (native?.transcript) {
+              transcript = native.transcript;
+            }
+          } catch (nativeErr) {
+            if (
+              nativeErr instanceof AssistantApiError &&
+              nativeErr.code === 'AI_VOICE_PERMISSION_DENIED'
+            ) {
+              throw nativeErr;
+            }
+            if (
+              nativeErr instanceof AssistantApiError &&
+              (nativeErr.code === 'AI_VOICE_ABORTED' ||
+                (nativeErr.code === 'AI_VOICE_EMPTY' && !voiceCaptureAvailable))
+            ) {
+              throw nativeErr;
+            }
+          }
+        }
+
         // 1. Preferred path: Realtime streaming STT over WebSocket (/api/voice/stream)
         if (streamingEnabled && isVoiceStreamingSupported() && !canUseNative) {
           try {
@@ -180,7 +209,7 @@ export function useVoiceStt() {
                       );
                       sessionRejecter = null;
                     }
-                  }, agentMode ? 10_000 : 7_000);
+                  }, agentMode ? 14_000 : 12_000);
 
                   ac.signal.addEventListener(
                     'abort',
@@ -220,13 +249,15 @@ export function useVoiceStt() {
         }
 
         // 2. Gateway STT Path: Sarvam Saaras v4 with Dynamic Menu Biasing
-        if (!transcript && isMediaRecorderSupported() && !canUseNative) {
+        if (!transcript && isMediaRecorderSupported()) {
           try {
             await settleMicForSpeechCapture(agentMode ? 250 : 150);
             if (sessionLive()) {
               const recorder = await startAudioRecording({
-                maxDurationMs: agentMode ? 7000 : 5000,
-                silenceTimeoutMs: agentMode ? 1800 : 1400,
+                maxDurationMs: agentMode ? 12000 : 10000,
+                silenceTimeoutMs: agentMode ? 1100 : 1000,
+                speechArmingWindowMs: 1000,
+                rmsThreshold: 0.025,
                 signal: ac.signal,
               });
               activeRecorderRef.current = recorder;
@@ -265,33 +296,7 @@ export function useVoiceStt() {
           }
         }
 
-        // 3. Fallback path: Native Android STT bridge
-        if (!transcript && canUseNative) {
-          try {
-            const native = await captureNativeAndroidStt({
-              enabled: canUseNative,
-              signal: ac.signal,
-              lang,
-            });
-            if (native?.transcript) {
-              transcript = native.transcript;
-            }
-          } catch (nativeErr) {
-            if (
-              nativeErr instanceof AssistantApiError &&
-              nativeErr.code === 'AI_VOICE_PERMISSION_DENIED'
-            ) {
-              throw nativeErr;
-            }
-            if (
-              nativeErr instanceof AssistantApiError &&
-              (nativeErr.code === 'AI_VOICE_ABORTED' ||
-                (nativeErr.code === 'AI_VOICE_EMPTY' && !voiceCaptureAvailable))
-            ) {
-              throw nativeErr;
-            }
-          }
-        }
+        
 
         // 4. Fallback path: Web Speech API
         if (!transcript) {

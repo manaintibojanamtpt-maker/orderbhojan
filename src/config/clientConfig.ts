@@ -30,7 +30,36 @@ export function isFirebaseConfigIncomplete(config: AppConfig): boolean {
   return !firebase.apiKey || !firebase.authDomain || !firebase.appId || !firebase.messagingSenderId;
 }
 
-function applyFirebaseDefaults(config: AppConfig): AppConfig {
+function isCapacitorRuntime(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const hasCapacitorGlobal = Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.(),
+    );
+    const isCapacitorScheme = window.location.protocol === 'capacitor:';
+    const isLocalhostHttps = window.location.hostname === 'localhost' && window.location.protocol === 'https:';
+    return hasCapacitorGlobal || isCapacitorScheme || isLocalhostHttps;
+  } catch {
+    return false;
+  }
+}
+
+export function shouldApplyProdFirebaseDefaults(config: AppConfig): boolean {
+  // Apply bhojanos-prod public defaults ONLY when the project explicitly matches bhojanos-prod,
+  // or in production/Capacitor when no project ID is specified.
+  if (config.firebase.projectId === BHOJANOS_PROD_FIREBASE_PUBLIC.projectId) {
+    return true;
+  }
+  if (!config.firebase.projectId && (config.environment === 'production' || isCapacitorRuntime())) {
+    return true;
+  }
+  return false;
+}
+
+export function applyFirebaseDefaults(config: AppConfig): AppConfig {
+  if (!shouldApplyProdFirebaseDefaults(config)) {
+    return config;
+  }
   return {
     ...config,
     firebase: {
@@ -135,11 +164,30 @@ export async function hydrateFirebaseConfig(
 ): Promise<AppConfig> {
   let hydrated = applyFirebaseDefaults(config);
   const usesLiveBackend = hydrated.marketplaceApiBaseUrl.includes('manaintibojanam-backend');
+  const isLiveProductionBackend = hydrated.environment === 'production' && usesLiveBackend;
   const wrongProdFirebaseProject =
-    import.meta.env?.PROD && usesLiveBackend && hydrated.firebase.projectId === 'orderbhojan';
+    isLiveProductionBackend && hydrated.firebase.projectId === 'orderbhojan';
 
-  if (!isFirebaseConfigIncomplete(hydrated) && !wrongProdFirebaseProject && timeoutMs === undefined) {
-    return hydrated;
+  // The browser bundle already has the canonical public Firebase config. If a production
+  // build accidentally names the legacy project, correct it locally instead of blocking
+  // first paint on a Render request that may be cold or temporarily unavailable.
+  if (wrongProdFirebaseProject) {
+    hydrated = {
+      ...hydrated,
+      firebase: {
+        ...BHOJANOS_PROD_FIREBASE_PUBLIC,
+        measurementId: hydrated.firebase.measurementId,
+      },
+    };
+  }
+
+  // Only fetch remote config when required fields are genuinely missing, or a production
+  // live-backend build targets a non-canonical project that must be checked against the API.
+  const needsRemoteProjectValidation =
+    isLiveProductionBackend &&
+    hydrated.firebase.projectId !== BHOJANOS_PROD_FIREBASE_PUBLIC.projectId;
+  if (!isFirebaseConfigIncomplete(hydrated) && !needsRemoteProjectValidation) {
+    return applyFirebaseDefaults(hydrated);
   }
 
   const remote = await fetchRemoteClientConfig(hydrated.marketplaceApiBaseUrl, timeoutMs);
@@ -154,11 +202,11 @@ export async function hydrateFirebaseConfig(
       );
     }
     hydrated =
-      wrongProdFirebaseProject || (usesLiveBackend && Boolean(import.meta.env?.PROD))
+      wrongProdFirebaseProject || isLiveProductionBackend
         ? mergeRemoteFirebaseConfigPreferRemote(hydrated, remote)
         : mergeRemoteFirebaseConfig(hydrated, remote);
   }
-  if (isFirebaseConfigIncomplete(hydrated)) {
+  if (isFirebaseConfigIncomplete(hydrated) && shouldApplyProdFirebaseDefaults(hydrated)) {
     hydrated = mergeRemoteFirebaseConfigPreferRemote(hydrated, {
       firebase: BHOJANOS_PROD_FIREBASE_PUBLIC,
       configured: true,

@@ -23,7 +23,7 @@
       if (isCapacitor) {
         window.__SKIP_SPLASH__ = true;
 
-        // Force aggressive cleanup of all old PWA caches and service workers ONLY on native runtime
+        // Force aggressive cleanup of all old PWA caches (orderbhojan-pwa-v) and service workers ONLY on native runtime
         if ('caches' in window) {
           caches.keys().then(function (keys) {
             keys.forEach(function (key) {

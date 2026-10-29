@@ -6,7 +6,9 @@ interface ConsumerAssistantFabProps {
 }
 
 /**
- * Premium OrderBhojan AI voice orb — not a generic chat bubble.
+ * Premium OrderBhojan AI Voice Trigger Orb (Screenshot 10 parity)
+ * Positioned in the bottom dock alongside navigation pill.
+ * Features distinct circular glowing pulse and Warm Charcoal / Warm Amber styling.
  */
 export function ConsumerAssistantFab({
   open,
@@ -22,7 +24,7 @@ export function ConsumerAssistantFab({
       onClick={onToggle}
       className="group fixed z-[85] flex h-12 w-12 items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8720C]/70"
       style={{
-        right: '16px',
+        left: '16px',
         bottom: 'calc(76px + var(--ob-safe-bottom, 0px))',
       }}
       aria-label={
@@ -33,53 +35,53 @@ export function ConsumerAssistantFab({
       aria-expanded={open}
       data-testid="consumer-assistant-fab"
     >
-      {/* Soft glow ring */}
+      {/* Soft ambient glow ring */}
       <span
         className={
           live
-            ? 'absolute inset-0 animate-ping rounded-full bg-[#E8720C]/35'
-            : 'absolute inset-0 rounded-full bg-white/[0.04] opacity-0 transition group-hover:opacity-100'
+            ? 'absolute inset-0 animate-ping rounded-full bg-[#E8720C]/40'
+            : 'absolute inset-0 rounded-full bg-[#E8720C]/10 opacity-0 transition group-hover:opacity-100'
         }
-        aria-hidden
+        aria-hidden="true"
       />
       <span
         className={
           live
-            ? 'relative flex h-12 w-12 items-center justify-center rounded-full bg-[#E8720C] shadow-[0_8px_24px_rgba(232,114,12,0.4)] transition'
-            : 'relative flex h-12 w-12 items-center justify-center rounded-full border border-[var(--ob-border)] bg-[var(--ob-surface)] shadow-[0_6px_20px_rgba(0,0,0,0.4)] transition group-hover:scale-[1.04] group-hover:border-[var(--ob-border-strong)]'
+            ? 'relative flex h-12 w-12 items-center justify-center rounded-full bg-[#E8720C] shadow-[0_8px_24px_rgba(232,114,12,0.45)] transition'
+            : 'relative flex h-12 w-12 items-center justify-center rounded-full border border-[var(--ob-border)] bg-[var(--ob-surface)] shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition group-hover:scale-[1.05] group-hover:border-[#E8720C]/60'
         }
       >
         {open && !live ? (
-          <span className="text-base font-semibold text-[var(--ob-text-primary)]">×</span>
+          <span className="text-lg font-semibold text-[var(--ob-text-primary)]">×</span>
         ) : (
           <span className="flex flex-col items-center justify-center gap-0.5">
-            {/* Waveform mark — reads as voice AI, not support chat */}
-            <span className="flex h-3.5 items-end gap-[2.5px]" aria-hidden>
+            {/* Waveform mark — reads as voice AI, not generic chat */}
+            <span className="flex h-3.5 items-end gap-[2.5px]" aria-hidden="true">
               <span
                 className={
                   live
-                    ? 'h-1.5 w-[2.5px] animate-pulse rounded-full bg-black/80'
+                    ? 'h-1.5 w-[2.5px] animate-pulse rounded-full bg-black/90'
                     : 'h-1.5 w-[2.5px] rounded-full bg-[#E8720C]'
                 }
               />
               <span
                 className={
                   live
-                    ? 'h-3.5 w-[2.5px] animate-pulse rounded-full bg-black/90 [animation-delay:75ms]'
+                    ? 'h-3.5 w-[2.5px] animate-pulse rounded-full bg-black/95 [animation-delay:75ms]'
                     : 'h-3.5 w-[2.5px] rounded-full bg-[#E8720C]'
                 }
               />
               <span
                 className={
                   live
-                    ? 'h-2.5 w-[2.5px] animate-pulse rounded-full bg-black/80 [animation-delay:150ms]'
+                    ? 'h-2.5 w-[2.5px] animate-pulse rounded-full bg-black/90 [animation-delay:150ms]'
                     : 'h-2.5 w-[2.5px] rounded-full bg-[#E8720C]'
                 }
               />
               <span
                 className={
                   live
-                    ? 'h-3 w-[2.5px] animate-pulse rounded-full bg-black/90 [animation-delay:225ms]'
+                    ? 'h-3 w-[2.5px] animate-pulse rounded-full bg-black/95 [animation-delay:225ms]'
                     : 'h-3 w-[2.5px] rounded-full bg-[#E8720C]'
                 }
               />

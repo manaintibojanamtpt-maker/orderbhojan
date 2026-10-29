@@ -58,32 +58,25 @@ export function formatBillDeliveryScheduleLine(input: {
   const notice = input.voiceScheduleNotice;
   if (notice?.kind === 'clarify') {
     return {
-      label: 'Delivery',
+      label: 'Delivery Slot',
       amountLabel: 'Schedule unclear — please select a time',
     };
   }
   if (notice?.kind === 'error') {
     return {
-      label: 'Delivery',
+      label: 'Delivery Slot',
       amountLabel: 'Schedule unavailable — please select a time',
     };
   }
 
   const slot = (input.deliveryTimeSlot ?? '').trim();
-  if (!slot) {
+  if (!slot || isAsapSlot(slot)) {
     return null;
-  }
-
-  if (isAsapSlot(slot)) {
-    return {
-      label: 'Delivery',
-      amountLabel: 'Deliver now',
-    };
   }
 
   const slotLabel = formatDeliverySlotLabel(slot);
   return {
-    label: 'Delivery',
+    label: 'Delivery Slot',
     amountLabel: `Scheduled for ${slotLabel}`,
   };
 }

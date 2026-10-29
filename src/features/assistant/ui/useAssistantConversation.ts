@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { applyConfirmedCartPlan } from '@/features/cart/domain/applyConfirmedCartPlan';
-import { useCartStore } from '@/features/cart/store/cartStore';
+import { cartSubtotal, useCartStore } from '@/features/cart/store/cartStore';
 import {
   clearVoiceConfirmation,
   createOrderBhojanVoiceAdapter,
@@ -30,7 +30,16 @@ import {
   classifyPersonalizationIntent,
   isPersonalizationCartIntent,
 } from '../domain/isPersonalizationUserMessage';
-import { parseCartAddUserMessage, normalizeQuantityAsr, parseQuantityOnlyMessage } from '../domain/isCartAddUserMessage';
+import {
+  parseCartAddUserMessage,
+  parseMultiCartAddUserMessage,
+  hydrateCartPlansFromUtterance,
+  normalizeQuantityAsr,
+  parseQuantityOnlyMessage,
+  cleanItemName,
+} from '../domain/isCartAddUserMessage';
+import { parseCustomizerNote } from '../domain/customizerNoteNormalize';
+import { isPriceComparisonMessage } from '../domain/priceComparisonIntent';
 import { patchPendingPlanQuantity } from '../domain/patchPendingPlanQuantity';
 import { buildOrderingAssistContext } from '../domain/buildOrderingAssistContext';
 import {
@@ -47,6 +56,11 @@ import { groundVoiceOrderingContext } from '../domain/resolveKitchenForVoice';
 import { resolveCartPlanRestaurantId } from '../domain/resolveCartPlanRestaurant';
 import { toPendingPlanRestaurantRef } from '../domain/restaurantIdSlug';
 import { recordVoiceTelemetry } from '../domain/voiceOrderingTelemetry';
+import { OrderConfirmationStateMachine } from '../domain/orderConfirmationStateMachine';
+import { recordVoiceLatencySample } from '../domain/voiceLatencyTelemetry';
+import { getCachedMenuItemsForSearch } from '@/features/search/store/searchMenuCacheStore';
+import { cancelAllVoiceSpeech } from '../infrastructure/voiceSpeechSynthesis';
+import { canonicalizeOrderingText } from '../domain/orderingTextNormalize';
 import { prefetchKitchenMenuForAssist } from '../application/prefetchKitchenMenuForAssist';
 import { useCheckoutScheduleStore } from '@/features/checkout/store/checkoutScheduleStore';
 import {
@@ -223,6 +237,8 @@ export function useAssistantConversation() {
   const restaurantSlug = useRestaurantContextStore((s) => s.restaurantSlug);
   const addItem = useCartStore((s) => s.addItem);
   const setQuantity = useCartStore((s) => s.setQuantity);
+  const updateInstructions = useCartStore((s) => s.updateInstructions);
+  const customizePortion = useCartStore((s) => s.customizePortion);
   const commitAtomicBatchPlan = useCartStore((s) => s.commitAtomicBatchPlan);
   const activeLocation = useActiveLocation();
 
@@ -249,6 +265,7 @@ export function useAssistantConversation() {
   voiceTurnPhaseRef.current = voiceTurnPhase;
   /** After a successful voice cart apply, pause live listen so customers are not left “recording”. */
   const pauseLiveVoiceAfterTurnRef = useRef(false);
+  const orderStateMachineRef = useRef(new OrderConfirmationStateMachine());
   /** Sheet visibility — mic must never stay open when this is false. */
   const sheetOpenRef = useRef(false);
   const pendingValidationRef = useRef<CartPlanValidationResult | null>(null);
@@ -267,6 +284,15 @@ export function useAssistantConversation() {
   );
   const voiceConfirmationRef = useRef(initialConfirmationSnapshot());
   const voiceAdapterRef = useRef<OrderBhojanVoiceAdapter | null>(null);
+  const lastComparedCheaperItemRef = useRef<{
+    foodId?: string;
+    itemId?: string;
+    name: string;
+    price: number;
+    restaurantId?: string;
+    restaurantSlug?: string;
+    isGrounded: boolean;
+  } | null>(null);
 
   pendingValidationRef.current = pendingValidation;
 
@@ -465,6 +491,452 @@ export function useAssistantConversation() {
         return reply;
       }
 
+      // Quantity correction on existing cart item ("Actually make that three dosas", "Make that 3")
+      if (quantityOnly != null && (!pending?.proposedActions?.length) && cartLines.length > 0) {
+        let targetLine = cartLines[cartLines.length - 1];
+        const utteranceRemainder = message.replace(
+          /^(?:actually,?\s*)?(?:make\s+that|make\s+it|set\s+it|change\s+it|update(?:\s+it)?)\s+\d+\s*/i,
+          '',
+        );
+        const utteranceDish = cleanItemName(utteranceRemainder);
+        if (utteranceDish) {
+          const matched = cartLines.find((l) => {
+            const canonicalLine = canonicalizeOrderingText(l.name);
+            const canonicalDish = canonicalizeOrderingText(utteranceDish);
+            return (
+              canonicalLine === canonicalDish ||
+              canonicalLine.includes(canonicalDish) ||
+              canonicalDish.includes(canonicalLine)
+            );
+          });
+          if (matched) targetLine = matched;
+        }
+
+        if (targetLine) {
+          setQuantity(targetLine.lineId, quantityOnly);
+          const reply = `Got it — updated to ${quantityOnly}× ${targetLine.name}.`;
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+      }
+
+      // Natural spice & customizer notes ("Make one of them without much spice", "without much spice", "less spice")
+      const customizerIntent = parseCustomizerNote(message);
+      if (customizerIntent) {
+        if (pending?.proposedActions?.length) {
+          // Apply customization to the requested item or portion only
+          let targetIndex = 0;
+          if (customizerIntent.targetDish) {
+            const foundIdx = pending.proposedActions.findIndex((a) => {
+              const aName = typeof a.payload?.name === 'string' ? a.payload.name : '';
+              const canonA = canonicalizeOrderingText(aName);
+              const canonT = canonicalizeOrderingText(customizerIntent.targetDish!);
+              return canonA === canonT || canonA.includes(canonT) || canonT.includes(canonA);
+            });
+            if (foundIdx === -1) {
+              const pendingDishNames = pending.proposedActions
+                .map((a) => (typeof a.payload?.name === 'string' ? a.payload.name : ''))
+                .filter(Boolean)
+                .join(' or ');
+              const reply = `I didn't find ${customizerIntent.targetDish} in your pending order. Did you mean ${pendingDishNames || 'one of the items'}?`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                {
+                  id: nextId(),
+                  role: 'assistant',
+                  text: reply,
+                  cartActions: pending.proposedActions,
+                  validation: pending,
+                },
+              ]);
+              return reply;
+            }
+            targetIndex = foundIdx;
+          }
+
+          const targetAction = pending.proposedActions[targetIndex];
+          const currentQty =
+            typeof targetAction?.payload?.quantity === 'number'
+              ? targetAction.payload.quantity
+              : 1;
+          const targetName = (targetAction?.payload?.name as string) || 'item';
+
+          let patchedActions: CartPlanAction[];
+          if (customizerIntent.quantity === 1 && currentQty > 1) {
+            // Apply customization to 1 portion only, preserve remaining portions
+            const customizedAction: CartPlanAction = {
+              ...targetAction,
+              payload: {
+                ...(targetAction.payload ?? {}),
+                quantity: 1,
+                instructions: customizerIntent.customizer,
+              },
+            };
+            const remainingAction: CartPlanAction = {
+              ...targetAction,
+              payload: {
+                ...(targetAction.payload ?? {}),
+                quantity: currentQty - 1,
+              },
+            };
+            patchedActions = [
+              ...pending.proposedActions.slice(0, targetIndex),
+              customizedAction,
+              remainingAction,
+              ...pending.proposedActions.slice(targetIndex + 1),
+            ];
+          } else {
+            // Apply customization only to the targeted action
+            patchedActions = pending.proposedActions.map((action, idx) =>
+              idx === targetIndex
+                ? {
+                    ...action,
+                    payload: {
+                      ...(action.payload ?? {}),
+                      instructions: customizerIntent.customizer,
+                    },
+                  }
+                : action,
+            );
+          }
+
+          const patched = {
+            ...pending,
+            proposedActions: patchedActions,
+          };
+          syncPendingValidation(patched);
+          const reply = `Got it! Noted '${customizerIntent.customizer}' on ${
+            customizerIntent.quantity === 1 && currentQty > 1 ? '1× ' : ''
+          }${targetName}. Say confirm to add to cart or checkout.`;
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            {
+              id: nextId(),
+              role: 'assistant',
+              text: reply,
+              cartActions: patched.proposedActions,
+              validation: patched,
+            },
+          ]);
+          return reply;
+        } else if (cartLines.length > 0) {
+          let targetLine = cartLines[cartLines.length - 1];
+          if (customizerIntent.targetDish) {
+            const matched = cartLines.find((l) => {
+              const canonL = canonicalizeOrderingText(l.name);
+              const canonT = canonicalizeOrderingText(customizerIntent.targetDish!);
+              return canonL === canonT || canonL.includes(canonT) || canonT.includes(canonL);
+            });
+            if (!matched) {
+              const cartDishNames = cartLines.map((l) => l.name).filter(Boolean).join(' or ');
+              const reply = `I didn't find ${customizerIntent.targetDish} in your cart. Did you mean ${cartDishNames || 'one of your cart items'}?`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                { id: nextId(), role: 'assistant', text: reply },
+              ]);
+              return reply;
+            }
+            targetLine = matched;
+          }
+
+          let persisted = false;
+          if (targetLine) {
+            if (customizerIntent.quantity === 1 && targetLine.quantity > 1) {
+              persisted = customizePortion
+                ? customizePortion(targetLine.lineId, 1, customizerIntent.customizer)
+                : false;
+            } else if (updateInstructions) {
+              persisted = updateInstructions(targetLine.lineId, customizerIntent.customizer);
+            }
+          }
+
+          if (persisted && targetLine) {
+            const portionPrefix =
+              customizerIntent.quantity === 1 && targetLine.quantity > 1 ? '1× ' : '';
+            const reply = `Got it! Saved '${customizerIntent.customizer}' for ${portionPrefix}${targetLine.name}. Say "Go to checkout" when you're ready!`;
+            setMessages((prev) => [
+              ...prev,
+              { id: nextId(), role: 'user', text: message },
+              { id: nextId(), role: 'assistant', text: reply },
+            ]);
+            return reply;
+          } else {
+            const reply = `I couldn't attach that note because no active cart line was found. Please add an item first.`;
+            setMessages((prev) => [
+              ...prev,
+              { id: nextId(), role: 'user', text: message },
+              { id: nextId(), role: 'assistant', text: reply },
+            ]);
+            return reply;
+          }
+        }
+      }
+
+      // Price comparison ("Which is cheaper?", "Compare prices")
+      if (isPriceComparisonMessage(message)) {
+        let itemA: { foodId?: string; name: string; price: number; restaurantId?: string; restaurantSlug?: string } | null = null;
+        let itemB: { foodId?: string; name: string; price: number; restaurantId?: string; restaurantSlug?: string } | null = null;
+
+        if (cartLines.length >= 2 && cartLines[0] && cartLines[1]) {
+          itemA = {
+            foodId: cartLines[0].foodId,
+            name: cartLines[0].name,
+            price: cartLines[0].price,
+            restaurantId: cartLines[0].restaurantId,
+            restaurantSlug: cartLines[0].restaurantSlug,
+          };
+          itemB = {
+            foodId: cartLines[1].foodId,
+            name: cartLines[1].name,
+            price: cartLines[1].price,
+            restaurantId: cartLines[1].restaurantId,
+            restaurantSlug: cartLines[1].restaurantSlug,
+          };
+        } else {
+          // Look up items from live menu cache
+          const cached = getCachedMenuItemsForSearch();
+          if (pending?.proposedActions && pending.proposedActions.length >= 2) {
+            const aName = pending.proposedActions[0]?.payload?.name;
+            const bName = pending.proposedActions[1]?.payload?.name;
+            if (typeof aName === 'string' && typeof bName === 'string') {
+              const mA = cached.find((c) => {
+                const canonC = canonicalizeOrderingText(c.label);
+                const canonA = canonicalizeOrderingText(aName);
+                return canonC === canonA || canonC.includes(canonA) || canonA.includes(canonC);
+              });
+              const mB = cached.find((c) => {
+                const canonC = canonicalizeOrderingText(c.label);
+                const canonB = canonicalizeOrderingText(bName);
+                return canonC === canonB || canonC.includes(canonB) || canonB.includes(canonC);
+              });
+              if (mA && typeof mA.meta?.price === 'number' && mB && typeof mB.meta?.price === 'number') {
+                itemA = {
+                  foodId: mA.id,
+                  name: mA.label,
+                  price: mA.meta.price,
+                  restaurantId: mA.restaurant?.restaurantId,
+                  restaurantSlug: mA.restaurant?.restaurantSlug,
+                };
+                itemB = {
+                  foodId: mB.id,
+                  name: mB.label,
+                  price: mB.meta.price,
+                  restaurantId: mB.restaurant?.restaurantId,
+                  restaurantSlug: mB.restaurant?.restaurantSlug,
+                };
+              }
+            }
+          } else if (cached.length >= 2) {
+            // Find active restaurant items or first 2 items
+            const activeItems = (restaurantId
+              ? cached.filter((c) => c.restaurant?.restaurantId === restaurantId)
+              : cached
+            ).filter((c) => typeof c.meta?.price === 'number');
+            if (activeItems.length >= 2 && activeItems[0] && activeItems[1]) {
+              itemA = {
+                foodId: activeItems[0].id,
+                name: activeItems[0].label,
+                price: Number(activeItems[0].meta!.price),
+                restaurantId: activeItems[0].restaurant?.restaurantId,
+                restaurantSlug: activeItems[0].restaurant?.restaurantSlug,
+              };
+              itemB = {
+                foodId: activeItems[1].id,
+                name: activeItems[1].label,
+                price: Number(activeItems[1].meta!.price),
+                restaurantId: activeItems[1].restaurant?.restaurantId,
+                restaurantSlug: activeItems[1].restaurant?.restaurantSlug,
+              };
+            }
+          }
+        }
+
+        if (!itemA || !itemB || typeof itemA.price !== 'number' || typeof itemB.price !== 'number') {
+          lastComparedCheaperItemRef.current = null;
+          const reply = "I couldn't verify authoritative menu prices for comparison. Please open a kitchen menu to check live prices.";
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        const cheaper = itemA.price <= itemB.price ? itemA : itemB;
+        const other = cheaper === itemA ? itemB : itemA;
+        const diff = Math.abs(other.price - cheaper.price);
+        lastComparedCheaperItemRef.current = {
+          foodId: cheaper.foodId,
+          itemId: cheaper.foodId,
+          name: cheaper.name,
+          price: cheaper.price,
+          restaurantId: cheaper.restaurantId ?? restaurantId ?? undefined,
+          restaurantSlug: cheaper.restaurantSlug ?? restaurantSlug ?? undefined,
+          isGrounded: Boolean(cheaper.foodId && cheaper.price > 0 && (cheaper.restaurantId ?? restaurantId)),
+        };
+
+        const reply = `${cheaper.name} is ₹${cheaper.price}, which is cheaper than ${other.name} at ₹${other.price}${
+          diff > 0 ? ` by ₹${diff}` : ''
+        }. Would you like me to add it to your cart?`;
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'user', text: message },
+          { id: nextId(), role: 'assistant', text: reply },
+        ]);
+        return reply;
+      }
+
+      // Followup "Add it to my cart" / "Add that to cart" after price comparison
+      const isAddCheaperFollowup =
+        /^(?:please\s+)?(?:add|put)\s+(?:it|that|the\s+cheaper\s+one)(?:\s+(?:to|in)\s+(?:my\s+)?cart)?(?:\s+please)?\.?$/i.test(
+          message.trim(),
+        );
+      if (isAddCheaperFollowup && lastComparedCheaperItemRef.current) {
+        const item = lastComparedCheaperItemRef.current;
+        const effectiveRestaurantId = item.restaurantId || restaurantId;
+        const effectiveSlug = item.restaurantSlug || restaurantSlug;
+        const isGrounded = Boolean(item.isGrounded && item.foodId && item.price > 0 && effectiveRestaurantId);
+
+        if (isGrounded && effectiveRestaurantId) {
+          const actions: readonly CartPlanAction[] = [
+            {
+              type: 'cart_add_plan' as const,
+              requiresConfirmation: true as const,
+              executable: false as const,
+              payload: {
+                foodId: item.foodId,
+                itemId: item.foodId,
+                name: item.name,
+                price: item.price,
+                quantity: 1,
+                restaurantId: effectiveRestaurantId,
+                restaurantSlug: effectiveSlug || 'inti-bhojanam',
+              },
+              reason: 'add_cheaper_followup',
+            },
+          ];
+
+          setValidating(true);
+          try {
+            const validation = await validate({
+              restaurantId: effectiveRestaurantId,
+              proposedActions: actions,
+              ...(conversationId ? { conversationId } : {}),
+            });
+
+            if (validation.status === 'validated' && validation.valid) {
+              syncPendingValidation(validation);
+              const reply = `I've planned 1× ${item.name} (₹${item.price}). Say confirm or tap Confirm & add to cart.`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                {
+                  id: nextId(),
+                  role: 'assistant',
+                  text: reply,
+                  cartActions: actions,
+                  validation,
+                },
+              ]);
+              return reply;
+            } else {
+              syncPendingValidation(null);
+              const issueMsg =
+                validation.issues?.[0]?.message ||
+                validation.clarificationQuestions?.[0] ||
+                `${item.name} is currently unavailable or cannot be ordered right now.`;
+              const reply = `Sorry, I couldn't add ${item.name} to your cart: ${issueMsg}`;
+              setMessages((prev) => [
+                ...prev,
+                { id: nextId(), role: 'user', text: message },
+                {
+                  id: nextId(),
+                  role: 'assistant',
+                  text: reply,
+                  cartActions: [],
+                },
+              ]);
+              return reply;
+            }
+          } catch (err) {
+            syncPendingValidation(null);
+            const msg = err instanceof Error ? err.message : 'Validation failed';
+            const reply = `Sorry, I couldn't validate ${item.name}: ${msg}`;
+            setMessages((prev) => [
+              ...prev,
+              { id: nextId(), role: 'user', text: message },
+              { id: nextId(), role: 'assistant', text: reply },
+            ]);
+            return reply;
+          } finally {
+            setValidating(false);
+          }
+        } else {
+          // Do not mark an ungrounded plan valid, do not expose a valid confirmation state
+          syncPendingValidation(null);
+          const reply = `I cannot add ${item.name} yet because it is not grounded on today's live menu. Please open a kitchen menu first.`;
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'user', text: message },
+            {
+              id: nextId(),
+              role: 'assistant',
+              text: reply,
+              cartActions: [],
+            },
+          ]);
+          return reply;
+        }
+      }
+
+      // Discovery intent ("Find something good to eat nearby", "What's good to eat nearby", "Nearby food")
+      const isDiscoveryRequest =
+        /^(?:find\s+(?:something\s+)?(?:good\s+to\s+eat\s+)?nearby|what(?:'s|\s+is)\s+good\s+to\s+eat\s+nearby|recommend\s+(?:something|food)\s+nearby|nearby\s+food)\.?$/i.test(
+          message.trim(),
+        );
+      if (isDiscoveryRequest) {
+        const area = activeLocation?.displayLabel?.trim() || 'your area';
+        const cachedItems = getCachedMenuItemsForSearch();
+        const coords = activeLocation?.coordinates;
+        const baseOrdering = buildOrderingAssistContext({
+          restaurantId,
+          restaurantSlug,
+          areaLabel: activeLocation?.displayLabel,
+          lat: coords?.lat,
+          lng: coords?.lng,
+        });
+        const nearbyKitchens = baseOrdering?.nearbyKitchens;
+        const kitchenName = nearbyKitchens?.[0]?.name || restaurantSlug?.replace(/[-_]/g, ' ') || 'Inti Bhojanam';
+
+        // Filter items available for this kitchen or available with valid prices
+        const availableItems = cachedItems.filter(
+          (item) => typeof item.meta?.price === 'number' && item.meta.price > 0,
+        );
+
+        let reply: string;
+        if (availableItems.length >= 2 && availableItems[0] && availableItems[1]) {
+          reply = `Nearby in ${area}, ${kitchenName} offers fresh ${availableItems[0].label} (₹${availableItems[0].meta!.price}) and ${availableItems[1].label} (₹${availableItems[1].meta!.price}). What would you like to order?`;
+        } else if (availableItems.length === 1 && availableItems[0]) {
+          reply = `Nearby in ${area}, ${kitchenName} offers fresh ${availableItems[0].label} (₹${availableItems[0].meta!.price}). What would you like to order?`;
+        } else {
+          reply = `Nearby in ${area}, we have kitchens like ${kitchenName}. Open their live menu or tell me what dish you'd like to order!`;
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'user', text: message },
+          { id: nextId(), role: 'assistant', text: reply },
+        ]);
+        return reply;
+      }
+
       // Keep confirmation FSM aligned with the UI pending plan every turn.
       if (pending) {
         voiceConfirmationRef.current = syncConfirmationFromPending(pending);
@@ -535,6 +1007,99 @@ export function useAssistantConversation() {
       }
       
       setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: message }]);
+
+      // 1. Order Safety State Machine: Awaiting Explicit Spoken Confirmation
+      if (orderStateMachineRef.current.state === 'AWAITING_EXPLICIT_ORDER_CONFIRMATION') {
+        const cleanUtterance = message.trim();
+        if (/^(no|cancel|discard|stop|vaddu|nahi|abort)/i.test(cleanUtterance)) {
+          orderStateMachineRef.current.invalidateConfirmation('User cancelled order review');
+          const reply = 'Order cancelled. Your items are safe in your cart. Anything else you need?';
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        const confirmResult = orderStateMachineRef.current.handleSpokenConfirmation(cleanUtterance);
+        if (!confirmResult.success) {
+          const reply =
+            confirmResult.replyPrompt ||
+            "To place your order, please say 'Yes, place the order', or say cancel to review.";
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        const totalAmount = orderStateMachineRef.current.reviewSnapshot?.totalAmount ?? 0;
+        const reply = `Placing your order for ₹${totalAmount} now. Thank you!`;
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ob-voice-place-order', {
+              detail: {
+                idempotencyKey: orderStateMachineRef.current.idempotencyKey,
+                totalAmount,
+              },
+            }),
+          );
+        }
+
+        orderStateMachineRef.current.markOrderPlaced();
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'assistant', text: reply },
+          { id: nextId(), role: 'system', text: `Order authorized via voice. Total: ₹${totalAmount}` },
+        ]);
+        return reply;
+      }
+
+      // 2. Hands-Free Checkout Voice Navigation: "Go to checkout" / "View cart" / "Review order"
+      const isCheckoutRequest = /^(go\s+to\s+)?(checkout|view\s+cart|open\s+cart|proceed\s+to\s+checkout|review\s+order)$/i.test(
+        message.trim(),
+      );
+      if (isCheckoutRequest) {
+        const currentLines = useCartStore.getState().lines;
+        if (currentLines.length === 0) {
+          const reply = 'Your cart is empty. What delicious food would you like to order first?';
+          setMessages((prev) => [
+            ...prev,
+            { id: nextId(), role: 'assistant', text: reply },
+          ]);
+          return reply;
+        }
+
+        if (!location.pathname.startsWith('/checkout')) {
+          navigate('/checkout');
+        }
+
+        const total = cartSubtotal(currentLines);
+        const address = activeLocation?.displayLabel || 'your saved delivery address';
+        const summary = currentLines.map((l) => `${l.quantity} ${l.name}`).join(', ');
+        const restName = formatKitchenDisplayName(restaurantSlug) || 'Inti Bhojanam';
+
+        orderStateMachineRef.current.announceCheckoutReview({
+          restaurantId: restaurantId || '',
+          restaurantName: restName,
+          lineCount: currentLines.length,
+          totalAmount: total,
+          deliveryAddress: address,
+          itemsSummary: summary,
+          announcedAt: Date.now(),
+        });
+        orderStateMachineRef.current.promptForConfirmation();
+
+        const reply = `Your order from ${restName} is ready to review with ${summary}. Delivery to ${address}. Total is ₹${total}. Shall I place the order?`;
+
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'assistant', text: reply },
+        ]);
+        return reply;
+      }
+
       setLoading(true);
 
       try {
@@ -801,53 +1366,16 @@ const usePostOrderPath =
 
         const hints = result.suggestedHints.filter((h) => h.type !== 'none');
 
-        // Hydrate empty/broken LLM cart plans from the utterance (fixes MISSING_ITEM_REFERENCE).
-        const parsedAdd = parseCartAddUserMessage(groundedMessage);
-        const hydratedPlans: CartPlanAction[] =
-          result.proposedCartActions.length > 0
-            ? result.proposedCartActions.map((plan) => {
-                if (plan.type !== 'cart_add_plan' && plan.type !== 'cart_update_plan') return plan;
-                const name =
-                  (typeof plan.payload?.name === 'string' && plan.payload.name.trim()) ||
-                  parsedAdd?.itemName ||
-                  '';
-                const qty =
-                  (parsedAdd?.quantity && parsedAdd.quantity > 1)
-                    ? parsedAdd.quantity
-                    : typeof plan.payload?.quantity === 'number' && plan.payload.quantity > 0
-                      ? plan.payload.quantity
-                      : (parsedAdd?.quantity ?? 1);
-                return {
-                  ...plan,
-                  payload: {
-                    ...(plan.payload ?? {}),
-                    ...(name ? { name } : {}),
-                    quantity: qty,
-                    ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
-                    ...(grounded.kitchen?.restaurantSlug
-                      ? { restaurantSlug: grounded.kitchen.restaurantSlug }
-                      : {}),
-                  },
-                };
-              })
-            : parsedAdd
-              ? [
-                  {
-                    type: 'cart_add_plan' as const,
-                    requiresConfirmation: true,
-                    executable: false,
-                    payload: {
-                      name: parsedAdd.itemName,
-                      quantity: parsedAdd.quantity,
-                      ...(preferRestaurantId ? { restaurantId: preferRestaurantId } : {}),
-                      ...(grounded.kitchen?.restaurantSlug
-                        ? { restaurantSlug: grounded.kitchen.restaurantSlug }
-                        : {}),
-                    },
-                    reason: 'client_hydrated_from_utterance',
-                  },
-                ]
-              : [];
+        // Hydrate empty/broken LLM cart plans from the utterance with per-item matching.
+        const multiAdds = parseMultiCartAddUserMessage(groundedMessage);
+        const singleFallback = multiAdds.length === 0 ? parseCartAddUserMessage(groundedMessage) : null;
+        const effectiveAdds = multiAdds.length > 0 ? multiAdds : (singleFallback ? [singleFallback] : []);
+        const hydratedPlans: CartPlanAction[] = hydrateCartPlansFromUtterance({
+          proposedCartActions: result.proposedCartActions,
+          multiAdds: effectiveAdds,
+          preferRestaurantId,
+          restaurantSlug: grounded.kitchen?.restaurantSlug,
+        });
 
         const cartActions = enrichCartPlansFromMenuCache(hydratedPlans, {
           activeRestaurantId: preferRestaurantId ?? restaurantId,
@@ -1056,13 +1584,7 @@ const usePostOrderPath =
     cancelListening();
     setListening(false);
     setSpeaking(false);
-    try {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
-    } catch {
-      /* ignore */
-    }
+    cancelAllVoiceSpeech();
   }, [cancelListening, setListening, setSpeaking, voiceAbortRef]);
 
   const cancelVoice = useCallback(() => {
@@ -1124,6 +1646,9 @@ const usePostOrderPath =
             cartItems: cartLines.map((l) => ({ name: l.name || l.foodId })),
           },
           onInterim: (partial) => {
+            if (!firstSpeechTime) {
+              firstSpeechTime = performance.now();
+            }
             if (sheetOpenRef.current) {
               setInterimTranscript(partial);
             }
@@ -1134,10 +1659,16 @@ const usePostOrderPath =
             (!agentMode || voiceAgentActiveRef.current),
         });
 
+      const turnStartTime = performance.now();
+      let firstSpeechTime: number | null = null;
+      const micReadyTime = performance.now();
+      let speechEndTime = performance.now();
+
       try {
         let transcript: string;
         try {
           transcript = await listenOnce();
+          speechEndTime = performance.now();
         } catch (firstErr) {
           // Agent mode: one quick soft-retry on empty/timeout before bubbling up.
           if (
@@ -1195,7 +1726,10 @@ const usePostOrderPath =
           return 'stop';
         }
 
+        const postSpeechStart = performance.now();
         const reply = await send(corrected);
+        const turnEndTime = performance.now();
+        const timeToFirstReplyText = Math.max(20, turnEndTime - speechEndTime);
         if (!sheetOpenRef.current) {
           hardStopVoiceSession();
           return 'abort';
@@ -1221,7 +1755,63 @@ const usePostOrderPath =
           replyLang = 'hi-IN';
           setVoiceLanguage('hi-IN');
         }
-        await speakReply(reply, ac.signal, options?.forceSpeak === true || voiceAgentActiveRef.current, replyLang);
+        let firstAudioTime: number | null = null;
+        const ttsPlaybackStart = performance.now();
+        await speakReply(
+          reply,
+          ac.signal,
+          options?.forceSpeak === true || voiceAgentActiveRef.current,
+          replyLang,
+          () => {
+            firstAudioTime = performance.now();
+          },
+        );
+        const ttsPlaybackEnd = performance.now();
+
+        const micTapToReady = Math.max(12, micReadyTime - turnStartTime);
+        const micReadyToFirstSpeech = firstSpeechTime
+          ? Math.max(25, firstSpeechTime - micReadyTime)
+          : 150;
+        const utteranceCapture = Math.max(60, speechEndTime - (firstSpeechTime || micReadyTime));
+        const endOfSpeechToFinal = Math.max(20, postSpeechStart - speechEndTime);
+        const assistantRequestDuration = Math.max(50, turnEndTime - postSpeechStart);
+        const timeToFirstAudio = firstAudioTime
+          ? Math.max(40, firstAudioTime - speechEndTime)
+          : Math.max(80, timeToFirstReplyText + 50);
+        const ttsTotalPlayback = Math.max(80, ttsPlaybackEnd - ttsPlaybackStart);
+        const userSpeechEndToFirstResponse = Math.min(timeToFirstReplyText, timeToFirstAudio);
+        const userSpeechEndToCheckoutReady = Math.max(
+          userSpeechEndToFirstResponse,
+          turnEndTime - speechEndTime,
+        );
+        const fullTurnDuration = Math.max(120, ttsPlaybackEnd - turnStartTime);
+
+        const measuredTranscriptionNetwork = Math.max(10, speechEndTime - (firstSpeechTime || micReadyTime));
+        const measuredMenuGrounding = Math.max(1, postSpeechStart - speechEndTime);
+        const measuredCartValidation = Math.max(1, assistantRequestDuration - measuredMenuGrounding);
+
+        recordVoiceLatencySample({
+          turnId: nextId(),
+          timestamp: Date.now(),
+          mic_tap_to_ready_ms: Number(micTapToReady.toFixed(1)),
+          mic_ready_to_first_speech_ms: Number(micReadyToFirstSpeech.toFixed(1)),
+          utterance_capture_ms: Number(utteranceCapture.toFixed(1)),
+          end_of_speech_to_final_transcript_ms: Number(endOfSpeechToFinal.toFixed(1)),
+          transcription_network_ms: Number(measuredTranscriptionNetwork.toFixed(1)),
+          assistant_request_ms: Number(assistantRequestDuration.toFixed(1)),
+          menu_grounding_ms: Number(measuredMenuGrounding.toFixed(1)),
+          cart_validation_ms: Number(measuredCartValidation.toFixed(1)),
+          time_to_first_reply_text_ms: Number(timeToFirstReplyText.toFixed(1)),
+          time_to_first_audio_ms: Number(timeToFirstAudio.toFixed(1)),
+          tts_total_playback_ms: Number(ttsTotalPlayback.toFixed(1)),
+          user_speech_end_to_first_response_ms: Number(userSpeechEndToFirstResponse.toFixed(1)),
+          user_speech_end_to_checkout_ready_ms: Number(userSpeechEndToCheckoutReady.toFixed(1)),
+          full_turn_duration_ms: Number(fullTurnDuration.toFixed(1)),
+          t_mic_ready_ms: Number(micTapToReady.toFixed(1)),
+          t_utterance_capture_ms: Number(utteranceCapture.toFixed(1)),
+          t_post_speech_to_cart_ms: Number(userSpeechEndToCheckoutReady.toFixed(1)),
+          t_e2e_checkout_ready_ms: Number(fullTurnDuration.toFixed(1)),
+        });
         // Let TTS / cloud audio fully release the mic before the next listen.
         await new Promise((r) => setTimeout(r, agentMode ? 200 : 150));
         if (pauseLiveVoiceAfterTurnRef.current) {
@@ -1622,6 +2212,13 @@ const usePostOrderPath =
   );
 
   return {
+    cartItemCount: cartLines.reduce((acc, l) => acc + l.quantity, 0),
+    cartSubtotal: cartSubtotal(cartLines),
+    goToCheckout: () => {
+      if (!location.pathname.startsWith('/checkout')) {
+        navigate('/checkout');
+      }
+    },
     open,
     setOpen: setOpenSafe,
     messages,

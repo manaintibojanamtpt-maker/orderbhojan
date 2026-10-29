@@ -41,7 +41,7 @@ export function buildCheckoutCartSignature(input: {
   readonly couponCode?: string | null;
 }): string {
   const lineSig = input.lines
-    .map((line) => `${line.foodId}:${line.quantity}`)
+    .map((line) => `${line.foodId}:${line.variantId ?? ''}:${line.quantity}:${line.instructions?.trim() ?? ''}`)
     .sort()
     .join('|');
   const coupon = input.couponCode?.trim().toUpperCase() || 'none';

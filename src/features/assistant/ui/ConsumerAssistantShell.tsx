@@ -32,6 +32,9 @@ export function ConsumerAssistantShell() {
           interimTranscript={chat.interimTranscript}
           error={chat.error}
           pendingValidation={chat.pendingValidation}
+          cartItemCount={chat.cartItemCount}
+          cartSubtotal={chat.cartSubtotal}
+          onGoToCheckout={chat.goToCheckout}
           voiceEnabled={chat.voiceEnabled}
           voiceAvailable={chat.voiceAvailable}
           personalizationEnabled={chat.personalizationEnabled}

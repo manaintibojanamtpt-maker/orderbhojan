@@ -147,6 +147,20 @@ export function OrderBhojanCheckoutPage() {
   const supportsCod = paymentMethods.includes('cod');
   const supportsRazorpay = paymentMethods.includes('razorpay');
   const supportsUpi = paymentMethods.includes('upi');
+
+  useEffect(() => {
+    const handleVoicePlaceOrder = () => {
+      if (canCheckout && !isPlacing) {
+        if (supportsCod) {
+          void placeCodOrder(phone, undefined, notificationEmail);
+        } else if (supportsRazorpay) {
+          void placeRazorpayOrder(phone, undefined, notificationEmail);
+        }
+      }
+    };
+    window.addEventListener('ob-voice-place-order', handleVoicePlaceOrder);
+    return () => window.removeEventListener('ob-voice-place-order', handleVoicePlaceOrder);
+  }, [canCheckout, isPlacing, supportsCod, supportsRazorpay, placeCodOrder, placeRazorpayOrder, phone, notificationEmail]);
   // Show every kitchen-enabled method — UPI (owner VPA) must stay visible even when Razorpay exists.
   const paymentOptions = useMemo(() => {
     const options: {

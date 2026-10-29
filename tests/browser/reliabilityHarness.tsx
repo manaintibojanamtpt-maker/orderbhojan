@@ -214,7 +214,7 @@ function RealAssistantSheetHarness() {
   };
 
   return (
-    <div className="p-4 bg-[#0a0a0a] text-white space-y-3">
+    <div className="p-4 pt-[170px] bg-[#0a0a0a] text-white space-y-3">
       <div className="flex gap-4 text-xs border-b border-white/10 pb-2">
         <div>Session: <span id="sheet-session-user">{sessionUser}</span></div>
         <div>Cart Items: <span id="sheet-cart-item-count">{cartItemCount(lines)}</span></div>

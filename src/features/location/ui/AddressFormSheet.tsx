@@ -116,7 +116,7 @@ function AddressFormSheetContent({ onClose }: { readonly onClose: () => void }) 
     };
     const parsed = savedAddressInputSchema.safeParse(input);
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message ?? 'Invalid address');
+      setError(parsed.error.issues[0]?.message ?? 'Invalid address');
       return;
     }
     setSaving(true);

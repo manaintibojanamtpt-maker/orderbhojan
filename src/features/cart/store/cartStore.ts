@@ -62,6 +62,8 @@ interface CartState {
   setQuantity: (lineId: string, quantity: number) => void;
   clear: () => void;
   _setHasHydrated: (value: boolean) => void;
+  updateInstructions: (lineId: string, instructions: string) => boolean;
+  customizePortion: (lineId: string, portionQty: number, instructions: string) => boolean;
   commitAtomicBatchPlan: (params: AtomicPlanCommitParams) => AtomicPlanCommitResult;
 }
 
@@ -224,6 +226,114 @@ export const useCartStore = create<CartState>()(
           ],
           visible: true,
         });
+      },
+
+      updateInstructions: (lineId: string, instructions: string) => {
+        const nextRev = (get().revision || 1) + 1;
+        const currentLines = get().lines;
+        const target = currentLines.find((l) => l.lineId === lineId);
+        if (!target) return false;
+
+        const trimmed = instructions.trim();
+        const newLineId = buildCartLineId({
+          foodId: target.foodId,
+          variantId: target.variantId,
+          addons: target.addons,
+          instructions: trimmed,
+        });
+
+        if (newLineId === lineId) {
+          set({
+            revision: nextRev,
+            lines: currentLines.map((l) =>
+              l.lineId === lineId ? { ...l, instructions: trimmed } : l,
+            ),
+            visible: true,
+          });
+          return true;
+        }
+
+        const existingCollision = currentLines.find((l) => l.lineId === newLineId);
+        if (existingCollision) {
+          set({
+            revision: nextRev,
+            lines: currentLines
+              .filter((l) => l.lineId !== lineId)
+              .map((l) =>
+                l.lineId === newLineId
+                  ? { ...l, quantity: l.quantity + target.quantity }
+                  : l,
+              ),
+            visible: true,
+          });
+        } else {
+          set({
+            revision: nextRev,
+            lines: currentLines.map((l) =>
+              l.lineId === lineId
+                ? { ...l, lineId: newLineId, instructions: trimmed }
+                : l,
+            ),
+            visible: true,
+          });
+        }
+        return true;
+      },
+
+      customizePortion: (lineId: string, portionQty: number, instructions: string) => {
+        const currentLines = get().lines;
+        const target = currentLines.find((l) => l.lineId === lineId);
+        if (!target || portionQty <= 0) return false;
+
+        if (portionQty >= target.quantity) {
+          return get().updateInstructions(lineId, instructions);
+        }
+
+        const nextRev = (get().revision || 1) + 1;
+        const trimmed = instructions.trim();
+        const remainingQty = target.quantity - portionQty;
+        const customizedLineId = buildCartLineId({
+          foodId: target.foodId,
+          variantId: target.variantId,
+          addons: target.addons,
+          instructions: trimmed,
+        });
+
+        const customizedLine: CartLine = {
+          ...target,
+          lineId: customizedLineId,
+          quantity: portionQty,
+          instructions: trimmed,
+        };
+
+        const existingCustomized = currentLines.find((l) => l.lineId === customizedLineId);
+        if (existingCustomized) {
+          set({
+            revision: nextRev,
+            lines: currentLines.map((l) => {
+              if (l.lineId === lineId) {
+                return { ...l, quantity: remainingQty };
+              }
+              if (l.lineId === customizedLineId) {
+                return { ...l, quantity: l.quantity + portionQty };
+              }
+              return l;
+            }),
+            visible: true,
+          });
+        } else {
+          const targetIndex = currentLines.findIndex((l) => l.lineId === lineId);
+          const nextLines = [...currentLines];
+          nextLines[targetIndex] = { ...target, quantity: remainingQty };
+          nextLines.splice(targetIndex + 1, 0, customizedLine);
+
+          set({
+            revision: nextRev,
+            lines: nextLines,
+            visible: true,
+          });
+        }
+        return true;
       },
 
       setQuantity: (lineId, quantity) => {
