@@ -2,23 +2,54 @@
  * Voice Latency Telemetry Ring Buffer
  *
  * Captures high-resolution timing marks (via performance.now()) across all
- * 7 pipeline stages of the OrderBhojan Voice Commerce Overhaul:
+ * pipeline stages of the OrderBhojan Real-Time Voice Commerce Engine:
  *
- * 1. t_mic_ready_ms: Mic toggle/auto-arm to recorder active
- * 2. t_utterance_capture_ms: Recording start to end-of-utterance (including VAD silence tail)
- * 3. t_stt_upload_and_saaras_ms: Audio upload + Sarvam Saaras v4 transcription latency
- * 4. t_intent_and_grounding_ms: Intent interpretation + menu matching + cart-plan validation
- * 5. t_cart_commit_and_ui_ms: Cart state mutation to visible React DOM commit
- * 6. t_tts_first_audio_ms: Assistant reply ready to first spoken audio frame
- * 7. t_post_speech_to_cart_ms: User finishing speech to visible cart confirmation (target < 2.5s median)
- * 8. t_e2e_checkout_ready_ms: First utterance start to checkout-ready state (target ~15s)
+ * 1. mic_tap_to_ready_ms / t_mic_ready_ms: Mic toggle/auto-arm to recorder active (< 300ms)
+ * 2. mic_ready_to_first_speech_ms: Time between mic arm and user starting speech
+ * 3. utterance_capture_ms / t_utterance_capture_ms: Speech start to speech end detection
+ * 4. end_of_speech_to_final_transcript_ms: Speech finish to final transcript event
+ * 5. transcription_network_ms / t_stt_upload_and_saaras_ms: STT processing latency (on-device or gateway)
+ * 6. assistant_request_ms: Intent resolution & conversation engine processing
+ * 7. menu_grounding_ms / t_intent_and_grounding_ms: Context grounding against active restaurant menu
+ * 8. cart_validation_ms / t_cart_commit_and_ui_ms: Cart plan validation and React state commit
+ * 9. time_to_first_reply_text_ms: Speech end to first assistant reply text rendered
+ * 10. time_to_first_audio_ms / t_tts_first_audio_ms: Speech end to first audio sample played (< 1.5s p50)
+ * 11. tts_total_playback_ms: Duration of complete spoken audio response
+ * 12. user_speech_end_to_first_response_ms / t_post_speech_to_cart_ms: User finishing speech to visible reply/cart
+ * 13. user_speech_end_to_checkout_ready_ms / t_e2e_checkout_ready_ms: Overall turn completion
+ * 14. full_turn_duration_ms: Total elapsed time from tap to completion
  *
- * Maintains a circular ring buffer of samples and calculates p50, p90, p95 percentiles.
+ * Maintains a circular ring buffer of 50 samples and calculates p50, p90, p95 percentiles.
  */
+
+export type VoiceSttProviderName = 'native_android' | 'saaras_v4' | 'streaming_ws' | 'web_speech';
 
 export interface VoiceTurnTimingSample {
   readonly turnId: string;
   readonly timestamp: number;
+
+  // Granular stage measurements (performance.now() based)
+  readonly mic_tap_to_ready_ms?: number;
+  readonly mic_ready_to_first_speech_ms?: number;
+  readonly utterance_capture_ms?: number;
+  readonly end_of_speech_to_final_transcript_ms?: number;
+  readonly transcription_network_ms?: number;
+  readonly assistant_request_ms?: number;
+  readonly menu_grounding_ms?: number;
+  readonly cart_validation_ms?: number;
+  readonly time_to_first_reply_text_ms?: number;
+  readonly time_to_first_audio_ms?: number;
+  readonly tts_total_playback_ms?: number;
+  readonly user_speech_end_to_first_response_ms?: number;
+  readonly user_speech_end_to_checkout_ready_ms?: number;
+  readonly full_turn_duration_ms?: number;
+
+  // Metadata
+  readonly provider?: VoiceSttProviderName;
+  readonly language?: string;
+  readonly success?: boolean;
+
+  // Aliases for backwards compatibility with existing test suites
   readonly t_mic_ready_ms?: number;
   readonly t_utterance_capture_ms?: number;
   readonly t_stt_upload_and_saaras_ms?: number;
@@ -40,6 +71,20 @@ export interface MetricPercentiles {
 }
 
 export type LatencyStageName =
+  | 'mic_tap_to_ready_ms'
+  | 'mic_ready_to_first_speech_ms'
+  | 'utterance_capture_ms'
+  | 'end_of_speech_to_final_transcript_ms'
+  | 'transcription_network_ms'
+  | 'assistant_request_ms'
+  | 'menu_grounding_ms'
+  | 'cart_validation_ms'
+  | 'time_to_first_reply_text_ms'
+  | 'time_to_first_audio_ms'
+  | 'tts_total_playback_ms'
+  | 'user_speech_end_to_first_response_ms'
+  | 'user_speech_end_to_checkout_ready_ms'
+  | 'full_turn_duration_ms'
   | 't_mic_ready_ms'
   | 't_utterance_capture_ms'
   | 't_stt_upload_and_saaras_ms'
@@ -59,7 +104,21 @@ export function recordVoiceLatencySample(sample: VoiceTurnTimingSample): void {
   if (ringBuffer.length >= BUFFER_CAPACITY) {
     ringBuffer.shift();
   }
-  ringBuffer.push(Object.freeze({ ...sample }));
+
+  // Populate backward compatibility aliases if not explicitly given
+  const normalized: VoiceTurnTimingSample = {
+    ...sample,
+    t_mic_ready_ms: sample.t_mic_ready_ms ?? sample.mic_tap_to_ready_ms,
+    t_utterance_capture_ms: sample.t_utterance_capture_ms ?? sample.utterance_capture_ms,
+    t_stt_upload_and_saaras_ms: sample.t_stt_upload_and_saaras_ms ?? sample.transcription_network_ms,
+    t_intent_and_grounding_ms: sample.t_intent_and_grounding_ms ?? sample.menu_grounding_ms,
+    t_cart_commit_and_ui_ms: sample.t_cart_commit_and_ui_ms ?? sample.cart_validation_ms,
+    t_tts_first_audio_ms: sample.t_tts_first_audio_ms ?? sample.time_to_first_audio_ms,
+    t_post_speech_to_cart_ms: sample.t_post_speech_to_cart_ms ?? sample.user_speech_end_to_first_response_ms,
+    t_e2e_checkout_ready_ms: sample.t_e2e_checkout_ready_ms ?? sample.user_speech_end_to_checkout_ready_ms,
+  };
+
+  ringBuffer.push(Object.freeze(normalized));
 }
 
 /**
@@ -115,10 +174,24 @@ export function getStageLatencyStats(stage: LatencyStageName): MetricPercentiles
 }
 
 /**
- * Get comprehensive latency telemetry report across all 8 metrics.
+ * Get comprehensive latency telemetry report across all core metrics.
  */
 export function getFullVoiceLatencyReport(): Record<LatencyStageName, MetricPercentiles> {
   const stages: LatencyStageName[] = [
+    'mic_tap_to_ready_ms',
+    'mic_ready_to_first_speech_ms',
+    'utterance_capture_ms',
+    'end_of_speech_to_final_transcript_ms',
+    'transcription_network_ms',
+    'assistant_request_ms',
+    'menu_grounding_ms',
+    'cart_validation_ms',
+    'time_to_first_reply_text_ms',
+    'time_to_first_audio_ms',
+    'tts_total_playback_ms',
+    'user_speech_end_to_first_response_ms',
+    'user_speech_end_to_checkout_ready_ms',
+    'full_turn_duration_ms',
     't_mic_ready_ms',
     't_utterance_capture_ms',
     't_stt_upload_and_saaras_ms',
@@ -134,6 +207,13 @@ export function getFullVoiceLatencyReport(): Record<LatencyStageName, MetricPerc
     report[stage] = getStageLatencyStats(stage);
   }
   return report as Record<LatencyStageName, MetricPercentiles>;
+}
+
+/**
+ * Returns all raw samples currently in the ring buffer.
+ */
+export function getRawVoiceLatencySamples(): readonly VoiceTurnTimingSample[] {
+  return ringBuffer;
 }
 
 /**
