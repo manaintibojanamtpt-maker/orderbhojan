@@ -1,0 +1,49 @@
+# Flutter / Dart generated files
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+
+# Flutter plugin generated files
+.flutter-plugins
+.flutter-plugins-dependencies
+.generated/
+**/GeneratedPluginRegistrant.*
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# Android local configuration and signing secrets
+android/local.properties
+android/key.properties
+android/*.jks
+android/*.keystore
+android/app/*.jks
+android/app/*.keystore
+
+# iOS generated files
+ios/Flutter/.last_build_id
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+ios/.symlinks/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Flutter Android Gradle caches
+.gradle/
+**/.gradle/
+
+# iOS generated Flutter files
+ios/Flutter/ephemeral/
+
+# Local analysis output
+flutter_analyze_latest.txt
+
+# Local backup files
+*.bak
