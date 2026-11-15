@@ -22,9 +22,11 @@ on:
         default: true
       target_site:
         description: 'Firebase Hosting target site ID'
-        type: string
+        type: choice
         required: true
         default: 'orderbhojan'
+        options:
+          - 'orderbhojan'
 
 jobs:
   verify-and-align:
@@ -55,6 +57,9 @@ jobs:
       - name: Validate Firebase configuration & cache headers
         run: node scripts/verify-firebase-config.mjs
 
+      - name: Run workflow security regression tests
+        run: npm run test:workflow:security
+
       - name: Build production bundle
         run: npm run build
 
@@ -71,13 +76,22 @@ jobs:
         run: npm run test:playwright:verifier
 
       - name: Production deployment gate notice
+        env:
+          INPUT_TARGET_SITE: ${{ inputs.target_site }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          echo "### Production Deployment Preparation Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target Project:** \`orderbhojan\` (shell) / \`bhojanos-prod\` (backend)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target Hosting Site:** \`${{ inputs.target_site || 'orderbhojan' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Dry Run:** \`${{ inputs.dry_run != false }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build Status:** ✅ Production bundle verified with Playwright multi-viewport suite" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deployment Action:** 🛑 Production deployment NOT authorized in this phase" >> $GITHUB_STEP_SUMMARY
+          TARGET_SITE="${INPUT_TARGET_SITE:-orderbhojan}"
+          DRY_RUN="${INPUT_DRY_RUN:-true}"
+          if [ "$TARGET_SITE" != "orderbhojan" ]; then
+            echo "::error::Invalid target site: $TARGET_SITE. Only 'orderbhojan' is permitted."
+            exit 1
+          fi
+          echo "### Production Deployment Preparation Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Target Project:** \`orderbhojan\` (shell) / \`bhojanos-prod\` (backend)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Target Hosting Site:** \`$TARGET_SITE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Dry Run:** \`$DRY_RUN\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Build Status:** ✅ Production bundle verified with Playwright multi-viewport suite" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Deployment Action:** 🛑 Production deployment NOT authorized in this phase" >> "$GITHUB_STEP_SUMMARY"
 
       # Protected deployment step - Strictly gated and DISABLED unless explicit manual authorization
       - name: Deploy to Firebase Hosting (Gated)
@@ -87,5 +101,5 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN }}
           projectId: orderbhojan
-          target: ${{ inputs.target_site || 'orderbhojan' }}
+          target: orderbhojan
           channelId: live

@@ -7,9 +7,39 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
+/**
+ * Validates a Firebase Hosting target identifier against strict allowlist
+ * and checks for forbidden shell metacharacters.
+ * @param {unknown} target
+ * @returns {{ valid: boolean, target?: string, reason?: string }}
+ */
+export function validateHostingTarget(target) {
+  if (typeof target !== 'string') {
+    return { valid: false, reason: 'Target must be a non-empty string' };
+  }
+  const trimmed = target.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, reason: 'Target cannot be empty' };
+  }
+  // Disallow any shell metacharacters or control characters
+  if (/[;&|`$><!\\"'*?~(){}[\]\n\r]/.test(target)) {
+    return { valid: false, reason: 'Target contains forbidden shell metacharacters' };
+  }
+  if (trimmed !== 'orderbhojan') {
+    return { valid: false, reason: `Target "${target}" is not permitted. Only "orderbhojan" is authorized.` };
+  }
+  return { valid: true, target: 'orderbhojan' };
+}
+
 console.log('=== Verifying Firebase Hosting Configuration ===');
 
-// 1. Verify firebase.json
+// 1. Verify target validation function
+const selfValidation = validateHostingTarget('orderbhojan');
+assert.ok(selfValidation.valid, 'validateHostingTarget("orderbhojan") must be valid');
+assert.equal(validateHostingTarget('bhojanos-prod').valid, false, 'Other targets must be rejected');
+console.log('✔ Target allowlist and sanitization rules verified');
+
+// 2. Verify firebase.json
 const firebaseJsonPath = path.join(rootDir, 'firebase.json');
 assert.ok(fs.existsSync(firebaseJsonPath), 'firebase.json must exist');
 const firebaseConfig = JSON.parse(fs.readFileSync(firebaseJsonPath, 'utf8'));
@@ -43,7 +73,7 @@ const assetsCacheVal = assetsHeader.headers.find(k => k.key.toLowerCase() === 'c
 assert.ok(assetsCacheVal?.includes('immutable'), '/assets/** Cache-Control must be immutable');
 console.log(`✔ /assets/** Cache-Control: ${assetsCacheVal}`);
 
-// 2. Verify .firebaserc
+// 3. Verify .firebaserc
 const firebasercPath = path.join(rootDir, '.firebaserc');
 assert.ok(fs.existsSync(firebasercPath), '.firebaserc must exist');
 const firebaserc = JSON.parse(fs.readFileSync(firebasercPath, 'utf8'));

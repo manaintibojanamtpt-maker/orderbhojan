@@ -66,7 +66,8 @@
     "verify:bundle": "node scripts/verify-deployment-bundle.mjs",
     "verify:firebase": "node scripts/verify-firebase-config.mjs",
     "verify:playwright": "node scripts/verify-production-build-playwright.mjs",
-    "test:playwright:verifier": "node --test scripts/__tests__/verify-playwright-verifier.test.mjs"
+    "test:playwright:verifier": "node --test scripts/__tests__/verify-playwright-verifier.test.mjs",
+    "test:workflow:security": "node --test scripts/__tests__/verify-workflow-security.test.mjs"
   },
   "dependencies": {
     "@bhojan/location-core": "file:packages/location-core",
