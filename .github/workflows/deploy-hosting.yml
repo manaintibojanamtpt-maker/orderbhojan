@@ -1,0 +1,91 @@
+name: OrderBhojan Firebase Hosting Deployment Alignment
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'storefront-src/**'
+      - 'packages/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'package.json'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/deploy-hosting.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run verification only (no production deploy)'
+        type: boolean
+        required: true
+        default: true
+      target_site:
+        description: 'Firebase Hosting target site ID'
+        type: string
+        required: true
+        default: 'orderbhojan'
+
+jobs:
+  verify-and-align:
+    name: Verify & Validate Deployment Alignment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build marketplace contracts
+        run: npm run build --prefix packages/marketplace-contracts
+
+      - name: Link storefront design-system peer deps
+        run: node scripts/link-storefront-peer-deps.mjs
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Validate Firebase configuration & cache headers
+        run: node scripts/verify-firebase-config.mjs
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Verify production deployment bundle assets
+        run: node scripts/verify-deployment-bundle.mjs
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright production build verification (multi-viewport)
+        run: node scripts/verify-production-build-playwright.mjs
+
+      - name: Run Playwright verifier regression tests
+        run: npm run test:playwright:verifier
+
+      - name: Production deployment gate notice
+        run: |
+          echo "### Production Deployment Preparation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Project:** \`orderbhojan\` (shell) / \`bhojanos-prod\` (backend)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Hosting Site:** \`${{ inputs.target_site || 'orderbhojan' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run:** \`${{ inputs.dry_run != false }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Status:** ✅ Production bundle verified with Playwright multi-viewport suite" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment Action:** 🛑 Production deployment NOT authorized in this phase" >> $GITHUB_STEP_SUMMARY
+
+      # Protected deployment step - Strictly gated and DISABLED unless explicit manual authorization
+      - name: Deploy to Firebase Hosting (Gated)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN }}
+          projectId: orderbhojan
+          target: ${{ inputs.target_site || 'orderbhojan' }}
+          channelId: live
