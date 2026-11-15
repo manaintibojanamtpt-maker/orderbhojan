@@ -16,6 +16,9 @@
       "hosting": {
         "bhojanos-prod": [
           "bhojanos-prod"
+        ],
+        "orderbhojan": [
+          "orderbhojan"
         ]
       }
     }
