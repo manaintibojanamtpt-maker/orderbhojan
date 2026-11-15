@@ -1,0 +1,63 @@
+name: orderbhojan
+description: "OrderBhojan Native Mobile Food Delivery Application"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management & Hydrated Persistence
+  flutter_bloc: ^8.1.6
+  hydrated_bloc: ^9.1.5
+  equatable: ^2.0.7
+
+  # Dependency Injection
+  get_it: ^8.0.2
+
+  # Routing & Deep Linking
+  go_router: ^14.6.2
+
+  # Firebase Suite (Production Aligned with orderbhojan-prod)
+  firebase_core: ^3.8.1
+  firebase_auth: ^5.3.4
+  cloud_firestore: ^5.5.1
+  firebase_messaging: ^15.1.6
+  firebase_crashlytics: ^4.2.0
+  google_sign_in: ^6.2.2
+
+  # Networking & HTTP
+  dio: ^5.7.0
+  pretty_dio_logger: ^1.4.0
+  uuid: ^4.5.1
+
+  # Local Durable Storage & Secure Keystore
+  path_provider: ^2.1.5
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.4
+
+  # UI, Fonts & Media Helpers
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.0.16
+  intl: 0.20.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/branding/

@@ -62,7 +62,10 @@
     "test:browser:customer": "node scripts/customer-browser-tests.mjs",
     "typecheck": "tsc --noEmit",
     "lint:customer": "node scripts/customer-lint.mjs",
-    "test:static-readiness": "node scripts/static-readiness-smoke.mjs"
+    "test:static-readiness": "node scripts/static-readiness-smoke.mjs",
+    "verify:bundle": "node scripts/verify-deployment-bundle.mjs",
+    "verify:firebase": "node scripts/verify-firebase-config.mjs",
+    "verify:playwright": "node scripts/verify-production-build-playwright.mjs"
   },
   "dependencies": {
     "@bhojan/location-core": "file:packages/location-core",
