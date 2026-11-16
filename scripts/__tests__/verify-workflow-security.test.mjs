@@ -155,14 +155,88 @@ describe('GitHub Actions Workflow Security & Shell Injection Hardening', () => {
     }
   });
 
-  it('5. Ensures gated deployment step cannot execute without explicit manual dispatch and main branch', () => {
-    // Verify condition on Deploy to Firebase Hosting step
-    const deployConditionMatch = workflowContent.match(
-      /if:\s*github\.event_name\s*==\s*'workflow_dispatch'\s*&&\s*inputs\.dry_run\s*==\s*false\s*&&\s*github\.ref\s*==\s*'refs\/heads\/main'/
+  it('5. Eliminates legacy JSON service account secrets and ensures no replacement secrets', () => {
+    // Verify complete removal of legacy JSON secret
+    assert.strictEqual(
+      workflowContent.includes('FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN'),
+      false,
+      'Must NOT reference secrets.FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN anywhere'
+    );
+    assert.strictEqual(
+      workflowContent.includes('secrets.FIREBASE_SERVICE_ACCOUNT'),
+      false,
+      'Must NOT reference any secrets.FIREBASE_SERVICE_ACCOUNT'
+    );
+
+    // Verify google-github-actions/auth@v2 configuration
+    assert.ok(
+      workflowContent.includes('uses: google-github-actions/auth@v2'),
+      'Must use google-github-actions/auth@v2 for WIF authentication'
     );
     assert.ok(
-      deployConditionMatch,
-      'Deploy step must be guarded by: github.event_name == "workflow_dispatch" && inputs.dry_run == false && github.ref == "refs/heads/main"'
+      workflowContent.includes('workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}'),
+      'Must reference vars.GCP_WORKLOAD_IDENTITY_PROVIDER'
+    );
+    assert.ok(
+      workflowContent.includes('service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}'),
+      'Must reference vars.GCP_SERVICE_ACCOUNT'
+    );
+  });
+
+  it('6. Enforces job-level OIDC isolation: verify-and-align has contents: read only, id-token: write isolated to deploy-hosting', () => {
+    // Find job definitions
+    const verifyJobMatch = workflowContent.match(/verify-and-align:[\s\S]*?(?=\n  [a-z0-9_-]+:|$)/);
+    assert.ok(verifyJobMatch, 'Must define verify-and-align job');
+    const verifyJob = verifyJobMatch[0];
+
+    // Assert verify-and-align does NOT have id-token: write
+    assert.strictEqual(
+      verifyJob.includes('id-token: write'),
+      false,
+      'verify-and-align MUST NOT have id-token: write permission (least-privilege requirement)'
+    );
+    assert.ok(
+      verifyJob.includes('permissions:\n      contents: read') || verifyJob.includes('contents: read'),
+      'verify-and-align must be restricted to contents: read'
+    );
+
+    // Find deploy-hosting job definition
+    const deployJobMatch = workflowContent.match(/deploy-hosting:[\s\S]*?(?=\n  [a-z0-9_-]+:|$)/);
+    assert.ok(deployJobMatch, 'Must define isolated deploy-hosting job');
+    const deployJob = deployJobMatch[0];
+
+    // Assert deploy-hosting has id-token: write and needs verify-and-align
+    assert.ok(
+      deployJob.includes('needs: verify-and-align'),
+      'deploy-hosting job must require verify-and-align to succeed first'
+    );
+    assert.ok(
+      deployJob.includes('id-token: write'),
+      'deploy-hosting job must have id-token: write permission for WIF token minting'
+    );
+
+    // Assert WIF authentication and deploy are in deploy-hosting job, NOT in verify-and-align
+    assert.strictEqual(
+      verifyJob.includes('uses: google-github-actions/auth@v2'),
+      false,
+      'WIF authentication must NOT be present in verify-and-align'
+    );
+    assert.ok(
+      deployJob.includes('uses: google-github-actions/auth@v2'),
+      'WIF authentication must be located in deploy-hosting'
+    );
+  });
+
+  it('7. Enforces strict job-level gating: deploy-hosting only executes on workflow_dispatch with dry_run false and main branch', () => {
+    const deployJobMatch = workflowContent.match(/deploy-hosting:[\s\S]*?(?=\n  [a-z0-9_-]+:|$)/);
+    assert.ok(deployJobMatch, 'Must define deploy-hosting job');
+    const deployJob = deployJobMatch[0];
+
+    // Verify condition on deploy-hosting job
+    const jobConditionRegex = /if:\s*github\.event_name\s*==\s*'workflow_dispatch'\s*&&\s*inputs\.dry_run\s*==\s*false\s*&&\s*github\.ref\s*==\s*'refs\/heads\/main'/;
+    assert.ok(
+      jobConditionRegex.test(deployJob),
+      'deploy-hosting job must be guarded by: github.event_name == "workflow_dispatch" && inputs.dry_run == false && github.ref == "refs/heads/main"'
     );
 
     // Verify dry_run defaults to true
@@ -171,10 +245,14 @@ describe('GitHub Actions Workflow Security & Shell Injection Hardening', () => {
       'dry_run input must default to true'
     );
 
-    // Verify hardcoded or strictly authorized target in deploy action
+    // Verify deploy command targets hosting:orderbhojan and project orderbhojan
     assert.ok(
-      workflowContent.includes('target: orderbhojan'),
-      'Deploy action must explicitly target "orderbhojan"'
+      deployJob.includes('hosting:orderbhojan'),
+      'Deploy command must explicitly target "hosting:orderbhojan"'
+    );
+    assert.ok(
+      deployJob.includes('--project orderbhojan'),
+      'Deploy command must explicitly specify project "orderbhojan"'
     );
   });
 });

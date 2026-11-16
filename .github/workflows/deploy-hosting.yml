@@ -32,6 +32,8 @@ jobs:
   verify-and-align:
     name: Verify & Validate Deployment Alignment
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -91,15 +93,43 @@ jobs:
           echo "- **Target Hosting Site:** \`$TARGET_SITE\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Dry Run:** \`$DRY_RUN\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Build Status:** ✅ Production bundle verified with Playwright multi-viewport suite" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Deployment Action:** 🛑 Production deployment NOT authorized in this phase" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "false" ]; then
+            echo "- **Deployment Action:** 🚀 Proceeding to deploy-hosting job" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- **Deployment Action:** 🛑 Dry run only - deploy-hosting job will be skipped" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      # Protected deployment step - Strictly gated and DISABLED unless explicit manual authorization
-      - name: Deploy to Firebase Hosting (Gated)
+      - name: Upload production build artifact
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main'
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: actions/upload-artifact@v4
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN }}
-          projectId: orderbhojan
-          target: orderbhojan
-          channelId: live
+          name: orderbhojan-production-dist
+          path: dist
+          retention-days: 1
+
+  deploy-hosting:
+    name: Deploy to Firebase Hosting (Gated)
+    needs: verify-and-align
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download production build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: orderbhojan-production-dist
+          path: dist
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy to Firebase Hosting
+        run: npx --yes firebase-tools@latest deploy --only hosting:orderbhojan --project orderbhojan --non-interactive
