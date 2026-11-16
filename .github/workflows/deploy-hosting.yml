@@ -32,6 +32,9 @@ jobs:
   verify-and-align:
     name: Verify & Validate Deployment Alignment
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -93,13 +96,15 @@ jobs:
           echo "- **Build Status:** ✅ Production bundle verified with Playwright multi-viewport suite" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Deployment Action:** 🛑 Production deployment NOT authorized in this phase" >> "$GITHUB_STEP_SUMMARY"
 
+      # Authenticate to Google Cloud via Workload Identity Federation (Gated)
+      - name: Authenticate to Google Cloud
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
       # Protected deployment step - Strictly gated and DISABLED unless explicit manual authorization
       - name: Deploy to Firebase Hosting (Gated)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run == false && github.ref == 'refs/heads/main'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN }}
-          projectId: orderbhojan
-          target: orderbhojan
-          channelId: live
+        run: npx --yes firebase-tools@latest deploy --only hosting:orderbhojan --project orderbhojan --non-interactive

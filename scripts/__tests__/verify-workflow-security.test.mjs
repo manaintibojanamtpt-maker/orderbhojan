@@ -155,14 +155,51 @@ describe('GitHub Actions Workflow Security & Shell Injection Hardening', () => {
     }
   });
 
-  it('5. Ensures gated deployment step cannot execute without explicit manual dispatch and main branch', () => {
-    // Verify condition on Deploy to Firebase Hosting step
-    const deployConditionMatch = workflowContent.match(
-      /if:\s*github\.event_name\s*==\s*'workflow_dispatch'\s*&&\s*inputs\.dry_run\s*==\s*false\s*&&\s*github\.ref\s*==\s*'refs\/heads\/main'/
+  it('5. Enforces Workload Identity Federation (WIF) OIDC permissions and eliminates JSON service account secret', () => {
+    // Verify OIDC permissions
+    assert.ok(
+      workflowContent.includes('id-token: write'),
+      'Workflow permissions must include id-token: write for GitHub OIDC token minting'
     );
     assert.ok(
-      deployConditionMatch,
-      'Deploy step must be guarded by: github.event_name == "workflow_dispatch" && inputs.dry_run == false && github.ref == "refs/heads/main"'
+      workflowContent.includes('contents: read'),
+      'Workflow permissions must include contents: read'
+    );
+
+    // Verify complete removal of legacy JSON secret
+    assert.strictEqual(
+      workflowContent.includes('FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN'),
+      false,
+      'Must NOT reference secrets.FIREBASE_SERVICE_ACCOUNT_ORDERBHOJAN anywhere'
+    );
+    assert.strictEqual(
+      workflowContent.includes('secrets.FIREBASE_SERVICE_ACCOUNT'),
+      false,
+      'Must NOT reference any secrets.FIREBASE_SERVICE_ACCOUNT'
+    );
+
+    // Verify google-github-actions/auth@v2 configuration
+    assert.ok(
+      workflowContent.includes('uses: google-github-actions/auth@v2'),
+      'Must use google-github-actions/auth@v2 for WIF authentication'
+    );
+    assert.ok(
+      workflowContent.includes('workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}'),
+      'Must reference vars.GCP_WORKLOAD_IDENTITY_PROVIDER'
+    );
+    assert.ok(
+      workflowContent.includes('service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}'),
+      'Must reference vars.GCP_SERVICE_ACCOUNT'
+    );
+  });
+
+  it('6. Ensures gated authentication and deployment steps cannot execute without explicit manual dispatch, dry_run false, and main branch', () => {
+    const gatedConditionRegex = /if:\s*github\.event_name\s*==\s*'workflow_dispatch'\s*&&\s*inputs\.dry_run\s*==\s*false\s*&&\s*github\.ref\s*==\s*'refs\/heads\/main'/g;
+    const matches = [...workflowContent.matchAll(gatedConditionRegex)];
+
+    assert.ok(
+      matches.length >= 2,
+      'Both Authenticate to Google Cloud and Deploy to Firebase Hosting steps must be guarded by: github.event_name == "workflow_dispatch" && inputs.dry_run == false && github.ref == "refs/heads/main"'
     );
 
     // Verify dry_run defaults to true
@@ -171,10 +208,14 @@ describe('GitHub Actions Workflow Security & Shell Injection Hardening', () => {
       'dry_run input must default to true'
     );
 
-    // Verify hardcoded or strictly authorized target in deploy action
+    // Verify deploy step targets hosting:orderbhojan and project orderbhojan
     assert.ok(
-      workflowContent.includes('target: orderbhojan'),
-      'Deploy action must explicitly target "orderbhojan"'
+      workflowContent.includes('hosting:orderbhojan'),
+      'Deploy command must explicitly target "hosting:orderbhojan"'
+    );
+    assert.ok(
+      workflowContent.includes('--project orderbhojan'),
+      'Deploy command must explicitly specify project "orderbhojan"'
     );
   });
 });
